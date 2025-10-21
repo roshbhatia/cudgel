@@ -52,9 +52,18 @@ A powerful code indexing tool that combines tree-sitter parsing, PostgreSQL/pgve
 
 ### Prerequisites
 
-1. **Python 3.10+**
+1. **Rust 1.70+** (for the CLI)
 2. **PostgreSQL 14+** with pgvector extension
-3. **Temporal Server** (optional, for scheduled indexing)
+3. **Python 3.10+** (optional, for Python library)
+4. **Temporal Server** (optional, for scheduled indexing)
+
+### Install Rust
+
+```bash
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
 
 ### Install PostgreSQL and pgvector
 
@@ -89,11 +98,15 @@ brew install temporal  # macOS
 git clone https://github.com/your-org/cudgel.git
 cd cudgel
 
-# Install in development mode
-pip install -e .
+# Build and install the Rust CLI
+cargo build --release
+cargo install --path .
 
-# Or install from PyPI (when published)
-pip install cudgel
+# Or use it directly
+cargo run --release -- --help
+
+# Optional: Install Python library
+pip install -e .
 ```
 
 ## Configuration
@@ -139,6 +152,8 @@ cudgel init-db
 
 ## Usage
 
+The Cudgel CLI is written in Rust for performance and reliability.
+
 ### Index a Repository
 
 ```bash
@@ -148,7 +163,7 @@ cudgel index .
 # Index a specific repository
 cudgel index /path/to/repo
 
-# Index with a custom name
+# Index with a custom name (coming soon)
 cudgel index /path/to/repo --name "my-project"
 ```
 
@@ -273,6 +288,38 @@ asyncio.run(index_once())
 
 ## API Usage
 
+### Rust API
+
+```rust
+use cudgel::{Config, Database, Indexer, QueryEngine, GraphQuery};
+use std::sync::Arc;
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> cudgel::Result<()> {
+    let config = Arc::new(Config::from_env()?);
+
+    // Index a repository
+    let db = Arc::new(Database::new(&config).await?);
+    let mut indexer = Indexer::new(config.clone(), db.clone())?;
+    let repo_id = indexer.index_repository(Path::new("/path/to/repo")).await?;
+
+    // Query code
+    let query_engine = QueryEngine::new(config.clone(), db.clone())?;
+    let results = query_engine.search_symbols("database connection", 10, None).await?;
+
+    // Query graph relationships
+    let graph_query = GraphQuery::new(db);
+    let call_graph = graph_query.get_references("process_request", None, 2).await?;
+
+    Ok(())
+}
+```
+
+### Python API (Optional)
+
+The Python library is still available for embedding generation and analysis:
+
 ```python
 import asyncio
 from pathlib import Path
@@ -349,6 +396,27 @@ asyncio.run(main())
 More languages can be added via tree-sitter grammars.
 
 ## Development
+
+### Rust Development
+
+```bash
+# Build
+cargo build
+
+# Run tests
+cargo test
+
+# Format code
+cargo fmt
+
+# Lint
+cargo clippy
+
+# Build release
+cargo build --release
+```
+
+### Python Development (Optional)
 
 ```bash
 # Install development dependencies
