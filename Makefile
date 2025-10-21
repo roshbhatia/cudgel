@@ -1,46 +1,43 @@
-.PHONY: help install dev-install test lint format typecheck clean docker-up docker-down init-db
+.PHONY: help build install test lint format clean docker-up docker-down init-db release
 
 help:
 	@echo "Cudgel - Code Indexing Tool"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make install      - Install cudgel"
-	@echo "  make dev-install  - Install cudgel with development dependencies"
-	@echo "  make test         - Run tests"
-	@echo "  make lint         - Run linter (ruff)"
-	@echo "  make format       - Format code with black"
-	@echo "  make typecheck    - Run type checker (mypy)"
+	@echo "  make build        - Build Rust binary"
+	@echo "  make install      - Install cudgel binary"
+	@echo "  make test         - Run Rust tests"
+	@echo "  make lint         - Run clippy"
+	@echo "  make format       - Format code with rustfmt"
 	@echo "  make clean        - Remove build artifacts"
 	@echo "  make docker-up    - Start PostgreSQL and Temporal with Docker"
 	@echo "  make docker-down  - Stop Docker services"
 	@echo "  make init-db      - Initialize database schema"
+	@echo "  make release      - Build optimized release binary"
+
+build:
+	cargo build
+
+release:
+	cargo build --release
 
 install:
-	pip install -e .
-
-dev-install:
-	pip install -e ".[dev]"
+	cargo install --path .
 
 test:
-	pytest tests/ -v
+	cargo test
 
 lint:
-	ruff check src/
+	cargo clippy -- -D warnings
 
 format:
-	black src/
-
-typecheck:
-	mypy src/
+	cargo fmt
 
 clean:
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info
+	cargo clean
+	rm -rf target/
 	rm -rf .pytest_cache/
-	rm -rf .mypy_cache/
-	rm -rf .ruff_cache/
-	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 
 docker-up:
@@ -56,6 +53,6 @@ docker-down:
 	docker-compose down
 
 init-db:
-	cudgel init-db
+	cargo run --release -- init-db
 
-all: format lint typecheck test
+all: format lint test build

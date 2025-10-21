@@ -1,0 +1,81 @@
+[package]
+name = "cudgel"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cudgel Team"]
+description = "A code indexing tool with tree-sitter, Temporal, PostgreSQL/pgvector, and LSP support"
+license = "MIT"
+repository = "https://github.com/your-org/cudgel"
+
+[[bin]]
+name = "cudgel"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo"] }
+colored = "2.1"
+indicatif = "0.17"
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+tokio-postgres = { version = "0.7", features = ["with-serde_json-1"] }
+
+# Database
+postgres-types = "0.2"
+deadpool-postgres = "0.14"
+pgvector = { version = "0.4", features = ["postgres"] }
+
+# Tree-sitter
+tree-sitter = "0.22"
+tree-sitter-python = "0.21"
+tree-sitter-javascript = "0.21"
+tree-sitter-typescript = "0.21"
+tree-sitter-rust = "0.21"
+tree-sitter-go = "0.21"
+tree-sitter-c = "0.21"
+tree-sitter-cpp = "0.22"
+tree-sitter-java = "0.21"
+
+# Embeddings - using ort (ONNX Runtime) for sentence transformers
+ort = { version = "2.0", features = ["download-binaries"] }
+tokenizers = "0.19"
+ndarray = "0.15"
+
+# LSP
+tower-lsp = "0.20"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Utilities
+walkdir = "2.5"
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenv = "0.15"
+
+# Temporal (using tonic for gRPC)
+temporal-sdk-core = "0.1"
+temporal-sdk = "0.1"
+
+# Pretty output
+comfy-table = "7.1"
+syntect = "5.2"
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
