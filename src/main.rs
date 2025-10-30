@@ -4,22 +4,17 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
-    config::Config,
-    database::Database,
-    graph::GraphQuery,
-    indexer::Indexer,
-    lsp,
-    query::QueryEngine,
-    temporal::TemporalClient,
+    config::Config, database::Database, graph::GraphQuery, indexer::Indexer, lsp,
+    query::QueryEngine, temporal::TemporalClient,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
-use syntect::{
-    easy::HighlightLines,
-    highlighting::{Style, ThemeSet},
-    parsing::SyntaxSet,
-    util::{as_24_bit_terminal_escaped, LinesWithEndings},
-};
+// use syntect::{
+//     easy::HighlightLines,
+//     highlighting::{Style, ThemeSet},
+//     parsing::SyntaxSet,
+//     util::{as_24_bit_terminal_escaped, LinesWithEndings},
+// };
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Parser)]
@@ -163,14 +158,18 @@ async fn main() -> cudgel::Result<()> {
     Ok(())
 }
 
-async fn cmd_index(config: Arc<Config>, path: PathBuf, _name: Option<String>) -> cudgel::Result<()> {
+async fn cmd_index(
+    config: Arc<Config>,
+    path: PathBuf,
+    _name: Option<String>,
+) -> cudgel::Result<()> {
     println!("{}", "Indexing repository...".bright_blue().bold());
     println!("Path: {}", path.display());
 
     let db = Arc::new(Database::new(&config).await?);
     let mut indexer = Indexer::new(config.clone(), db)?;
 
-    let repo_id = indexer.index_repository(&path).await?;
+    let (repo_id, stats) = indexer.index_repository(&path).await?;
 
     println!(
         "\n{}",
@@ -178,6 +177,35 @@ async fn cmd_index(config: Arc<Config>, path: PathBuf, _name: Option<String>) ->
             .bright_green()
             .bold()
     );
+
+    // Display statistics
+    println!("\n{}", "Indexing Statistics:".bright_cyan().bold());
+    println!(
+        "  Files: {} total, {} indexed, {} failed",
+        stats.total_files, stats.indexed_files, stats.failed_files
+    );
+    println!("  Symbols: {} total", stats.total_symbols);
+
+    if !stats.files_by_language.is_empty() {
+        println!("\n  Files by language:");
+        for (lang, count) in stats.files_by_language.iter() {
+            println!("    {}: {}", lang, count);
+        }
+    }
+
+    if !stats.symbols_by_kind.is_empty() {
+        println!("\n  Symbols by kind:");
+        for (kind, count) in stats.symbols_by_kind.iter() {
+            println!("    {}: {}", kind, count);
+        }
+    }
+
+    if !stats.errors.is_empty() {
+        println!("\n  {} errors (showing first 10):", stats.errors.len());
+        for error in &stats.errors {
+            println!("    {}", error);
+        }
+    }
 
     Ok(())
 }
@@ -231,10 +259,7 @@ async fn cmd_graph(
 }
 
 async fn cmd_lsp(config: Arc<Config>) -> cudgel::Result<()> {
-    println!(
-        "{}",
-        "Starting LSP server on stdio...".bright_blue().bold()
-    );
+    println!("{}", "Starting LSP server on stdio...".bright_blue().bold());
     lsp::start_lsp_server(config).await?;
     Ok(())
 }
@@ -316,11 +341,7 @@ fn display_graph(graph: &cudgel::graph::Graph) {
         "Graph for:".bright_cyan().bold(),
         graph.root.bright_white().bold()
     );
-    println!(
-        "Nodes: {}, Edges: {}",
-        graph.nodes.len(),
-        graph.edges.len()
-    );
+    println!("Nodes: {}, Edges: {}", graph.nodes.len(), graph.edges.len());
 
     if !graph.edges.is_empty() {
         let mut table = Table::new();

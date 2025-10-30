@@ -10,8 +10,14 @@ pub enum Error {
     #[error("Pool error: {0}")]
     Pool(#[from] deadpool_postgres::PoolError),
 
+    #[error("Pool creation error: {0}")]
+    PoolCreation(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("WalkDir error: {0}")]
+    WalkDir(#[from] walkdir::Error),
 
     #[error("Parse error: {0}")]
     Parse(String),

@@ -7,6 +7,7 @@ use crate::{Config, Result};
 use std::sync::Arc;
 
 pub struct TemporalClient {
+    #[allow(dead_code)] // Will be used when Temporal SDK is integrated
     config: Arc<Config>,
 }
 
