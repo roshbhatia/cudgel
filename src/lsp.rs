@@ -8,6 +8,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 pub struct CudgelLspServer {
     client: Client,
+    #[allow(dead_code)] // Will be used for database queries in future implementation
     config: Arc<Config>,
 }
 
@@ -41,7 +42,10 @@ impl LanguageServer for CudgelLspServer {
         Ok(())
     }
 
-    async fn completion(&self, _params: CompletionParams) -> jsonrpc::Result<Option<CompletionResponse>> {
+    async fn completion(
+        &self,
+        _params: CompletionParams,
+    ) -> jsonrpc::Result<Option<CompletionResponse>> {
         // TODO: Implement completion using indexed symbols
         Ok(None)
     }

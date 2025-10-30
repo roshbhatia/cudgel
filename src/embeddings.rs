@@ -6,10 +6,11 @@
 //! 2. Place in ./models/all-MiniLM-L6-v2/
 //! 3. Uncomment the ONNX runtime code below
 
-use crate::{Config, Error, Result};
+use crate::{Config, Result};
 use std::sync::Arc;
 
 pub struct EmbeddingGenerator {
+    #[allow(dead_code)] // Will be used when ONNX runtime is implemented
     config: Arc<Config>,
     dimension: usize,
     // TODO: Add ONNX runtime session

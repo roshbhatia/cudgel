@@ -1,7 +1,7 @@
 //! Database layer with PostgreSQL and pgvector
 
-use crate::{Config, Error, Result};
-use deadpool_postgres::{Config as PoolConfig, Manager, Pool, Runtime};
+use crate::{Config, Result};
+use deadpool_postgres::{Config as PoolConfig, Pool, Runtime};
 use pgvector::Vector;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -66,9 +66,28 @@ impl Database {
         pg_config.user = Some(config.database.user.clone());
         pg_config.password = Some(config.database.password.clone());
 
-        let pool = pg_config.create_pool(Some(Runtime::Tokio1), NoTls)?;
+        let pool = pg_config
+            .create_pool(Some(Runtime::Tokio1), NoTls)
+            .map_err(|e| crate::Error::PoolCreation(e.to_string()))?;
 
         Ok(Database { pool })
+    }
+
+    /// Check database connection health
+    pub async fn health_check(&self) -> Result<bool> {
+        let client = self.pool.get().await?;
+        let row = client.query_one("SELECT 1 as health", &[]).await?;
+        let health: i32 = row.get("health");
+        Ok(health == 1)
+    }
+
+    /// Check if pgvector extension is installed
+    pub async fn check_pgvector(&self) -> Result<bool> {
+        let client = self.pool.get().await?;
+        let row = client
+            .query_opt("SELECT 1 FROM pg_extension WHERE extname = 'vector'", &[])
+            .await?;
+        Ok(row.is_some())
     }
 
     pub async fn init_schema(&self) -> Result<()> {
@@ -293,6 +312,7 @@ impl Database {
         Ok(row.get(0))
     }
 
+    #[allow(clippy::too_many_arguments)] // All parameters are necessary for symbol data
     pub async fn add_symbol(
         &self,
         file_id: i32,
@@ -410,6 +430,23 @@ impl Database {
                 )
                 .await?
         };
+
+        Ok(row)
+    }
+
+    pub async fn get_symbol_by_id(&self, symbol_id: i32) -> Result<Option<Row>> {
+        let client = self.pool.get().await?;
+
+        let row = client
+            .query_opt(
+                "SELECT s.*, f.path, f.language, r.path as repo_path
+                 FROM symbols s
+                 JOIN files f ON s.file_id = f.id
+                 JOIN repositories r ON f.repository_id = r.id
+                 WHERE s.id = $1",
+                &[&symbol_id],
+            )
+            .await?;
 
         Ok(row)
     }

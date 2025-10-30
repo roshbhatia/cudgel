@@ -50,13 +50,16 @@ impl Config {
     pub fn from_env() -> crate::Result<Self> {
         dotenv::dotenv().ok();
 
+        let port = Self::parse_env_u16("CUDGEL_DB_PORT", 5432)?;
+        let embedding_dimension = Self::parse_env_usize("CUDGEL_EMBEDDING_DIMENSION", 384)?;
+        let lsp_port = Self::parse_env_u16("CUDGEL_LSP_PORT", 6010)?;
+        let batch_size = Self::parse_env_usize("CUDGEL_INDEX_BATCH_SIZE", 100)?;
+        let max_file_size = Self::parse_env_usize("CUDGEL_MAX_FILE_SIZE", 1024 * 1024)?;
+
         Ok(Config {
             database: DatabaseConfig {
                 host: env::var("CUDGEL_DB_HOST").unwrap_or_else(|_| "localhost".to_string()),
-                port: env::var("CUDGEL_DB_PORT")
-                    .unwrap_or_else(|_| "5432".to_string())
-                    .parse()
-                    .unwrap_or(5432),
+                port,
                 database: env::var("CUDGEL_DB_NAME").unwrap_or_else(|_| "cudgel".to_string()),
                 user: env::var("CUDGEL_DB_USER").unwrap_or_else(|_| "cudgel".to_string()),
                 password: env::var("CUDGEL_DB_PASSWORD").unwrap_or_else(|_| "cudgel".to_string()),
@@ -74,28 +77,38 @@ impl Config {
                     env::var("CUDGEL_EMBEDDING_MODEL_PATH")
                         .unwrap_or_else(|_| "./models/all-MiniLM-L6-v2".to_string()),
                 ),
-                dimension: env::var("CUDGEL_EMBEDDING_DIMENSION")
-                    .unwrap_or_else(|_| "384".to_string())
-                    .parse()
-                    .unwrap_or(384),
+                dimension: embedding_dimension,
             },
-            lsp: LspConfig {
-                port: env::var("CUDGEL_LSP_PORT")
-                    .unwrap_or_else(|_| "6010".to_string())
-                    .parse()
-                    .unwrap_or(6010),
-            },
+            lsp: LspConfig { port: lsp_port },
             indexing: IndexingConfig {
-                batch_size: env::var("CUDGEL_INDEX_BATCH_SIZE")
-                    .unwrap_or_else(|_| "100".to_string())
-                    .parse()
-                    .unwrap_or(100),
-                max_file_size: env::var("CUDGEL_MAX_FILE_SIZE")
-                    .unwrap_or_else(|_| "1048576".to_string())
-                    .parse()
-                    .unwrap_or(1024 * 1024),
+                batch_size,
+                max_file_size,
             },
         })
+    }
+
+    fn parse_env_u16(key: &str, default: u16) -> crate::Result<u16> {
+        match env::var(key) {
+            Ok(val) => val.parse().map_err(|_| {
+                crate::Error::Config(format!(
+                    "Invalid value for {}: must be a valid port number",
+                    key
+                ))
+            }),
+            Err(_) => Ok(default),
+        }
+    }
+
+    fn parse_env_usize(key: &str, default: usize) -> crate::Result<usize> {
+        match env::var(key) {
+            Ok(val) => val.parse().map_err(|_| {
+                crate::Error::Config(format!(
+                    "Invalid value for {}: must be a positive number",
+                    key
+                ))
+            }),
+            Err(_) => Ok(default),
+        }
     }
 
     pub fn database_url(&self) -> String {

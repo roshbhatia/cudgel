@@ -91,6 +91,19 @@ impl GraphQuery {
 
         visited.insert(symbol_id);
 
+        // Get symbol information and add to nodes
+        let symbol_row = self.db.get_symbol_by_id(symbol_id).await?;
+        if let Some(row) = symbol_row {
+            nodes.entry(symbol_id).or_insert_with(|| GraphNode {
+                id: symbol_id,
+                name: row.get("name"),
+                kind: row.get("kind"),
+                file: row.get("path"),
+                language: row.get("language"),
+                line: row.get("start_line"),
+            });
+        }
+
         let references = self.db.get_references(symbol_id).await?;
 
         for reference in references {
@@ -101,6 +114,21 @@ impl GraphQuery {
                 line: Some(reference.line),
                 column: Some(reference.column),
             });
+
+            // Get the target symbol and add to nodes
+            let to_symbol_row = self.db.get_symbol_by_id(reference.to_symbol_id).await?;
+            if let Some(row) = to_symbol_row {
+                nodes
+                    .entry(reference.to_symbol_id)
+                    .or_insert_with(|| GraphNode {
+                        id: reference.to_symbol_id,
+                        name: row.get("name"),
+                        kind: row.get("kind"),
+                        file: row.get("path"),
+                        language: row.get("language"),
+                        line: row.get("start_line"),
+                    });
+            }
 
             // Recursively traverse
             Box::pin(self.traverse_references(
@@ -120,7 +148,7 @@ impl GraphQuery {
         &self,
         symbol_name: &str,
         repository_path: Option<&str>,
-        direction: &str,
+        _direction: &str,
     ) -> Result<Graph> {
         // Similar to get_references but filtered for function calls
         self.get_references(symbol_name, repository_path, 2).await

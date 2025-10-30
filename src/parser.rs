@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::Path;
-use tree_sitter::{Language, Parser, Tree, Node};
+use tree_sitter::{Language, Node, Parser};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ASTNode {
@@ -99,11 +99,15 @@ impl CodeParser {
     }
 
     fn convert_node(&self, node: Node, source: &str) -> ASTNode {
+        Self::convert_node_static(node, source)
+    }
+
+    fn convert_node_static(node: Node, source: &str) -> ASTNode {
         let text = node.utf8_text(source.as_bytes()).unwrap_or("");
 
         let children: Vec<ASTNode> = (0..node.child_count())
             .filter_map(|i| node.child(i))
-            .map(|child| self.convert_node(child, source))
+            .map(|child| Self::convert_node_static(child, source))
             .collect();
 
         ASTNode {
@@ -132,7 +136,11 @@ impl CodeParser {
                 "class_declaration",
             ],
             "rust" => vec!["function_item", "struct_item", "enum_item", "trait_item"],
-            "go" => vec!["function_declaration", "method_declaration", "type_declaration"],
+            "go" => vec![
+                "function_declaration",
+                "method_declaration",
+                "type_declaration",
+            ],
             "c" | "cpp" => vec!["function_definition", "class_specifier", "struct_specifier"],
             "java" => vec!["method_declaration", "class_declaration"],
             _ => vec![],
@@ -175,7 +183,7 @@ impl CodeParser {
         None
     }
 
-    fn get_symbol_kind(&self, node_type: &str, language: &str) -> String {
+    fn get_symbol_kind(&self, node_type: &str, _language: &str) -> String {
         match node_type {
             t if t.contains("function") => "function".to_string(),
             t if t.contains("class") => "class".to_string(),
@@ -204,10 +212,7 @@ impl CodeParser {
                         if stmt.node_type.contains("string") {
                             let text = stmt.text.trim();
                             return Some(
-                                text.trim_matches('"')
-                                    .trim_matches('\'')
-                                    .trim()
-                                    .to_string(),
+                                text.trim_matches('"').trim_matches('\'').trim().to_string(),
                             );
                         }
                     }
