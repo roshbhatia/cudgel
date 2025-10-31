@@ -43,6 +43,7 @@ impl EmbeddingGenerator {
         Self::check_model_dependencies(model_path)?;
 
         // Initialize ONNX Runtime environment (only once)
+        // Note: Logging is controlled via tracing filters in main.rs based on CUDGEL_DEBUG
         ort::init()
             .with_name("cudgel")
             .commit()
