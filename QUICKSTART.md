@@ -1,13 +1,12 @@
 # Cudgel Quick Start Guide
 
-Get started with Cudgel in under 2 minutes!
+Get started with Cudgel in under 5 minutes!
 
 ## Prerequisites
 
 - **Rust 1.70+** - [Install Rust](https://rustup.rs/)
-- **Docker** - [Install Docker](https://docs.docker.com/get-docker/)
-
-That's it! Everything else is automatic.
+- **Homebrew** - [Install Homebrew](https://brew.sh) (macOS only)
+- **Docker** - [Install Docker](https://docs.docker.com/get-docker/) (for Temporal)
 
 ## Installation
 
@@ -20,9 +19,25 @@ cd cudgel
 cargo install --path .
 ```
 
+## One-Time Setup
+
+Run the setup command once to configure services:
+
+```bash
+cudgel setup
+```
+
+This will:
+1. Install PostgreSQL 16 via Homebrew (if not already installed)
+2. Create macOS Launch Agents for PostgreSQL and Temporal
+3. Initialize the cudgel database with pgvector extension
+4. Configure services to start automatically on login
+
+**That's it!** Services will now start automatically whenever you log in.
+
 ## Index Your First Repository
 
-**No setup needed!** Just run:
+Now you can index your code:
 
 ```bash
 # Index the current directory
@@ -32,15 +47,8 @@ cudgel index .
 cudgel index /path/to/your/repo
 ```
 
-That's it! On first run, Cudgel will:
-1. Auto-start PostgreSQL + Temporal via Docker (takes ~30s first time)
-2. Auto-initialize the database schema
-3. Index your code
-
 You'll see a progress bar and statistics:
 ```
-Starting local services (PostgreSQL + Temporal)...
-Services ready!
 Indexing repository...
 Path: /path/to/repo
 
@@ -62,6 +70,24 @@ Indexing Statistics:
     function: 285
     class: 95
     method: 43
+```
+
+## Service Management
+
+Manage your services with the `services` command:
+
+```bash
+# Check service status
+cudgel services status
+
+# Start services manually (if stopped)
+cudgel services start
+
+# Stop services
+cudgel services stop
+
+# Remove Launch Agents
+cudgel services remove
 ```
 
 ## Query Your Code

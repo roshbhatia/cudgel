@@ -5,7 +5,7 @@ use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
     config::Config, database::Database, graph::GraphQuery, indexer::Indexer, lsp,
-    query::QueryEngine, services::ServiceManager, temporal::TemporalClient,
+    macos_services::MacOSServices, query::QueryEngine, temporal::TemporalClient,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -109,6 +109,32 @@ enum Commands {
         #[arg(short, long, default_value = "24")]
         interval: u64,
     },
+
+    /// One-time setup: install and configure services
+    Setup,
+
+    /// Manage local services (PostgreSQL and Temporal)
+    #[command(subcommand)]
+    Services(ServicesCommands),
+}
+
+#[derive(Subcommand)]
+enum ServicesCommands {
+    /// Start services
+    Start,
+
+    /// Stop services
+    Stop,
+
+    /// Show service status
+    Status,
+
+    /// Remove services
+    Remove {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[tokio::main]
@@ -161,6 +187,23 @@ async fn main() -> cudgel::Result<()> {
         } => {
             cmd_schedule(config, path, periodic, interval).await?;
         }
+        Commands::Setup => {
+            cmd_setup().await?;
+        }
+        Commands::Services(services_cmd) => match services_cmd {
+            ServicesCommands::Start => {
+                cmd_services_start().await?;
+            }
+            ServicesCommands::Stop => {
+                cmd_services_stop().await?;
+            }
+            ServicesCommands::Status => {
+                cmd_services_status().await?;
+            }
+            ServicesCommands::Remove { force } => {
+                cmd_services_remove(force).await?;
+            }
+        },
     }
 
     Ok(())
@@ -172,8 +215,8 @@ async fn cmd_index(
     _name: Option<String>,
     schedule: Option<String>,
 ) -> cudgel::Result<()> {
-    // Auto-start services
-    let services = ServiceManager::new();
+    // Ensure services are running
+    let services = MacOSServices::new();
     services.ensure_running().await?;
 
     println!("{}", "Indexing repository...".bright_blue().bold());
@@ -271,8 +314,8 @@ async fn cmd_query(
     limit: i64,
     json: bool,
 ) -> cudgel::Result<()> {
-    // Auto-start services
-    let services = ServiceManager::new();
+    // Ensure services are running
+    let services = MacOSServices::new();
     services.ensure_running().await?;
 
     let db = Arc::new(Database::new(&config).await?);
@@ -300,8 +343,8 @@ async fn cmd_graph(
     _direction: String,
     json: bool,
 ) -> cudgel::Result<()> {
-    // Auto-start services
-    let services = ServiceManager::new();
+    // Ensure services are running
+    let services = MacOSServices::new();
     services.ensure_running().await?;
 
     let db = Arc::new(Database::new(&config).await?);
@@ -426,4 +469,71 @@ fn display_graph(graph: &cudgel::graph::Graph) {
         println!("\n{}", "Edges:".bright_cyan().bold());
         println!("{}", table);
     }
+}
+
+// Service management commands
+
+async fn cmd_setup() -> cudgel::Result<()> {
+    println!(
+        "{}",
+        "Setting up cudgel services...".bright_blue().bold()
+    );
+    println!("\nThis will:");
+    println!("  1. Install PostgreSQL 16 via Homebrew (if not already installed)");
+    println!("  2. Create Launch Agents for PostgreSQL and Temporal");
+    println!("  3. Initialize the cudgel database");
+    println!("  4. Configure services to start automatically on login");
+    println!();
+
+    let services = MacOSServices::new();
+    services.setup().await?;
+
+    Ok(())
+}
+
+async fn cmd_services_start() -> cudgel::Result<()> {
+    let services = MacOSServices::new();
+    services.start().await?;
+    Ok(())
+}
+
+async fn cmd_services_stop() -> cudgel::Result<()> {
+    let services = MacOSServices::new();
+    services.stop().await?;
+    Ok(())
+}
+
+async fn cmd_services_status() -> cudgel::Result<()> {
+    let services = MacOSServices::new();
+    let status = services.status().await?;
+
+    println!("{}", "Service Status".bright_cyan().bold());
+    println!("{}", status);
+
+    Ok(())
+}
+
+async fn cmd_services_remove(force: bool) -> cudgel::Result<()> {
+    if !force {
+        println!(
+            "{}",
+            "WARNING: This will remove cudgel Launch Agents!".bright_red().bold()
+        );
+        println!("PostgreSQL data will be preserved in Homebrew.");
+        println!("\nAre you sure you want to continue? (yes/no): ");
+
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .map_err(cudgel::Error::Io)?;
+
+        if input.trim().to_lowercase() != "yes" {
+            println!("Operation cancelled");
+            return Ok(());
+        }
+    }
+
+    let services = MacOSServices::new();
+    services.remove().await?;
+    Ok(())
 }

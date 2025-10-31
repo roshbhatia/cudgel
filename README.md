@@ -1,8 +1,8 @@
 # Cudgel
 
-A zero-configuration code indexing tool that combines tree-sitter parsing, PostgreSQL/pgvector embeddings, Temporal workflows, and LSP integration for intelligent code search and analysis.
+A code indexing tool that combines tree-sitter parsing, PostgreSQL/pgvector embeddings, Temporal workflows, and LSP integration for intelligent code search and analysis.
 
-**No setup required** - just run `cudgel index .` and everything auto-starts! 🚀
+**One-time setup** - run `cudgel setup` once, then services start automatically on login! 🚀
 
 ## Features
 
@@ -10,8 +10,7 @@ A zero-configuration code indexing tool that combines tree-sitter parsing, Postg
 - 🌳 **Tree-sitter Parsing**: Multi-language AST parsing (Python, JS/TS, Rust, Go, C/C++, Java)
 - 🔗 **Code Relationships**: Track and query references and call graphs
 - ⏰ **Auto-Scheduling**: Periodic re-indexing with `--schedule` flag
-- 🚀 **Zero Config**: No env files, no manual database setup
-- 🐳 **Auto-Services**: PostgreSQL + Temporal auto-start via Docker
+- 🍎 **macOS Launch Agents**: Persistent services via launchctl
 - 💻 **Rich CLI**: Beautiful terminal UI with progress bars and tables
 
 ## Quick Start
@@ -19,9 +18,8 @@ A zero-configuration code indexing tool that combines tree-sitter parsing, Postg
 ### Prerequisites
 
 - **Rust 1.70+** - [Install Rust](https://rustup.rs/)
-- **Docker** - [Install Docker](https://docs.docker.com/get-docker/)
-
-That's it! Everything else is automatic.
+- **Homebrew** - [Install Homebrew](https://brew.sh) (macOS)
+- **Docker** - [Install Docker](https://docs.docker.com/get-docker/) (for Temporal)
 
 ### Installation
 
@@ -31,9 +29,17 @@ cd cudgel
 cargo install --path .
 ```
 
+### One-Time Setup
+
+```bash
+cudgel setup
+```
+
+This installs PostgreSQL 16 via Homebrew and creates Launch Agents for automatic startup.
+
 ### Usage
 
-**Index a repository** (auto-starts services):
+**Index a repository:**
 ```bash
 cudgel index /path/to/repo
 ```
@@ -43,6 +49,13 @@ cudgel index /path/to/repo
 cudgel index . --schedule hourly   # every hour
 cudgel index . --schedule daily    # every 24 hours
 cudgel index . --schedule 6        # every 6 hours
+```
+
+**Manage services:**
+```bash
+cudgel services status   # Check status
+cudgel services stop     # Stop services
+cudgel services start    # Start services
 ```
 
 **Search your code:**
