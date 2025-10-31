@@ -1,7 +1,8 @@
 //! Configuration management
+//!
+//! Hardcoded for local-only usage. No env vars required - everything "just works".
 
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,85 +48,9 @@ pub struct IndexingConfig {
 }
 
 impl Config {
-    pub fn from_env() -> crate::Result<Self> {
-        dotenv::dotenv().ok();
-
-        let port = Self::parse_env_u16("CUDGEL_DB_PORT", 5432)?;
-        let embedding_dimension = Self::parse_env_usize("CUDGEL_EMBEDDING_DIMENSION", 384)?;
-        let lsp_port = Self::parse_env_u16("CUDGEL_LSP_PORT", 6010)?;
-        let batch_size = Self::parse_env_usize("CUDGEL_INDEX_BATCH_SIZE", 100)?;
-        let max_file_size = Self::parse_env_usize("CUDGEL_MAX_FILE_SIZE", 1024 * 1024)?;
-
-        Ok(Config {
-            database: DatabaseConfig {
-                host: env::var("CUDGEL_DB_HOST").unwrap_or_else(|_| "localhost".to_string()),
-                port,
-                database: env::var("CUDGEL_DB_NAME").unwrap_or_else(|_| "cudgel".to_string()),
-                user: env::var("CUDGEL_DB_USER").unwrap_or_else(|_| "cudgel".to_string()),
-                password: env::var("CUDGEL_DB_PASSWORD").unwrap_or_else(|_| "cudgel".to_string()),
-            },
-            temporal: TemporalConfig {
-                host: env::var("CUDGEL_TEMPORAL_HOST")
-                    .unwrap_or_else(|_| "localhost:7233".to_string()),
-                namespace: env::var("CUDGEL_TEMPORAL_NAMESPACE")
-                    .unwrap_or_else(|_| "default".to_string()),
-                task_queue: env::var("CUDGEL_TEMPORAL_TASK_QUEUE")
-                    .unwrap_or_else(|_| "cudgel-indexing".to_string()),
-            },
-            embedding: EmbeddingConfig {
-                model_path: PathBuf::from(
-                    env::var("CUDGEL_EMBEDDING_MODEL_PATH")
-                        .unwrap_or_else(|_| "./models/all-MiniLM-L6-v2".to_string()),
-                ),
-                dimension: embedding_dimension,
-            },
-            lsp: LspConfig { port: lsp_port },
-            indexing: IndexingConfig {
-                batch_size,
-                max_file_size,
-            },
-        })
-    }
-
-    fn parse_env_u16(key: &str, default: u16) -> crate::Result<u16> {
-        match env::var(key) {
-            Ok(val) => val.parse().map_err(|_| {
-                crate::Error::Config(format!(
-                    "Invalid value for {}: must be a valid port number",
-                    key
-                ))
-            }),
-            Err(_) => Ok(default),
-        }
-    }
-
-    fn parse_env_usize(key: &str, default: usize) -> crate::Result<usize> {
-        match env::var(key) {
-            Ok(val) => val.parse().map_err(|_| {
-                crate::Error::Config(format!(
-                    "Invalid value for {}: must be a positive number",
-                    key
-                ))
-            }),
-            Err(_) => Ok(default),
-        }
-    }
-
-    pub fn database_url(&self) -> String {
-        format!(
-            "host={} port={} dbname={} user={} password={}",
-            self.database.host,
-            self.database.port,
-            self.database.database,
-            self.database.user,
-            self.database.password
-        )
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::from_env().unwrap_or_else(|_| Config {
+    /// Create a new config with hardcoded local defaults
+    pub fn local() -> Self {
+        Config {
             database: DatabaseConfig {
                 host: "localhost".to_string(),
                 port: 5432,
@@ -147,6 +72,28 @@ impl Default for Config {
                 batch_size: 100,
                 max_file_size: 1024 * 1024,
             },
-        })
+        }
+    }
+
+    /// Backward compatibility - just returns local config
+    pub fn from_env() -> crate::Result<Self> {
+        Ok(Self::local())
+    }
+
+    pub fn database_url(&self) -> String {
+        format!(
+            "host={} port={} dbname={} user={} password={}",
+            self.database.host,
+            self.database.port,
+            self.database.database,
+            self.database.user,
+            self.database.password
+        )
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::local()
     }
 }

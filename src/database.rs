@@ -58,6 +58,7 @@ pub struct Reference {
 }
 
 impl Database {
+    /// Create a new database connection and auto-initialize schema if needed
     pub async fn new(config: &Config) -> Result<Self> {
         let mut pg_config = PoolConfig::new();
         pg_config.host = Some(config.database.host.clone());
@@ -70,7 +71,41 @@ impl Database {
             .create_pool(Some(Runtime::Tokio1), NoTls)
             .map_err(|e| crate::Error::PoolCreation(e.to_string()))?;
 
-        Ok(Database { pool })
+        let db = Database { pool };
+
+        // Auto-initialize schema if not exists
+        if let Err(e) = db.ensure_initialized().await {
+            eprintln!("Warning: Could not auto-initialize database: {}", e);
+        }
+
+        Ok(db)
+    }
+
+    /// Ensure database schema is initialized
+    async fn ensure_initialized(&self) -> Result<()> {
+        // Check if schema exists by trying to query repositories table
+        let client = self.pool.get().await?;
+        let exists = client
+            .query_opt(
+                "SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_name = 'repositories'
+                )",
+                &[],
+            )
+            .await?;
+
+        if let Some(row) = exists {
+            let schema_exists: bool = row.get(0);
+            if !schema_exists {
+                drop(client); // Release connection before init
+                println!("Initializing database schema...");
+                self.init_schema().await?;
+                println!("Database schema initialized!");
+            }
+        }
+
+        Ok(())
     }
 
     /// Check database connection health
