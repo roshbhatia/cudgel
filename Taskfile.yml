@@ -93,9 +93,9 @@ tasks:
       - cargo install --path .
 
   run:
-    desc: Run cudgel with arguments (usage: task run -- index .)
+    desc: "Run cudgel with arguments (usage: task run -- index .)"
     cmds:
-      - cargo run --{{.CLI_ARGS}}
+      - cargo run -- {{.CLI_ARGS}}
 
   # Docker/Services management
   services-start:
