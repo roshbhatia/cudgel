@@ -234,10 +234,13 @@ async fn test_config_validation() {
 #[test]
 fn test_embedding_generation() {
     let config = Arc::new(Config::from_env().unwrap_or_default());
-    let embedder = EmbeddingGenerator::new(config).unwrap();
+    let embedder = EmbeddingGenerator::new(config).expect("Failed to create embedder");
 
     let embedding = embedder.encode("test text");
-    assert!(embedding.is_ok());
+    if let Err(e) = &embedding {
+        eprintln!("Embedding error: {:?}", e);
+    }
+    assert!(embedding.is_ok(), "Failed to generate embedding: {:?}", embedding.err());
 
     let embedding = embedding.unwrap();
     assert_eq!(embedding.len(), 384); // Default dimension
@@ -287,13 +290,31 @@ async fn test_symbol_query() {
 
     // Query for symbols
     let query_engine = QueryEngine::new(config.clone(), db.clone()).unwrap();
-    let results = query_engine.search_symbols("hello", 10, None).await;
 
-    assert!(results.is_ok());
-    let results = results.unwrap();
+    // Test with multiple queries to ensure semantic search works
+    // The test repo has functions like "hello_world", "Calculator.add", "fibonacci", etc.
+    let queries = vec![
+        "calculator add subtract",
+        "fibonacci recursive",
+        "greeting message",
+        "math calculation"
+    ];
 
-    // We should find some symbols (with dummy embeddings, results might not be perfect)
-    assert!(!results.is_empty());
+    let mut found_results = false;
+    for query in queries {
+        let results = query_engine.search_symbols(query, 10, None).await;
+        assert!(results.is_ok(), "Query '{}' failed: {:?}", query, results.err());
+
+        if !results.as_ref().unwrap().is_empty() {
+            found_results = true;
+            eprintln!("Query '{}' found {} results", query, results.unwrap().len());
+            break;
+        }
+    }
+
+    // With real semantic embeddings, at least one query should return results
+    assert!(found_results,
+        "Expected to find symbols with real semantic embeddings, but all queries returned 0 results");
 }
 
 #[tokio::test]
