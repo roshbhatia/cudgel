@@ -25,19 +25,19 @@ This document summarizes the incremental improvements made to the Cudgel codebas
 
 **Changes**:
 - Created `IndexingStats` struct (src/indexer.rs:16-25) with:
-  - Total files, indexed files, failed files
-  - Total symbols count
-  - Symbols categorized by kind (function, class, method, etc.)
-  - Files categorized by language
-  - Error messages (up to 10)
+ - Total files, indexed files, failed files
+ - Total symbols count
+ - Symbols categorized by kind (function, class, method, etc.)
+ - Files categorized by language
+ - Error messages (up to 10)
 
 - Modified `index_repository()` to return `(i32, IndexingStats)` instead of just `i32`
 - Updated `index_file()` to track statistics during indexing
 - Enhanced CLI output (src/main.rs:166-210) to display:
-  - File counts (total, succeeded, failed)
-  - Symbol counts by kind
-  - Files by language
-  - Error messages if any failures occurred
+ - File counts (total, succeeded, failed)
+ - Symbol counts by kind
+ - Files by language
+ - Error messages if any failures occurred
 
 **Impact**: Users now get detailed feedback about what was indexed and can identify issues immediately.
 
@@ -52,8 +52,8 @@ This document summarizes the incremental improvements made to the Cudgel codebas
 - Added `parse_env_usize()` helper for numeric validation
 - Both helpers return proper `Result<T, Error>` with descriptive error messages
 - Invalid config values now produce clear errors like:
-  - "Invalid value for CUDGEL_DB_PORT: must be a valid port number"
-  - "Invalid value for CUDGEL_EMBEDDING_DIMENSION: must be a positive number"
+ - "Invalid value for CUDGEL_DB_PORT: must be a valid port number"
+ - "Invalid value for CUDGEL_EMBEDDING_DIMENSION: must be a positive number"
 
 **Impact**: Configuration errors are now explicit and actionable, preventing silent failures.
 
@@ -144,8 +144,8 @@ test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 ## Build Status
 
-✅ **All builds successful**
-⚠️ 3 warnings (unused config fields in placeholder modules - acceptable)
+ **All builds successful**
+ � 3 warnings (unused config fields in placeholder modules - acceptable)
 
 ---
 
@@ -160,18 +160,18 @@ cudgel index /path/to/repo
 Output now includes:
 ```
 Indexing Statistics:
-  Files: 150 total, 148 indexed, 2 failed
-  Symbols: 423 total
+ Files: 150 total, 148 indexed, 2 failed
+ Symbols: 423 total
 
-  Files by language:
-    python: 50
-    rust: 45
-    javascript: 53
+ Files by language:
+ python: 50
+ rust: 45
+ javascript: 53
 
-  Symbols by kind:
-    function: 285
-    class: 95
-    method: 43
+ Symbols by kind:
+ function: 285
+ class: 95
+ method: 43
 ```
 
 ### Checking Database Health
@@ -185,12 +185,12 @@ let db = Database::new(&config).await?;
 
 // Check connection
 if db.health_check().await? {
-    println!("Database is healthy");
+ println!("Database is healthy");
 }
 
 // Check pgvector
 if db.check_pgvector().await? {
-    println!("pgvector extension is installed");
+ println!("pgvector extension is installed");
 }
 ```
 
@@ -243,10 +243,10 @@ While not implemented in this iteration (to keep changes straightforward), these
 ## Conclusion
 
 All improvements are:
-✅ **Straightforward** - Simple, focused changes
-✅ **Tested** - 12 integration tests verify functionality
-✅ **Production-Ready** - Proper error handling throughout
-✅ **Well-Documented** - Clear code and commit messages
-✅ **Backward Compatible** - No breaking changes to public API
+ **Straightforward** - Simple, focused changes
+ **Tested** - 12 integration tests verify functionality
+ **Production-Ready** - Proper error handling throughout
+ **Well-Documented** - Clear code and commit messages
+ **Backward Compatible** - No breaking changes to public API
 
 The codebase is now more robust, maintainable, and ready for production use.

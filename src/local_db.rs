@@ -172,7 +172,7 @@ impl LocalDatabase {
         println!("Waiting for database to become healthy...");
         self.wait_for_healthy().await?;
 
-        println!("✓ Local database is ready!");
+        println!(" Local database is ready!");
         Ok(())
     }
 
@@ -225,7 +225,7 @@ impl LocalDatabase {
             )));
         }
 
-        println!("✓ Database stopped");
+        println!(" Database stopped");
         Ok(())
     }
 
@@ -260,7 +260,7 @@ impl LocalDatabase {
             )));
         }
 
-        println!("✓ Database and data removed");
+        println!(" Database and data removed");
         Ok(())
     }
 

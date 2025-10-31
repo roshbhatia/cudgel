@@ -281,7 +281,7 @@ async fn cmd_index(
         println!(
             "{}",
             format!(
-                "✓ Scheduled to re-index every {} hours (workflow: {})",
+                " Scheduled to re-index every {} hours (workflow: {})",
                 interval, workflow_id
             )
             .bright_green()

@@ -1,211 +1,211 @@
 version: '3'
 
 vars:
-  PROJECT_NAME: cudgel
-  RUST_VERSION: 1.70
+ PROJECT_NAME: cudgel
+ RUST_VERSION: 1.70
 
 tasks:
-  default:
-    desc: Show available tasks
-    cmds:
-      - task --list
+ default:
+ desc: Show available tasks
+ cmds:
+ - task --list
 
-  # Development tasks
-  build:
-    desc: Build the project
-    cmds:
-      - cargo build
+ # Development tasks
+ build:
+ desc: Build the project
+ cmds:
+ - cargo build
 
-  build-release:
-    desc: Build optimized release binary
-    cmds:
-      - cargo build --release
+ build-release:
+ desc: Build optimized release binary
+ cmds:
+ - cargo build --release
 
-  test:
-    desc: Run all tests
-    cmds:
-      - cargo test
+ test:
+ desc: Run all tests
+ cmds:
+ - cargo test
 
-  test-unit:
-    desc: Run unit tests only
-    cmds:
-      - cargo test --lib
+ test-unit:
+ desc: Run unit tests only
+ cmds:
+ - cargo test --lib
 
-  test-integration:
-    desc: Run integration tests only
-    cmds:
-      - cargo test --test integration_tests
+ test-integration:
+ desc: Run integration tests only
+ cmds:
+ - cargo test --test integration_tests
 
-  # Code quality
-  fmt:
-    desc: Format code with rustfmt
-    cmds:
-      - cargo fmt
+ # Code quality
+ fmt:
+ desc: Format code with rustfmt
+ cmds:
+ - cargo fmt
 
-  fmt-check:
-    desc: Check code formatting
-    cmds:
-      - cargo fmt -- --check
+ fmt-check:
+ desc: Check code formatting
+ cmds:
+ - cargo fmt -- --check
 
-  clippy:
-    desc: Run clippy linter
-    cmds:
-      - cargo clippy --all-targets -- -D warnings
+ clippy:
+ desc: Run clippy linter
+ cmds:
+ - cargo clippy --all-targets -- -D warnings
 
-  lint:
-    desc: Run all linters (fmt + clippy)
-    cmds:
-      - task: fmt-check
-      - task: clippy
+ lint:
+ desc: Run all linters (fmt + clippy)
+ cmds:
+ - task: fmt-check
+ - task: clippy
 
-  check:
-    desc: Quick check (no codegen)
-    cmds:
-      - cargo check
+ check:
+ desc: Quick check (no codegen)
+ cmds:
+ - cargo check
 
-  # Pre-commit tasks
-  pre-commit:
-    desc: Run pre-commit checks (format, lint, test)
-    cmds:
-      - task: fmt
-      - task: clippy
-      - task: test
+ # Pre-commit tasks
+ pre-commit:
+ desc: Run pre-commit checks (format, lint, test)
+ cmds:
+ - task: fmt
+ - task: clippy
+ - task: test
 
-  install-hooks:
-    desc: Install git pre-commit hooks
-    cmds:
-      - |
-        cat > .git/hooks/pre-commit << 'EOF'
-        #!/bin/bash
-        set -e
-        echo "Running pre-commit checks..."
-        task fmt-check || { echo "Format check failed. Run 'task fmt' to fix."; exit 1; }
-        task clippy || { echo "Clippy failed. Fix warnings and try again."; exit 1; }
-        echo "✓ Pre-commit checks passed"
-        EOF
-      - chmod +x .git/hooks/pre-commit
-      - echo "✓ Git hooks installed"
+ install-hooks:
+ desc: Install git pre-commit hooks
+ cmds:
+ - |
+ cat > .git/hooks/pre-commit << 'EOF'
+ #!/bin/bash
+ set -e
+ echo "Running pre-commit checks..."
+ task fmt-check || { echo "Format check failed. Run 'task fmt' to fix."; exit 1; }
+ task clippy || { echo "Clippy failed. Fix warnings and try again."; exit 1; }
+ echo " Pre-commit checks passed"
+ EOF
+ - chmod +x .git/hooks/pre-commit
+ - echo " Git hooks installed"
 
-  # Installation and running
-  install:
-    desc: Install cudgel globally
-    cmds:
-      - cargo install --path .
+ # Installation and running
+ install:
+ desc: Install cudgel globally
+ cmds:
+ - cargo install --path .
 
-  run:
-    desc: "Run cudgel with arguments (usage: task run -- index .)"
-    cmds:
-      - cargo run -- {{.CLI_ARGS}}
+ run:
+ desc: "Run cudgel with arguments (usage: task run -- index .)"
+ cmds:
+ - cargo run -- {{.CLI_ARGS}}
 
-  # Docker/Services management
-  services-start:
-    desc: Start local services (postgres + temporal)
-    cmds:
-      - docker compose -p cudgel up -d
+ # Docker/Services management
+ services-start:
+ desc: Start local services (postgres + temporal)
+ cmds:
+ - docker compose -p cudgel up -d
 
-  services-stop:
-    desc: Stop local services
-    cmds:
-      - docker compose -p cudgel down
+ services-stop:
+ desc: Stop local services
+ cmds:
+ - docker compose -p cudgel down
 
-  services-logs:
-    desc: View service logs
-    cmds:
-      - docker compose -p cudgel logs -f
+ services-logs:
+ desc: View service logs
+ cmds:
+ - docker compose -p cudgel logs -f
 
-  services-clean:
-    desc: Remove services and volumes
-    cmds:
-      - docker compose -p cudgel down -v
+ services-clean:
+ desc: Remove services and volumes
+ cmds:
+ - docker compose -p cudgel down -v
 
-  # Documentation
-  doc:
-    desc: Generate and open documentation
-    cmds:
-      - cargo doc --open --no-deps
+ # Documentation
+ doc:
+ desc: Generate and open documentation
+ cmds:
+ - cargo doc --open --no-deps
 
-  # Clean tasks
-  clean:
-    desc: Clean build artifacts
-    cmds:
-      - cargo clean
+ # Clean tasks
+ clean:
+ desc: Clean build artifacts
+ cmds:
+ - cargo clean
 
-  clean-all:
-    desc: Clean everything (build artifacts + docker)
-    cmds:
-      - task: clean
-      - task: services-clean
+ clean-all:
+ desc: Clean everything (build artifacts + docker)
+ cmds:
+ - task: clean
+ - task: services-clean
 
-  # CI/CD simulation
-  ci:
-    desc: Run full CI pipeline locally
-    cmds:
-      - echo "🚀 Running CI pipeline..."
-      - task: fmt-check
-      - task: clippy
-      - task: test
-      - task: build-release
-      - echo "✓ CI pipeline passed"
+ # CI/CD simulation
+ ci:
+ desc: Run full CI pipeline locally
+ cmds:
+ - echo " Running CI pipeline..."
+ - task: fmt-check
+ - task: clippy
+ - task: test
+ - task: build-release
+ - echo " CI pipeline passed"
 
-  # Benchmarking
-  bench:
-    desc: Run benchmarks
-    cmds:
-      - cargo bench
+ # Benchmarking
+ bench:
+ desc: Run benchmarks
+ cmds:
+ - cargo bench
 
-  # Security audit
-  audit:
-    desc: Run security audit on dependencies
-    cmds:
-      - cargo audit
+ # Security audit
+ audit:
+ desc: Run security audit on dependencies
+ cmds:
+ - cargo audit
 
-  # Update dependencies
-  update:
-    desc: Update dependencies
-    cmds:
-      - cargo update
+ # Update dependencies
+ update:
+ desc: Update dependencies
+ cmds:
+ - cargo update
 
-  # Release tasks
-  release-dry-run:
-    desc: Dry run of release build
-    cmds:
-      - task: clean
-      - task: test
-      - task: build-release
+ # Release tasks
+ release-dry-run:
+ desc: Dry run of release build
+ cmds:
+ - task: clean
+ - task: test
+ - task: build-release
 
-  release:
-    desc: Create a release (tag and build)
-    cmds:
-      - task: release-dry-run
-      - echo "Release build successful. Don't forget to:"
-      - echo "  1. git tag v<version>"
-      - echo "  2. git push origin v<version>"
+ release:
+ desc: Create a release (tag and build)
+ cmds:
+ - task: release-dry-run
+ - echo "Release build successful. Don't forget to:"
+ - echo " 1. git tag v<version>"
+ - echo " 2. git push origin v<version>"
 
-  # Development workflow
-  dev:
-    desc: Watch for changes and run checks
-    cmds:
-      - cargo watch -x check -x test
+ # Development workflow
+ dev:
+ desc: Watch for changes and run checks
+ cmds:
+ - cargo watch -x check -x test
 
-  # Quick workflow
-  quick:
-    desc: Quick dev cycle (fmt + check)
-    cmds:
-      - task: fmt
-      - task: check
+ # Quick workflow
+ quick:
+ desc: Quick dev cycle (fmt + check)
+ cmds:
+ - task: fmt
+ - task: check
 
-  # Refresh: rebuild, reinstall, and re-setup services
-  refresh:
-    desc: Rebuild, reinstall, re-setup services, and check status
-    cmds:
-      - echo "🔨 Building cudgel..."
-      - cargo build --release
-      - echo "📦 Installing cudgel..."
-      - cargo install --path .
-      - echo "🗑️  Removing old services..."
-      - cudgel services remove --force || true
-      - echo "🔧 Setting up services..."
-      - cudgel setup
-      - echo "📊 Checking service status..."
-      - cudgel services status
-      - echo "✅ Refresh complete!"
+ # Refresh: rebuild, reinstall, and re-setup services
+ refresh:
+ desc: Rebuild, reinstall, re-setup services, and check status
+ cmds:
+ - echo "Building cudgel..."
+ - cargo build --release
+ - echo "Installing cudgel..."
+ - cargo install --path .
+ - echo "Removing old services..."
+ - cudgel services remove --force || true
+ - echo "Setting up services..."
+ - cudgel setup
+ - echo "Checking service status..."
+ - cudgel services status
+ - echo "Refresh complete!"
