@@ -9,6 +9,7 @@ use cudgel::{
 };
 use std::path::PathBuf;
 use std::sync::Arc;
+use walkdir::WalkDir;
 // use syntect::{
 //     easy::HighlightLines,
 //     highlighting::{Style, ThemeSet},
@@ -40,6 +41,10 @@ enum Commands {
         /// Schedule periodic indexing (e.g., hourly, daily, or interval in hours)
         #[arg(short, long)]
         schedule: Option<String>,
+
+        /// Dry run - show what would be indexed without actually indexing
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Query code using natural language
@@ -94,7 +99,11 @@ enum Commands {
     },
 
     /// Initialize the database schema
-    InitDb,
+    InitDb {
+        /// Reset (drop and recreate) all tables - WARNING: Deletes all data
+        #[arg(long)]
+        reset: bool,
+    },
 
     /// Schedule repository indexing with Temporal
     Schedule {
@@ -127,8 +136,9 @@ async fn main() -> cudgel::Result<()> {
             path,
             name,
             schedule,
+            dry_run,
         } => {
-            cmd_index(config, path, name, schedule).await?;
+            cmd_index(config, path, name, schedule, dry_run).await?;
         }
         Commands::Query {
             query,
@@ -151,8 +161,8 @@ async fn main() -> cudgel::Result<()> {
         Commands::Lsp { port: _ } => {
             cmd_lsp(config).await?;
         }
-        Commands::InitDb => {
-            cmd_init_db(config).await?;
+        Commands::InitDb { reset } => {
+            cmd_init_db(config, reset).await?;
         }
         Commands::Schedule {
             path,
@@ -171,9 +181,22 @@ async fn cmd_index(
     path: PathBuf,
     _name: Option<String>,
     schedule: Option<String>,
+    dry_run: bool,
 ) -> cudgel::Result<()> {
+    if dry_run {
+        println!(
+            "{}",
+            "DRY RUN - No changes will be made".bright_yellow().bold()
+        );
+    }
+
     println!("{}", "Indexing repository...".bright_blue().bold());
     println!("Path: {}", path.display());
+
+    if dry_run {
+        // Dry run mode - just scan and report
+        return cmd_index_dry_run(&path).await;
+    }
 
     let db = Arc::new(Database::new(&config).await?);
 
@@ -269,6 +292,64 @@ fn parse_schedule(schedule: &str) -> cudgel::Result<u64> {
     }
 }
 
+/// Perform a dry run of indexing - scan files and report what would be indexed
+async fn cmd_index_dry_run(path: &PathBuf) -> cudgel::Result<()> {
+    use cudgel::parser::CodeParser;
+    use std::collections::HashMap;
+
+    println!("\n{}", "Scanning repository...".bright_cyan().bold());
+
+    let mut files_by_language: HashMap<String, usize> = HashMap::new();
+    let mut total_files = 0;
+    let mut supported_files = 0;
+    let mut unsupported_files = 0;
+
+    for entry in WalkDir::new(path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        let file_path = entry.path();
+        total_files += 1;
+
+        if let Some(lang) = CodeParser::detect_language(file_path) {
+            *files_by_language.entry(lang).or_insert(0) += 1;
+            supported_files += 1;
+        } else {
+            unsupported_files += 1;
+        }
+    }
+
+    println!("\n{}", "Dry Run Summary:".bright_green().bold());
+    println!("  Total files found: {}", total_files);
+    println!("  Supported files: {} ", supported_files);
+    println!("  Unsupported/skipped files: {}", unsupported_files);
+
+    if !files_by_language.is_empty() {
+        println!("\n  Files by language:");
+        let mut sorted: Vec<_> = files_by_language.iter().collect();
+        sorted.sort_by(|a, b| b.1.cmp(a.1));
+        for (lang, count) in sorted {
+            println!("    {}: {}", lang, count);
+        }
+    }
+
+    println!(
+        "\n{}",
+        format!(
+            "Run without --dry-run to actually index {} files",
+            supported_files
+        )
+        .bright_yellow()
+    );
+
+    Ok(())
+}
+
 async fn cmd_query(
     config: Arc<Config>,
     query: String,
@@ -335,18 +416,38 @@ async fn cmd_lsp(config: Arc<Config>) -> cudgel::Result<()> {
     Ok(())
 }
 
-async fn cmd_init_db(config: Arc<Config>) -> cudgel::Result<()> {
-    println!("{}", "Initializing database schema...".bright_blue().bold());
+async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
+    if reset {
+        println!(
+            "{}",
+            "⚠️  WARNING: Resetting database - ALL DATA WILL BE DELETED!"
+                .bright_red()
+                .bold()
+        );
+        println!("{}", "Dropping all tables...".yellow());
 
-    let db = Database::new(&config).await?;
-    db.init_schema().await?;
+        let db = Database::new(&config).await?;
+        db.reset_schema().await?;
 
-    println!(
-        "{}",
-        "Database schema initialized successfully"
-            .bright_green()
-            .bold()
-    );
+        println!(
+            "{}",
+            "Database schema reset successfully"
+                .bright_green()
+                .bold()
+        );
+    } else {
+        println!("{}", "Initializing database schema...".bright_blue().bold());
+
+        let db = Database::new(&config).await?;
+        db.init_schema().await?;
+
+        println!(
+            "{}",
+            "Database schema initialized successfully"
+                .bright_green()
+                .bold()
+        );
+    }
 
     Ok(())
 }

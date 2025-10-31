@@ -129,7 +129,11 @@ impl Database {
     /// Ensure database schema is initialized
     async fn ensure_initialized(&self) -> Result<()> {
         // Check if schema exists by trying to query repositories table
-        let client = self.pool.get().await?;
+        let client = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| crate::Error::from(e).with_context())?;
         let exists = client
             .query_opt(
                 "SELECT EXISTS (
@@ -138,7 +142,8 @@ impl Database {
                 )",
                 &[],
             )
-            .await?;
+            .await
+            .map_err(|e| crate::Error::from(e).with_context())?;
 
         if let Some(row) = exists {
             let schema_exists: bool = row.get(0);
@@ -155,8 +160,15 @@ impl Database {
 
     /// Check database connection health
     pub async fn health_check(&self) -> Result<bool> {
-        let client = self.pool.get().await?;
-        let row = client.query_one("SELECT 1 as health", &[]).await?;
+        let client = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| crate::Error::from(e).with_context())?;
+        let row = client
+            .query_one("SELECT 1 as health", &[])
+            .await
+            .map_err(|e| crate::Error::from(e).with_context())?;
         let health: i32 = row.get("health");
         Ok(health == 1)
     }
@@ -168,6 +180,40 @@ impl Database {
             .query_opt("SELECT 1 FROM pg_extension WHERE extname = 'vector'", &[])
             .await?;
         Ok(row.is_some())
+    }
+
+    /// Reset database schema
+    ///
+    /// Drops all tables and recreates them. WARNING: This deletes all data!
+    ///
+    /// # Returns
+    /// Ok if schema is successfully reset
+    pub async fn reset_schema(&self) -> Result<()> {
+        let client = self.pool.get().await?;
+
+        // Drop tables in reverse dependency order
+        // Note: "references" is a reserved keyword, so it needs to be quoted
+        client
+            .execute("DROP TABLE IF EXISTS code_chunks CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS \"references\" CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS symbols CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS ast_nodes CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS files CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS repositories CASCADE", &[])
+            .await?;
+
+        // Recreate schema
+        self.init_schema().await
     }
 
     /// Initialize database schema
