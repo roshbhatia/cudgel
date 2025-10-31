@@ -5,7 +5,7 @@ use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
     config::Config, database::Database, graph::GraphQuery, indexer::Indexer, lsp,
-    query::QueryEngine, temporal::TemporalClient,
+    query::QueryEngine, services::ServiceManager, temporal::TemporalClient,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -36,6 +36,10 @@ enum Commands {
         /// Repository name (defaults to directory name)
         #[arg(short, long)]
         name: Option<String>,
+
+        /// Schedule periodic indexing (e.g., hourly, daily, or interval in hours)
+        #[arg(short, long)]
+        schedule: Option<String>,
     },
 
     /// Query code using natural language
@@ -119,8 +123,12 @@ async fn main() -> cudgel::Result<()> {
     let config = Arc::new(Config::from_env()?);
 
     match cli.command {
-        Commands::Index { path, name } => {
-            cmd_index(config, path, name).await?;
+        Commands::Index {
+            path,
+            name,
+            schedule,
+        } => {
+            cmd_index(config, path, name, schedule).await?;
         }
         Commands::Query {
             query,
@@ -162,7 +170,12 @@ async fn cmd_index(
     config: Arc<Config>,
     path: PathBuf,
     _name: Option<String>,
+    schedule: Option<String>,
 ) -> cudgel::Result<()> {
+    // Auto-start services
+    let services = ServiceManager::new();
+    services.ensure_running().await?;
+
     println!("{}", "Indexing repository...".bright_blue().bold());
     println!("Path: {}", path.display());
 
@@ -207,7 +220,48 @@ async fn cmd_index(
         }
     }
 
+    // Handle scheduling if requested
+    if let Some(schedule_str) = schedule {
+        println!(
+            "\n{}",
+            "Setting up scheduled indexing...".bright_blue().bold()
+        );
+
+        let interval = parse_schedule(&schedule_str)?;
+        let temporal = TemporalClient::new(config);
+        let path_str = path.to_string_lossy().to_string();
+
+        let workflow_id = temporal
+            .schedule_periodic_indexing(&path_str, interval)
+            .await?;
+
+        println!(
+            "{}",
+            format!(
+                "✓ Scheduled to re-index every {} hours (workflow: {})",
+                interval, workflow_id
+            )
+            .bright_green()
+            .bold()
+        );
+    }
+
     Ok(())
+}
+
+/// Parse schedule string (e.g., "hourly" -> 1, "daily" -> 24, "12" -> 12)
+fn parse_schedule(schedule: &str) -> cudgel::Result<u64> {
+    match schedule.to_lowercase().as_str() {
+        "hourly" => Ok(1),
+        "daily" => Ok(24),
+        "weekly" => Ok(168),
+        _ => schedule.parse::<u64>().map_err(|_| {
+            cudgel::Error::Config(format!(
+                "Invalid schedule '{}'. Use 'hourly', 'daily', 'weekly', or a number of hours",
+                schedule
+            ))
+        }),
+    }
 }
 
 async fn cmd_query(
@@ -217,6 +271,10 @@ async fn cmd_query(
     limit: i64,
     json: bool,
 ) -> cudgel::Result<()> {
+    // Auto-start services
+    let services = ServiceManager::new();
+    services.ensure_running().await?;
+
     let db = Arc::new(Database::new(&config).await?);
     let query_engine = QueryEngine::new(config.clone(), db)?;
 
@@ -242,6 +300,10 @@ async fn cmd_graph(
     _direction: String,
     json: bool,
 ) -> cudgel::Result<()> {
+    // Auto-start services
+    let services = ServiceManager::new();
+    services.ensure_running().await?;
+
     let db = Arc::new(Database::new(&config).await?);
     let graph_query = GraphQuery::new(db);
 
