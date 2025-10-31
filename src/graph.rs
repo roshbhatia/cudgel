@@ -5,42 +5,84 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+/// Node in a code relationship graph
+///
+/// Represents a symbol in the call/reference graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphNode {
+    /// Symbol database ID
     pub id: i32,
+    /// Symbol name
     pub name: String,
+    /// Symbol kind ("function", "class", etc.)
     pub kind: String,
+    /// Source file path
     pub file: String,
+    /// Programming language
     pub language: Option<String>,
+    /// Line number in file (1-indexed)
     pub line: i32,
 }
 
+/// Edge in a code relationship graph
+///
+/// Represents a relationship between two symbols (call, import, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphEdge {
+    /// Source node ID
     pub from: i32,
+    /// Target node ID
     pub to: i32,
+    /// Edge type ("call", "import", "extends", etc.)
     #[serde(rename = "type")]
     pub edge_type: String,
+    /// Line number where relationship occurs
     pub line: Option<i32>,
+    /// Column number where relationship occurs
     pub column: Option<i32>,
 }
 
+/// Code relationship graph
+///
+/// Contains nodes (symbols) and edges (relationships) discovered by traversal.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph {
+    /// All nodes in the graph
     pub nodes: Vec<GraphNode>,
+    /// All edges connecting nodes
     pub edges: Vec<GraphEdge>,
+    /// Root symbol name that was queried
     pub root: String,
 }
 
+/// Graph query engine
+///
+/// Provides methods for traversing code relationships and building call graphs.
 pub struct GraphQuery {
     db: Arc<Database>,
 }
 
 impl GraphQuery {
+    /// Create a new graph query engine
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
     pub fn new(db: Arc<Database>) -> Self {
         GraphQuery { db }
     }
 
+    /// Get references graph for a symbol
+    ///
+    /// Traverses the code relationship graph starting from the named symbol,
+    /// following outgoing references up to the specified depth.
+    ///
+    /// # Arguments
+    /// * `symbol_name` - Name of the root symbol to start traversal from
+    /// * `repository_path` - Optional filter to specific repository
+    /// * `depth` - Maximum traversal depth (number of hops from root)
+    ///
+    /// # Returns
+    /// Graph containing all discovered nodes and edges
     pub async fn get_references(
         &self,
         symbol_name: &str,
@@ -52,15 +94,14 @@ impl GraphQuery {
             .get_symbol_by_name(symbol_name, repository_path)
             .await?;
 
-        if symbol.is_none() {
+        let Some(symbol) = symbol else {
             return Ok(Graph {
                 nodes: vec![],
                 edges: vec![],
                 root: symbol_name.to_string(),
             });
-        }
+        };
 
-        let symbol = symbol.unwrap();
         let symbol_id: i32 = symbol.get("id");
 
         let mut nodes = HashMap::new();
@@ -144,6 +185,18 @@ impl GraphQuery {
         Ok(())
     }
 
+    /// Get call graph for a symbol
+    ///
+    /// Similar to `get_references` but filtered for function call relationships.
+    /// Currently delegates to `get_references` with depth=2.
+    ///
+    /// # Arguments
+    /// * `symbol_name` - Name of the root symbol
+    /// * `repository_path` - Optional filter to specific repository
+    /// * `_direction` - Direction of traversal (not yet implemented)
+    ///
+    /// # Returns
+    /// Graph containing call relationships
     pub async fn get_call_graph(
         &self,
         symbol_name: &str,

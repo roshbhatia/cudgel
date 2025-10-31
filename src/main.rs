@@ -284,7 +284,13 @@ async fn cmd_query(
         .await?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&results).unwrap());
+        match serde_json::to_string_pretty(&results) {
+            Ok(json_str) => println!("{}", json_str),
+            Err(e) => {
+                eprintln!("{}: Failed to serialize results to JSON: {}", "Error".bright_red().bold(), e);
+                return Err(cudgel::Error::Other(format!("JSON serialization failed: {}", e)));
+            }
+        }
     } else {
         display_query_results(&results);
     }
@@ -309,7 +315,13 @@ async fn cmd_graph(
         .await?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&graph).unwrap());
+        match serde_json::to_string_pretty(&graph) {
+            Ok(json_str) => println!("{}", json_str),
+            Err(e) => {
+                eprintln!("{}: Failed to serialize graph to JSON: {}", "Error".bright_red().bold(), e);
+                return Err(cudgel::Error::Other(format!("JSON serialization failed: {}", e)));
+            }
+        }
     } else {
         display_graph(&graph);
     }

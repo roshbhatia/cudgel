@@ -6,6 +6,10 @@ use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+/// LSP server implementation for cudgel
+///
+/// Provides Language Server Protocol features using indexed code data.
+/// Currently a minimal implementation; full features to be added.
 pub struct CudgelLspServer {
     client: Client,
     #[allow(dead_code)] // Will be used for database queries in future implementation
@@ -56,6 +60,16 @@ impl LanguageServer for CudgelLspServer {
     }
 }
 
+/// Start the Language Server Protocol server
+///
+/// Runs an LSP server on stdio for IDE integration.
+/// The server provides code intelligence features using cudgel's indexed data.
+///
+/// # Arguments
+/// * `config` - Application configuration
+///
+/// # Returns
+/// Ok if server exits cleanly, error otherwise
 pub async fn start_lsp_server(config: Arc<Config>) -> Result<()> {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();

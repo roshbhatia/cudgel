@@ -7,53 +7,98 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio_postgres::{NoTls, Row};
 
+/// Database connection pool manager
+///
+/// Provides async access to PostgreSQL with pgvector extension for vector similarity search.
+/// Uses connection pooling via deadpool-postgres for efficient resource management.
 #[derive(Debug, Clone)]
 pub struct Database {
     pool: Pool,
 }
 
+/// Indexed code repository record
+///
+/// Represents a repository that has been indexed by cudgel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Repository {
+    /// Database primary key
     pub id: i32,
+    /// Absolute file system path to the repository
     pub path: String,
+    /// Repository name (derived from path)
     pub name: String,
+    /// Timestamp when first indexed
     pub indexed_at: chrono::NaiveDateTime,
+    /// Timestamp of last update/re-index
     pub last_updated: chrono::NaiveDateTime,
+    /// Additional repository metadata (JSON)
     pub metadata: JsonValue,
 }
 
+/// Source code file record
+///
+/// Represents a single source file that has been indexed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRecord {
+    /// Database primary key
     pub id: i32,
+    /// Foreign key to parent repository
     pub repository_id: i32,
+    /// Relative path within repository
     pub path: String,
+    /// Detected programming language (e.g., "rust", "python")
     pub language: Option<String>,
+    /// Full file contents
     pub content: String,
+    /// SHA256 hash of content for change detection
     pub hash: String,
+    /// Timestamp when indexed
     pub indexed_at: chrono::NaiveDateTime,
+    /// Additional file metadata (JSON)
     pub metadata: JsonValue,
 }
 
+/// Code symbol (function, class, method, etc.)
+///
+/// Represents an extracted symbol with its location and documentation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
+    /// Database primary key
     pub id: i32,
+    /// Foreign key to source file
     pub file_id: i32,
+    /// Symbol name (function name, class name, etc.)
     pub name: String,
+    /// Symbol kind ("function", "class", "method", "struct", etc.)
     pub kind: String,
+    /// Full signature (for functions/methods)
     pub signature: Option<String>,
+    /// Documentation string
     pub docstring: Option<String>,
+    /// Starting line number (1-indexed)
     pub start_line: i32,
+    /// Ending line number (1-indexed)
     pub end_line: i32,
 }
 
+/// Symbol reference/relationship record
+///
+/// Represents a relationship between two symbols (calls, imports, extends, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Reference {
+    /// Database primary key
     pub id: i32,
+    /// Source symbol ID
     pub from_symbol_id: i32,
+    /// Target symbol ID
     pub to_symbol_id: i32,
+    /// Type of reference ("call", "import", "extends", etc.)
     pub reference_type: String,
+    /// File where reference occurs
     pub file_id: i32,
+    /// Line number of reference (1-indexed)
     pub line: i32,
+    /// Column number of reference (0-indexed)
     pub column: i32,
 }
 
@@ -125,6 +170,10 @@ impl Database {
         Ok(row.is_some())
     }
 
+    /// Initialize database schema
+    ///
+    /// Creates all tables, indexes, and extensions required for cudgel.
+    /// Safe to call multiple times (uses IF NOT EXISTS).
     pub async fn init_schema(&self) -> Result<()> {
         let client = self.pool.get().await?;
 
@@ -297,6 +346,16 @@ impl Database {
         Ok(())
     }
 
+    /// Add or update a repository
+    ///
+    /// Creates a new repository record or updates the last_updated timestamp if it already exists.
+    ///
+    /// # Arguments
+    /// * `path` - Absolute file system path to repository
+    /// * `name` - Repository name
+    ///
+    /// # Returns
+    /// Repository ID (either newly created or existing)
     pub async fn add_repository(&self, path: &str, name: &str) -> Result<i32> {
         let client = self.pool.get().await?;
 
@@ -314,6 +373,19 @@ impl Database {
         Ok(row.get(0))
     }
 
+    /// Add or update a file
+    ///
+    /// Creates a new file record or updates content/hash if the file already exists.
+    ///
+    /// # Arguments
+    /// * `repository_id` - Parent repository ID
+    /// * `path` - Relative path within repository
+    /// * `language` - Detected programming language
+    /// * `content` - Full file contents
+    /// * `hash` - SHA256 hash of content
+    ///
+    /// # Returns
+    /// File ID (either newly created or existing)
     pub async fn add_file(
         &self,
         repository_id: i32,
@@ -347,6 +419,22 @@ impl Database {
         Ok(row.get(0))
     }
 
+    /// Add a symbol with its embedding
+    ///
+    /// Inserts a new symbol record with semantic embedding for vector search.
+    ///
+    /// # Arguments
+    /// * `file_id` - Parent file ID
+    /// * `name` - Symbol name
+    /// * `kind` - Symbol kind ("function", "class", etc.)
+    /// * `signature` - Full signature (for functions/methods)
+    /// * `docstring` - Documentation string
+    /// * `start_line` - Starting line number (1-indexed)
+    /// * `end_line` - Ending line number (1-indexed)
+    /// * `embedding` - Vector embedding (384 dimensions)
+    ///
+    /// # Returns
+    /// Symbol ID
     #[allow(clippy::too_many_arguments)] // All parameters are necessary for symbol data
     pub async fn add_symbol(
         &self,
@@ -384,6 +472,18 @@ impl Database {
         Ok(row.get(0))
     }
 
+    /// Search for symbols using vector similarity
+    ///
+    /// Performs approximate nearest neighbor search using pgvector's IVFFlat index.
+    /// Results are ordered by cosine similarity (most similar first).
+    ///
+    /// # Arguments
+    /// * `query_embedding` - Query vector (384 dimensions)
+    /// * `limit` - Maximum number of results
+    /// * `repository_path` - Optional filter to specific repository
+    ///
+    /// # Returns
+    /// Vector of database rows containing symbol data and similarity scores
     pub async fn search_symbols(
         &self,
         query_embedding: &[f32],
@@ -433,6 +533,14 @@ impl Database {
         Ok(rows)
     }
 
+    /// Get symbol by exact name match
+    ///
+    /// # Arguments
+    /// * `name` - Exact symbol name to search for
+    /// * `repository_path` - Optional filter to specific repository
+    ///
+    /// # Returns
+    /// Symbol row if found, None otherwise
     pub async fn get_symbol_by_name(
         &self,
         name: &str,
@@ -469,6 +577,13 @@ impl Database {
         Ok(row)
     }
 
+    /// Get symbol by database ID
+    ///
+    /// # Arguments
+    /// * `symbol_id` - Symbol primary key
+    ///
+    /// # Returns
+    /// Symbol row if found, None otherwise
     pub async fn get_symbol_by_id(&self, symbol_id: i32) -> Result<Option<Row>> {
         let client = self.pool.get().await?;
 
@@ -486,6 +601,15 @@ impl Database {
         Ok(row)
     }
 
+    /// Get all outgoing references from a symbol
+    ///
+    /// Returns symbols that this symbol references (calls, imports, etc.).
+    ///
+    /// # Arguments
+    /// * `symbol_id` - Source symbol ID
+    ///
+    /// # Returns
+    /// Vector of reference records
     pub async fn get_references(&self, symbol_id: i32) -> Result<Vec<Reference>> {
         let client = self.pool.get().await?;
 
