@@ -149,12 +149,11 @@ impl Indexer {
         println!("Found {} files to index", total_files);
 
         let pb = ProgressBar::new(total_files as u64);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
-                .unwrap()
-                .progress_chars("=>-"),
-        );
+        let style = ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
+            .unwrap_or_else(|_| ProgressStyle::default_bar())
+            .progress_chars("=>-");
+        pb.set_style(style);
 
         let mut stats = IndexingStats {
             total_files,

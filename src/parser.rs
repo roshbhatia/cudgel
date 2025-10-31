@@ -7,39 +7,70 @@ use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::{Language, Node, Parser};
 
+/// Abstract Syntax Tree node
+///
+/// Represents a node in the parsed AST with position and children.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ASTNode {
+    /// Node type from tree-sitter grammar (e.g., "function_definition")
     pub node_type: String,
+    /// Source text span for this node
     pub text: String,
+    /// Starting line number (0-indexed)
     pub start_line: usize,
+    /// Starting column number (0-indexed)
     pub start_column: usize,
+    /// Ending line number (0-indexed)
     pub end_line: usize,
+    /// Ending column number (0-indexed)
     pub end_column: usize,
+    /// Child AST nodes
     pub children: Vec<ASTNode>,
 }
 
+/// Extracted code symbol from parsing
+///
+/// Represents a function, class, method, or other symbol extracted from source code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
+    /// Symbol name
     pub name: String,
+    /// Symbol kind ("function", "class", "method", "struct", etc.)
     pub kind: String,
+    /// Full signature (for functions/methods)
     pub signature: Option<String>,
+    /// Documentation string
     pub docstring: Option<String>,
+    /// Starting line number (0-indexed)
     pub start_line: usize,
+    /// Ending line number (0-indexed)
     pub end_line: usize,
+    /// Full source text
     pub text: String,
 }
 
+/// Multi-language code parser using tree-sitter
+///
+/// Maintains a cache of tree-sitter parsers for different languages.
 pub struct CodeParser {
     parsers: HashMap<String, Parser>,
 }
 
 impl CodeParser {
+    /// Create a new code parser
     pub fn new() -> Self {
         CodeParser {
             parsers: HashMap::new(),
         }
     }
 
+    /// Detect programming language from file extension
+    ///
+    /// # Arguments
+    /// * `path` - File path to analyze
+    ///
+    /// # Returns
+    /// Language name if recognized, None otherwise
     pub fn detect_language(path: &Path) -> Option<String> {
         let ext = path.extension()?.to_str()?;
 
@@ -80,9 +111,22 @@ impl CodeParser {
             self.parsers.insert(language.to_string(), parser);
         }
 
-        Ok(self.parsers.get_mut(language).unwrap())
+        self.parsers.get_mut(language).ok_or_else(|| {
+            Error::Parse(format!("Parser for language '{}' not found after initialization", language))
+        })
     }
 
+    /// Parse a source file into an AST
+    ///
+    /// Detects language from file extension, parses using tree-sitter,
+    /// and returns the AST tree with detected language.
+    ///
+    /// # Arguments
+    /// * `path` - File path (used for language detection)
+    /// * `content` - File content to parse
+    ///
+    /// # Returns
+    /// Tuple of (AST root node, detected language name)
     pub fn parse_file(&mut self, path: &Path, content: &str) -> Result<(ASTNode, String)> {
         let language = Self::detect_language(path)
             .ok_or_else(|| Error::Parse(format!("Cannot detect language for {:?}", path)))?;
@@ -121,6 +165,17 @@ impl CodeParser {
         }
     }
 
+    /// Extract symbols (functions, classes, etc.) from AST
+    ///
+    /// Recursively traverses the AST and extracts all code symbols
+    /// based on language-specific node types.
+    ///
+    /// # Arguments
+    /// * `ast` - AST root node to traverse
+    /// * `language` - Language name (affects which node types are recognized as symbols)
+    ///
+    /// # Returns
+    /// Vector of extracted symbols with their metadata
     pub fn extract_symbols(&self, ast: &ASTNode, language: &str) -> Vec<Symbol> {
         let mut symbols = Vec::new();
         self.extract_symbols_recursive(ast, language, &mut symbols);

@@ -9,6 +9,10 @@
 use crate::{Config, Result};
 use std::sync::Arc;
 
+/// Embedding generator for semantic code search
+///
+/// Currently uses dummy embeddings (hash-based). For production use,
+/// load an ONNX model (see module-level documentation for instructions).
 pub struct EmbeddingGenerator {
     #[allow(dead_code)] // Will be used when ONNX runtime is implemented
     config: Arc<Config>,
@@ -19,6 +23,13 @@ pub struct EmbeddingGenerator {
 }
 
 impl EmbeddingGenerator {
+    /// Create a new embedding generator
+    ///
+    /// # Arguments
+    /// * `config` - Application configuration containing embedding settings
+    ///
+    /// # Returns
+    /// Embedding generator configured with specified dimensions
     pub fn new(config: Arc<Config>) -> Result<Self> {
         let dimension = config.embedding.dimension;
 
@@ -38,12 +49,33 @@ impl EmbeddingGenerator {
         })
     }
 
+    /// Encode text into an embedding vector
+    ///
+    /// Currently returns a dummy embedding based on hash of text.
+    /// In production, this would use an ONNX model for semantic embeddings.
+    ///
+    /// # Arguments
+    /// * `text` - Text to encode
+    ///
+    /// # Returns
+    /// Vector of floats (384 dimensions by default)
     pub fn encode(&self, text: &str) -> Result<Vec<f32>> {
         // TODO: Implement actual embedding generation with ONNX
         // For now, return a dummy embedding (zeros with a hash-based value)
         self.dummy_embedding(text)
     }
 
+    /// Encode a code symbol into an embedding
+    ///
+    /// Combines symbol name, signature, and docstring for richer embeddings.
+    ///
+    /// # Arguments
+    /// * `name` - Symbol name
+    /// * `signature` - Optional function/method signature
+    /// * `docstring` - Optional documentation string
+    ///
+    /// # Returns
+    /// Vector embedding representing the symbol
     pub fn encode_symbol(
         &self,
         name: &str,
@@ -62,10 +94,24 @@ impl EmbeddingGenerator {
         self.encode(&text)
     }
 
+    /// Encode a code snippet
+    ///
+    /// # Arguments
+    /// * `code` - Code snippet to encode
+    ///
+    /// # Returns
+    /// Vector embedding of the code
     pub fn encode_code(&self, code: &str) -> Result<Vec<f32>> {
         self.encode(code)
     }
 
+    /// Encode a search query
+    ///
+    /// # Arguments
+    /// * `query` - Natural language search query
+    ///
+    /// # Returns
+    /// Vector embedding of the query
     pub fn encode_query(&self, query: &str) -> Result<Vec<f32>> {
         self.encode(query)
     }
