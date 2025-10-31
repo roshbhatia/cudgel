@@ -2,3 +2,9 @@ target/
 Cargo.lock
 *.rs.bk
 .DS_Store
+
+# ONNX models (download separately)
+models/
+
+# Python virtual environment
+.venv/
