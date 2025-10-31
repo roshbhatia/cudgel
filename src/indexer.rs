@@ -211,7 +211,6 @@ impl Indexer {
         file_path: &Path,
         stats: &mut IndexingStats,
     ) -> Result<i32> {
-        // Read file content with error context
         let content = std::fs::read_to_string(file_path).map_err(|e| {
             crate::Error::Io(std::io::Error::new(
                 e.kind(),
@@ -219,7 +218,6 @@ impl Indexer {
             ))
         })?;
 
-        // Skip empty files
         if content.trim().is_empty() {
             return Err(crate::Error::Parse(format!(
                 "File is empty: {}",
@@ -228,21 +226,32 @@ impl Indexer {
         }
 
         let language = CodeParser::detect_language(file_path);
-
         let (ast, hash) = self.parser.parse_file(file_path, &content)?;
+
+        let path_str = file_path.to_string_lossy();
+        let existing_hash = self.db.get_file_hash(repo_id, &path_str).await?;
+
+        if let Some(old_hash) = existing_hash {
+            if old_hash == hash {
+                if let Some(file_id) = self.db.get_file_id(repo_id, &path_str).await? {
+                    return Ok(file_id);
+                }
+            } else if let Some(file_id) = self.db.get_file_id(repo_id, &path_str).await? {
+                self.db.delete_file_symbols(file_id).await?;
+            }
+        }
 
         let file_id = self
             .db
             .add_file(
                 repo_id,
-                &file_path.to_string_lossy(),
+                &path_str,
                 language.as_deref(),
                 &content,
                 &hash,
             )
             .await?;
 
-        // Extract and index symbols
         if let Some(lang) = &language {
             *stats.files_by_language.entry(lang.clone()).or_insert(0) += 1;
 

@@ -3,7 +3,7 @@ name = "cudgel"
 version = "0.1.0"
 edition = "2021"
 authors = ["Cudgel Team"]
-description = "A code indexing tool with tree-sitter, Temporal, PostgreSQL/pgvector, and LSP support"
+description = "A code indexing tool with tree-sitter and PostgreSQL/pgvector"
 license = "MIT"
 repository = "https://github.com/your-org/cudgel"
 
@@ -42,9 +42,6 @@ ort = { version = "2.0.0-rc.10", features = ["download-binaries"] }
 tokenizers = "0.19"
 ndarray = "0.15"
 
-# LSP
-tower-lsp = "0.20"
-
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -62,11 +59,6 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenv = "0.15"
-
-# Temporal (using tonic for gRPC)
-# temporal-sdk-core = "0.1"
-# temporal-sdk = "0.1"
-# Note: Temporal SDK not available on crates.io, placeholder for now
 
 # Pretty output
 comfy-table = "7.1"

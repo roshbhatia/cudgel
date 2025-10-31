@@ -155,7 +155,7 @@ impl EmbeddingGenerator {
         // Convert to ndarray for easier manipulation
         let hidden_states = Array2::from_shape_vec(
             (output_seq_len, hidden_dim),
-            data.iter().copied().collect(),
+            data.to_vec(),
         )
         .map_err(|e| Error::Embedding(format!("Failed to reshape tensor: {}", e)))?;
 

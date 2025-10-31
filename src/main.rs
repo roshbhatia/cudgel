@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
-    config::Config, database::Database, graph::GraphQuery, indexer::Indexer, lsp,
-    query::QueryEngine, temporal::TemporalClient,
+    config::Config, database::Database, graph::GraphQuery, indexer::Indexer,
+    query::QueryEngine,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 #[derive(Parser)]
 #[command(name = "cudgel")]
 #[command(version = "0.1.0")]
-#[command(about = "A code indexing tool with tree-sitter, Temporal, and PostgreSQL/pgvector", long_about = None)]
+#[command(about = "A code indexing tool with tree-sitter and PostgreSQL/pgvector", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -37,10 +37,6 @@ enum Commands {
         /// Repository name (defaults to directory name)
         #[arg(short, long)]
         name: Option<String>,
-
-        /// Schedule periodic indexing (e.g., hourly, daily, or interval in hours)
-        #[arg(short, long)]
-        schedule: Option<String>,
 
         /// Dry run - show what would be indexed without actually indexing
         #[arg(long)]
@@ -91,32 +87,11 @@ enum Commands {
         json: bool,
     },
 
-    /// Start the LSP server
-    Lsp {
-        /// LSP server port
-        #[arg(short, long)]
-        port: Option<u16>,
-    },
-
     /// Initialize the database schema
     InitDb {
         /// Reset (drop and recreate) all tables - WARNING: Deletes all data
         #[arg(long)]
         reset: bool,
-    },
-
-    /// Schedule repository indexing with Temporal
-    Schedule {
-        /// Path to the repository
-        path: String,
-
-        /// Enable periodic indexing
-        #[arg(short, long)]
-        periodic: bool,
-
-        /// Interval in hours for periodic indexing
-        #[arg(short, long, default_value = "24")]
-        interval: u64,
     },
 }
 
@@ -150,10 +125,9 @@ async fn main() -> cudgel::Result<()> {
         Commands::Index {
             path,
             name,
-            schedule,
             dry_run,
         } => {
-            cmd_index(config, path, name, schedule, dry_run).await?;
+            cmd_index(config, path, name, dry_run).await?;
         }
         Commands::Query {
             query,
@@ -173,18 +147,8 @@ async fn main() -> cudgel::Result<()> {
         } => {
             cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await?;
         }
-        Commands::Lsp { port: _ } => {
-            cmd_lsp(config).await?;
-        }
         Commands::InitDb { reset } => {
             cmd_init_db(config, reset).await?;
-        }
-        Commands::Schedule {
-            path,
-            periodic,
-            interval,
-        } => {
-            cmd_schedule(config, path, periodic, interval).await?;
         }
     }
 
@@ -195,7 +159,6 @@ async fn cmd_index(
     config: Arc<Config>,
     path: PathBuf,
     _name: Option<String>,
-    schedule: Option<String>,
     dry_run: bool,
 ) -> cudgel::Result<()> {
     if dry_run {
@@ -263,48 +226,7 @@ async fn cmd_index(
         }
     }
 
-    // Handle scheduling if requested
-    if let Some(schedule_str) = schedule {
-        println!(
-            "\n{}",
-            "Setting up scheduled indexing...".bright_blue().bold()
-        );
-
-        let interval = parse_schedule(&schedule_str)?;
-        let temporal = TemporalClient::new(config);
-        let path_str = path.to_string_lossy().to_string();
-
-        let workflow_id = temporal
-            .schedule_periodic_indexing(&path_str, interval)
-            .await?;
-
-        println!(
-            "{}",
-            format!(
-                " Scheduled to re-index every {} hours (workflow: {})",
-                interval, workflow_id
-            )
-            .bright_green()
-            .bold()
-        );
-    }
-
     Ok(())
-}
-
-/// Parse schedule string (e.g., "hourly" -> 1, "daily" -> 24, "12" -> 12)
-fn parse_schedule(schedule: &str) -> cudgel::Result<u64> {
-    match schedule.to_lowercase().as_str() {
-        "hourly" => Ok(1),
-        "daily" => Ok(24),
-        "weekly" => Ok(168),
-        _ => schedule.parse::<u64>().map_err(|_| {
-            cudgel::Error::Config(format!(
-                "Invalid schedule '{}'. Use 'hourly', 'daily', 'weekly', or a number of hours",
-                schedule
-            ))
-        }),
-    }
 }
 
 /// Perform a dry run of indexing - scan files and report what would be indexed
@@ -425,12 +347,6 @@ async fn cmd_graph(
     Ok(())
 }
 
-async fn cmd_lsp(config: Arc<Config>) -> cudgel::Result<()> {
-    println!("{}", "Starting LSP server on stdio...".bright_blue().bold());
-    lsp::start_lsp_server(config).await?;
-    Ok(())
-}
-
 async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
     if reset {
         println!(
@@ -463,32 +379,6 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
                 .bold()
         );
     }
-
-    Ok(())
-}
-
-async fn cmd_schedule(
-    config: Arc<Config>,
-    path: String,
-    periodic: bool,
-    interval: u64,
-) -> cudgel::Result<()> {
-    let temporal = TemporalClient::new(config);
-
-    let workflow_id = if periodic {
-        println!("{}", "Scheduling periodic indexing...".bright_blue().bold());
-        temporal.schedule_periodic_indexing(&path, interval).await?
-    } else {
-        println!("{}", "Scheduling one-time indexing...".bright_blue().bold());
-        temporal.schedule_indexing(&path).await?
-    };
-
-    println!(
-        "{}",
-        format!("Workflow scheduled: {}", workflow_id)
-            .bright_green()
-            .bold()
-    );
 
     Ok(())
 }
