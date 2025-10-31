@@ -11,39 +11,30 @@ pkgs.mkShell {
     clippy
     rust-analyzer
 
+    # PostgreSQL with pgvector
+    postgresql_16
+    pgvector
+
     # Development tools
     docker
     docker-compose
-    postgresql_16
 
     # Task automation
     go-task
 
-    # Git hooks
-    pre-commit
-
     # Other utilities
     git
-    gnumake
     pkg-config
     openssl
   ];
 
   shellHook = ''
-    echo "🔨 Cudgel Development Environment"
-    echo ""
-    echo "Available commands:"
-    echo "  cargo build           - Build the project"
-    echo "  cargo test            - Run tests"
-    echo "  cargo clippy          - Run linter"
-    echo "  cargo fmt             - Format code"
-    echo "  task                  - Run tasks (see Taskfile.yml)"
-    echo "  pre-commit install    - Install git hooks"
+    echo "Cudgel Development Environment"
     echo ""
     echo "Quick start:"
-    echo "  1. task install-hooks  - Setup git hooks"
-    echo "  2. task build          - Build project"
-    echo "  3. task test           - Run tests"
+    echo "  task build    - Build the project"
+    echo "  task test     - Run tests"
+    echo "  task refresh  - Rebuild and reinstall"
     echo ""
 
     # Set environment variables
