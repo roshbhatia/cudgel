@@ -193,3 +193,19 @@ tasks:
     cmds:
       - task: fmt
       - task: check
+
+  # Refresh: rebuild, reinstall, and re-setup services
+  refresh:
+    desc: Rebuild, reinstall, re-setup services, and check status
+    cmds:
+      - echo "🔨 Building cudgel..."
+      - cargo build --release
+      - echo "📦 Installing cudgel..."
+      - cargo install --path .
+      - echo "🗑️  Removing old services..."
+      - cudgel services remove --force || true
+      - echo "🔧 Setting up services..."
+      - cudgel setup
+      - echo "📊 Checking service status..."
+      - cudgel services status
+      - echo "✅ Refresh complete!"
