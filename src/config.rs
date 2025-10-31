@@ -13,12 +13,8 @@ use std::path::PathBuf;
 pub struct Config {
     /// Database connection configuration
     pub database: DatabaseConfig,
-    /// Temporal workflow engine configuration
-    pub temporal: TemporalConfig,
     /// Embedding model configuration for semantic search
     pub embedding: EmbeddingConfig,
-    /// Language Server Protocol configuration
-    pub lsp: LspConfig,
     /// Code indexing behavior configuration
     pub indexing: IndexingConfig,
 }
@@ -40,19 +36,6 @@ pub struct DatabaseConfig {
     pub password: String,
 }
 
-/// Temporal workflow engine configuration
-///
-/// Used for scheduled periodic re-indexing workflows.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemporalConfig {
-    /// Temporal server address (default: localhost:7234)
-    pub host: String,
-    /// Temporal namespace (default: default)
-    pub namespace: String,
-    /// Task queue name for indexing workflows (default: cudgel-indexing)
-    pub task_queue: String,
-}
-
 /// Embedding model configuration for semantic code search
 ///
 /// Currently uses dummy embeddings; production requires ONNX model.
@@ -62,15 +45,6 @@ pub struct EmbeddingConfig {
     pub model_path: PathBuf,
     /// Embedding vector dimension (default: 384)
     pub dimension: usize,
-}
-
-/// Language Server Protocol configuration
-///
-/// Controls LSP server behavior for IDE integration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LspConfig {
-    /// LSP server port (default: 6010)
-    pub port: u16,
 }
 
 /// Code indexing behavior configuration
@@ -86,7 +60,7 @@ pub struct IndexingConfig {
 
 impl Config {
     /// Create a new config with hardcoded local defaults
-    /// Uses non-standard ports to avoid conflicts (PostgreSQL: 54321, Temporal: 7234)
+    /// Uses non-standard port to avoid conflicts (PostgreSQL: 54321)
     pub fn local() -> Self {
         Config {
             database: DatabaseConfig {
@@ -96,16 +70,10 @@ impl Config {
                 user: std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string()),
                 password: "cudgel".to_string(),
             },
-            temporal: TemporalConfig {
-                host: "localhost:7234".to_string(),
-                namespace: "default".to_string(),
-                task_queue: "cudgel-indexing".to_string(),
-            },
             embedding: EmbeddingConfig {
                 model_path: PathBuf::from("./models/all-MiniLM-L6-v2"),
                 dimension: 384,
             },
-            lsp: LspConfig { port: 6010 },
             indexing: IndexingConfig {
                 batch_size: 100,
                 max_file_size: 1024 * 1024,

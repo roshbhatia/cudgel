@@ -682,4 +682,48 @@ impl Database {
             })
             .collect())
     }
+
+    pub async fn get_file_hash(
+        &self,
+        repository_id: i32,
+        path: &str,
+    ) -> Result<Option<String>> {
+        let client = self.pool.get().await?;
+
+        let row = client
+            .query_opt(
+                "SELECT hash FROM files WHERE repository_id = $1 AND path = $2",
+                &[&repository_id, &path],
+            )
+            .await?;
+
+        Ok(row.map(|r| r.get("hash")))
+    }
+
+    pub async fn delete_file_symbols(&self, file_id: i32) -> Result<u64> {
+        let client = self.pool.get().await?;
+
+        let rows_affected = client
+            .execute("DELETE FROM symbols WHERE file_id = $1", &[&file_id])
+            .await?;
+
+        Ok(rows_affected)
+    }
+
+    pub async fn get_file_id(
+        &self,
+        repository_id: i32,
+        path: &str,
+    ) -> Result<Option<i32>> {
+        let client = self.pool.get().await?;
+
+        let row = client
+            .query_opt(
+                "SELECT id FROM files WHERE repository_id = $1 AND path = $2",
+                &[&repository_id, &path],
+            )
+            .await?;
+
+        Ok(row.map(|r| r.get("id")))
+    }
 }
