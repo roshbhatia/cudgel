@@ -49,17 +49,18 @@ pub struct IndexingConfig {
 
 impl Config {
     /// Create a new config with hardcoded local defaults
+    /// Uses non-standard ports to avoid conflicts (PostgreSQL: 54321, Temporal: 7234)
     pub fn local() -> Self {
         Config {
             database: DatabaseConfig {
                 host: "localhost".to_string(),
-                port: 5432,
+                port: 54321,
                 database: "cudgel".to_string(),
-                user: "cudgel".to_string(),
+                user: std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string()),
                 password: "cudgel".to_string(),
             },
             temporal: TemporalConfig {
-                host: "localhost:7233".to_string(),
+                host: "localhost:7234".to_string(),
                 namespace: "default".to_string(),
                 task_queue: "cudgel-indexing".to_string(),
             },

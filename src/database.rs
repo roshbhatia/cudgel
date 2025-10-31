@@ -233,19 +233,19 @@ impl Database {
             )
             .await?;
 
-        // References table
+        // References table (quoted because "references" is a reserved keyword)
         client
             .execute(
-                "CREATE TABLE IF NOT EXISTS references (
+                "CREATE TABLE IF NOT EXISTS \"references\" (
                     id SERIAL PRIMARY KEY,
                     from_symbol_id INTEGER REFERENCES symbols(id) ON DELETE CASCADE,
                     to_symbol_id INTEGER REFERENCES symbols(id) ON DELETE CASCADE,
                     reference_type TEXT NOT NULL,
                     file_id INTEGER REFERENCES files(id) ON DELETE CASCADE,
                     line INTEGER NOT NULL,
-                    column INTEGER NOT NULL,
+                    \"column\" INTEGER NOT NULL,
                     metadata JSONB DEFAULT '{}',
-                    UNIQUE(from_symbol_id, to_symbol_id, reference_type, line, column)
+                    UNIQUE(from_symbol_id, to_symbol_id, reference_type, line, \"column\")
                 )",
                 &[],
             )
@@ -253,14 +253,14 @@ impl Database {
 
         client
             .execute(
-                "CREATE INDEX IF NOT EXISTS idx_references_from ON references(from_symbol_id)",
+                "CREATE INDEX IF NOT EXISTS idx_references_from ON \"references\"(from_symbol_id)",
                 &[],
             )
             .await?;
 
         client
             .execute(
-                "CREATE INDEX IF NOT EXISTS idx_references_to ON references(to_symbol_id)",
+                "CREATE INDEX IF NOT EXISTS idx_references_to ON \"references\"(to_symbol_id)",
                 &[],
             )
             .await?;
@@ -492,7 +492,7 @@ impl Database {
         let rows = client
             .query(
                 "SELECT r.*, s.name as to_name, s.kind as to_kind
-                 FROM references r
+                 FROM \"references\" r
                  JOIN symbols s ON r.to_symbol_id = s.id
                  WHERE r.from_symbol_id = $1",
                 &[&symbol_id],

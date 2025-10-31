@@ -8,10 +8,8 @@ pub mod graph;
 pub mod indexer;
 pub mod local_db;
 pub mod lsp;
-pub mod macos_services;
 pub mod parser;
 pub mod query;
-pub mod services;
 pub mod temporal;
 
 pub use config::Config;
