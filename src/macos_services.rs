@@ -25,7 +25,7 @@ impl MacOSServices {
 
     /// One-time setup: install Homebrew services and create Launch Agents
     pub async fn setup(&self) -> Result<()> {
-        println!("🔧 Setting up cudgel services...");
+        println!(" Setting up cudgel services...");
 
         // Ensure Launch Agents directory exists
         fs::create_dir_all(&self.launch_agents_dir)?;
@@ -49,7 +49,7 @@ impl MacOSServices {
         // Initialize database
         self.init_database().await?;
 
-        println!("✅ Services setup complete!");
+        println!(" Services setup complete!");
         println!("\nServices will auto-start on login.");
         println!("You can also manage them with:");
         println!("  cudgel services start");
@@ -68,14 +68,14 @@ impl MacOSServices {
     }
 
     async fn ensure_postgres_installed(&self) -> Result<()> {
-        println!("📦 Checking PostgreSQL installation...");
+        println!(" Checking PostgreSQL installation...");
 
         let output = Command::new("brew")
             .args(["list", "postgresql@16"])
             .output()?;
 
         if !output.status.success() {
-            println!("📥 Installing PostgreSQL 16 via Homebrew...");
+            println!(" Installing PostgreSQL 16 via Homebrew...");
             let install = Command::new("brew")
                 .args(["install", "postgresql@16"])
                 .status()?;
@@ -87,12 +87,12 @@ impl MacOSServices {
             }
         }
 
-        println!("✓ PostgreSQL 16 installed");
+        println!(" PostgreSQL 16 installed");
         Ok(())
     }
 
     async fn setup_postgres_agent(&self) -> Result<()> {
-        println!("📝 Creating PostgreSQL Launch Agent...");
+        println!(" Creating PostgreSQL Launch Agent...");
 
         let plist_path = self.launch_agents_dir.join(POSTGRES_PLIST);
 
@@ -128,7 +128,7 @@ impl MacOSServices {
 
         // Initialize database if needed
         if !PathBuf::from(&data_dir).exists() {
-            println!("🗄️  Initializing PostgreSQL database...");
+            println!("Initializing PostgreSQL database...");
             let initdb = format!("{}/opt/postgresql@16/bin/initdb", brew_prefix);
             Command::new(initdb)
                 .arg("-D")
@@ -141,12 +141,12 @@ impl MacOSServices {
             .args(["load", plist_path.to_str().unwrap()])
             .status()?;
 
-        println!("✓ PostgreSQL Launch Agent created and loaded");
+        println!(" PostgreSQL Launch Agent created and loaded");
         Ok(())
     }
 
     async fn setup_temporal_agent(&self) -> Result<()> {
-        println!("📝 Creating Temporal Launch Agent...");
+        println!(" Creating Temporal Launch Agent...");
 
         let plist_path = self.launch_agents_dir.join(TEMPORAL_PLIST);
 
@@ -181,7 +181,7 @@ impl MacOSServices {
         fs::write(&plist_path, plist_content)?;
 
         // Pull Temporal image first
-        println!("📥 Pulling Temporal Docker image...");
+        println!(" Pulling Temporal Docker image...");
         Command::new("docker")
             .args(["pull", "temporalio/auto-setup:latest"])
             .status()?;
@@ -191,12 +191,12 @@ impl MacOSServices {
             .args(["load", plist_path.to_str().unwrap()])
             .status()?;
 
-        println!("✓ Temporal Launch Agent created and loaded");
+        println!(" Temporal Launch Agent created and loaded");
         Ok(())
     }
 
     async fn init_database(&self) -> Result<()> {
-        println!("🗄️  Initializing cudgel database...");
+        println!("Initializing cudgel database...");
 
         // Wait for postgres to start
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
@@ -219,12 +219,12 @@ impl MacOSServices {
             .args(["cudgel", "-c", "CREATE EXTENSION IF NOT EXISTS vector;"])
             .output();
 
-        println!("✓ Database initialized");
+        println!(" Database initialized");
         Ok(())
     }
 
     pub async fn start(&self) -> Result<()> {
-        println!("▶️  Starting services...");
+        println!("  Starting services...");
 
         let postgres_plist = self.launch_agents_dir.join(POSTGRES_PLIST);
         let temporal_plist = self.launch_agents_dir.join(TEMPORAL_PLIST);
@@ -237,12 +237,12 @@ impl MacOSServices {
             .args(["load", temporal_plist.to_str().unwrap()])
             .status()?;
 
-        println!("✓ Services started");
+        println!(" Services started");
         Ok(())
     }
 
     pub async fn stop(&self) -> Result<()> {
-        println!("⏸️  Stopping services...");
+        println!("  Stopping services...");
 
         let postgres_plist = self.launch_agents_dir.join(POSTGRES_PLIST);
         let temporal_plist = self.launch_agents_dir.join(TEMPORAL_PLIST);
@@ -255,7 +255,7 @@ impl MacOSServices {
             .args(["unload", temporal_plist.to_str().unwrap()])
             .status()?;
 
-        println!("✓ Services stopped");
+        println!(" Services stopped");
         Ok(())
     }
 
@@ -269,9 +269,9 @@ impl MacOSServices {
 
         status.push_str("PostgreSQL: ");
         status.push_str(if pg_status.status.success() {
-            "running ✓\n"
+            "running\n"
         } else {
-            "stopped ✗\n"
+            "stopped\n"
         });
 
         // Check temporal
@@ -281,9 +281,9 @@ impl MacOSServices {
 
         status.push_str("Temporal:   ");
         status.push_str(if temporal_status.status.success() {
-            "running ✓\n"
+            "running\n"
         } else {
-            "stopped ✗\n"
+            "stopped\n"
         });
 
         Ok(status)
@@ -320,7 +320,7 @@ impl MacOSServices {
     }
 
     pub async fn remove(&self) -> Result<()> {
-        println!("🗑️  Removing cudgel services...");
+        println!("Removing cudgel services...");
 
         // Stop services first
         self.stop().await?;
@@ -332,7 +332,7 @@ impl MacOSServices {
         let _ = fs::remove_file(postgres_plist);
         let _ = fs::remove_file(temporal_plist);
 
-        println!("✓ Services removed");
+        println!(" Services removed");
         println!("\nNote: PostgreSQL data is preserved in Homebrew.");
         println!("To completely remove PostgreSQL: brew uninstall postgresql@16");
 

@@ -2,16 +2,16 @@
 
 A code indexing tool that combines tree-sitter parsing, PostgreSQL/pgvector embeddings, Temporal workflows, and LSP integration for intelligent code search and analysis.
 
-**One-time setup** - run `cudgel setup` once, then services start automatically on login! 🚀
+**One-time setup** - run `cudgel setup` once, then services start automatically on login!
 
 ## Features
 
-- 🔍 **Natural Language Search**: Find code using plain English queries
-- 🌳 **Tree-sitter Parsing**: Multi-language AST parsing (Python, JS/TS, Rust, Go, C/C++, Java)
-- 🔗 **Code Relationships**: Track and query references and call graphs
-- ⏰ **Auto-Scheduling**: Periodic re-indexing with `--schedule` flag
-- 🍎 **macOS Launch Agents**: Persistent services via launchctl
-- 💻 **Rich CLI**: Beautiful terminal UI with progress bars and tables
+- **Natural Language Search**: Find code using plain English queries
+- **Tree-sitter Parsing**: Multi-language AST parsing (Python, JS/TS, Rust, Go, C/C++, Java)
+- **Code Relationships**: Track and query references and call graphs
+- **Auto-Scheduling**: Periodic re-indexing with `--schedule` flag
+- **macOS Launch Agents**: Persistent services via launchctl
+- **Rich CLI**: Beautiful terminal UI with progress bars and tables
 
 ## Quick Start
 
@@ -46,16 +46,16 @@ cudgel index /path/to/repo
 
 **Index with scheduled re-indexing:**
 ```bash
-cudgel index . --schedule hourly   # every hour
-cudgel index . --schedule daily    # every 24 hours
-cudgel index . --schedule 6        # every 6 hours
+cudgel index . --schedule hourly # every hour
+cudgel index . --schedule daily # every 24 hours
+cudgel index . --schedule 6 # every 6 hours
 ```
 
 **Manage services:**
 ```bash
-cudgel services status   # Check status
-cudgel services stop     # Stop services
-cudgel services start    # Start services
+cudgel services status # Check status
+cudgel services stop # Stop services
+cudgel services start # Start services
 ```
 
 **Search your code:**
@@ -74,41 +74,41 @@ See [QUICKSTART.md](QUICKSTART.md) for a complete guide.
 ## Architecture
 
 ```
-┌─────────────┐
-│   CLI       │  Your commands
-└──────┬──────┘
-       │
-┌──────▼──────────────────────────┐
-│    Auto-Service Manager         │
-│  (Docker Compose)               │
-│   ├─ PostgreSQL + pgvector      │
-│   └─ Temporal                   │
-└──────┬──────────────────────────┘
-       │
-┌──────▼──────────────────────────┐
-│    Cudgel Core Engine           │
-│  ┌──────────┐    ┌───────────┐ │
-│  │ Tree-    │───▶│  Indexer  │ │
-│  │ sitter   │    └─────┬─────┘ │
-│  └──────────┘          │        │
-│  ┌──────────┐    ┌─────▼─────┐ │
-│  │Embedding │───▶│  Database │ │
-│  │Generator │    │  (auto-   │ │
-│  └──────────┘    │   init)   │ │
-│                  └─────┬─────┘ │
-│  ┌──────────┐    ┌─────▼─────┐ │
-│  │  Query   │───▶│   Graph   │ │
-│  │  Engine  │    │   Query   │ │
-│  └──────────┘    └───────────┘ │
-└─────────────────────────────────┘
+
+ � CLI � Your commands
+ � �
+ �
+ �
+ � Auto-Service Manager �
+ � (Docker Compose) �
+ � PostgreSQL + pgvector �
+ � Temporal �
+ � �
+ �
+ �
+ � Cudgel Core Engine �
+ � �
+ � � Tree- � � Indexer � �
+ � � sitter � � � �
+ � � � �
+ � � �
+ � �Embedding � � Database � �
+ � �Generator � � (auto- � �
+ � � � init) � �
+ � � � �
+ � � �
+ � � Query � � Graph � �
+ � � Engine � � Query � �
+ � � � �
+ �
 ```
 
 ## How It Works
 
 1. **First Run**: When you run `cudgel index`, it automatically:
-   - Starts PostgreSQL + Temporal via Docker (~30 seconds first time)
-   - Initializes the database schema
-   - Indexes your code
+ - Starts PostgreSQL + Temporal via Docker (~30 seconds first time)
+ - Initializes the database schema
+ - Indexes your code
 
 2. **Parsing**: Uses tree-sitter to parse source files into ASTs
 
@@ -136,16 +136,16 @@ See [QUICKSTART.md](QUICKSTART.md) for a complete guide.
 
 ```bash
 # Using Task (recommended)
-task --list           # See available tasks
-task build            # Build project
-task test             # Run tests
-task pre-commit       # Run all checks
+task --list # See available tasks
+task build # Build project
+task test # Run tests
+task pre-commit # Run all checks
 
 # Using cargo directly
-cargo build           # Build
-cargo test            # Test
-cargo clippy          # Lint
-cargo fmt             # Format
+cargo build # Build
+cargo test # Test
+cargo clippy # Lint
+cargo fmt # Format
 ```
 
 ### Development Tools
@@ -162,10 +162,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 ### With Nix
 
 ```bash
-nix-shell              # Enter dev shell
-task install-hooks     # Setup git hooks
-task build            # Build
-task test             # Test
+nix-shell # Enter dev shell
+task install-hooks # Setup git hooks
+task build # Build
+task test # Test
 ```
 
 ### Pre-commit Hooks
@@ -184,53 +184,53 @@ task install-hooks
 
 ```
 cudgel/
-├── src/
-│   ├── main.rs          # CLI entry point
-│   ├── config.rs        # Configuration (hardcoded local defaults)
-│   ├── services.rs      # Auto-managed Docker services
-│   ├── database.rs      # PostgreSQL + pgvector operations
-│   ├── indexer.rs       # Repository indexing orchestration
-│   ├── parser.rs        # Tree-sitter parsing
-│   ├── embeddings.rs    # Vector embedding generation
-│   ├── query.rs         # Natural language search
-│   ├── graph.rs         # Code relationship analysis
-│   ├── lsp.rs           # LSP server implementation
-│   ├── temporal.rs      # Temporal workflow integration
-│   └── error.rs         # Error types
-├── tests/
-│   └── integration_tests.rs
-├── Taskfile.yml         # Task automation
-├── shell.nix            # Nix development environment
-├── .pre-commit-config.yaml
-├── .github/workflows/   # CI/CD
-├── CLAUDE.md            # Development guide for AI assistants
-├── CONTRIBUTING.md      # Contribution guidelines
-└── QUICKSTART.md        # Quick start guide
+ src/
+ � main.rs # CLI entry point
+ � config.rs # Configuration (hardcoded local defaults)
+ � services.rs # Auto-managed Docker services
+ � database.rs # PostgreSQL + pgvector operations
+ � indexer.rs # Repository indexing orchestration
+ � parser.rs # Tree-sitter parsing
+ � embeddings.rs # Vector embedding generation
+ � query.rs # Natural language search
+ � graph.rs # Code relationship analysis
+ � lsp.rs # LSP server implementation
+ � temporal.rs # Temporal workflow integration
+ � error.rs # Error types
+ tests/
+ � integration_tests.rs
+ Taskfile.yml # Task automation
+ shell.nix # Nix development environment
+ .pre-commit-config.yaml
+ .github/workflows/ # CI/CD
+ CLAUDE.md # Development guide for AI assistants
+ CONTRIBUTING.md # Contribution guidelines
+ QUICKSTART.md # Quick start guide
 ```
 
 ## CLI Commands
 
 ```bash
 # Index repositories
-cudgel index <path>                    # Index once
-cudgel index <path> --schedule hourly  # With periodic re-indexing
+cudgel index <path> # Index once
+cudgel index <path> --schedule hourly # With periodic re-indexing
 
 # Search code
-cudgel query "search term"             # Basic search
-cudgel query "term" --limit 10         # Limit results
-cudgel query "term" --json             # JSON output
+cudgel query "search term" # Basic search
+cudgel query "term" --limit 10 # Limit results
+cudgel query "term" --json # JSON output
 
 # Explore relationships
-cudgel graph <symbol>                  # Show relationships
-cudgel graph <symbol> --depth 3        # Deep traversal
-cudgel graph <symbol> --json           # JSON output
+cudgel graph <symbol> # Show relationships
+cudgel graph <symbol> --depth 3 # Deep traversal
+cudgel graph <symbol> --json # JSON output
 
 # LSP server (for IDE integration)
-cudgel lsp                             # Start LSP server
+cudgel lsp # Start LSP server
 
 # Database management (optional)
-cudgel init-db                         # Manual schema init
-cudgel schedule <path>                 # Standalone scheduling
+cudgel init-db # Manual schema init
+cudgel schedule <path> # Standalone scheduling
 ```
 
 ## Configuration
@@ -256,9 +256,9 @@ cargo test test_name
 cargo test --test integration_tests
 
 # With Task
-task test              # All tests
-task test-unit         # Unit tests only
-task test-integration  # Integration tests only
+task test # All tests
+task test-unit # Unit tests only
+task test-integration # Integration tests only
 ```
 
 ## CI/CD
@@ -266,16 +266,16 @@ task test-integration  # Integration tests only
 We use GitHub Actions for continuous integration:
 
 - **CI Pipeline** (`.github/workflows/ci.yml`):
-  - Runs on push/PR
-  - Tests on Linux and macOS
-  - Runs fmt, clippy, and tests
-  - Security audit
+ - Runs on push/PR
+ - Tests on Linux and macOS
+ - Runs fmt, clippy, and tests
+ - Security audit
 
 - **Release Pipeline** (`.github/workflows/release.yml`):
-  - Triggers on version tags (`v*`)
-  - Builds binaries for all platforms
-  - Creates GitHub releases
-  - Publishes to crates.io
+ - Triggers on version tags (`v*`)
+ - Builds binaries for all platforms
+ - Creates GitHub releases
+ - Publishes to crates.io
 
 ## Contributing
 
@@ -339,4 +339,4 @@ Built with:
 
 ---
 
-Made with ❤️ and Claude Code
+Made with and Claude Code

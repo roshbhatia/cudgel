@@ -58,18 +58,18 @@ Found 150 files to index
 Successfully indexed repository with ID: 1
 
 Indexing Statistics:
-  Files: 150 total, 148 indexed, 2 failed
-  Symbols: 423 total
+ Files: 150 total, 148 indexed, 2 failed
+ Symbols: 423 total
 
-  Files by language:
-    rust: 45
-    python: 50
-    javascript: 53
+ Files by language:
+ rust: 45
+ python: 50
+ javascript: 53
 
-  Symbols by kind:
-    function: 285
-    class: 95
-    method: 43
+ Symbols by kind:
+ function: 285
+ class: 95
+ method: 43
 ```
 
 ## Service Management
@@ -181,38 +181,38 @@ Cudgel automatically detects and indexes these languages:
 ## How It Works
 
 ```
-┌─────────────┐
-│   CLI       │  Your commands (cudgel index ., cudgel query "...")
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│    Auto-Service Manager                 │
-│  ┌─────────────────────────────────┐   │
-│  │ Docker Compose                   │   │
-│  │  ├─ PostgreSQL + pgvector        │   │
-│  │  └─ Temporal (for scheduling)    │   │
-│  └─────────────────────────────────┘   │
-└─────────────┬───────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────┐
-│    Cudgel Core Engine                   │
-│  ┌──────────┐    ┌───────────┐         │
-│  │ Tree-    │───▶│  Indexer  │         │
-│  │ sitter   │    └─────┬─────┘         │
-│  └──────────┘          │                │
-│  ┌──────────┐    ┌─────▼─────┐         │
-│  │Embedding │───▶│  Database │         │
-│  │Generator │    │  (auto-   │         │
-│  │          │    │   init)   │         │
-│  └──────────┘    └─────┬─────┘         │
-│                        │                │
-│  ┌──────────┐    ┌─────▼─────┐         │
-│  │  Query   │───▶│   Graph   │         │
-│  │  Engine  │    │   Query   │         │
-│  └──────────┘    └───────────┘         │
-└─────────────────────────────────────────┘
+
+ � CLI � Your commands (cudgel index ., cudgel query "...")
+ � �
+ �
+ �
+
+ � Auto-Service Manager �
+ � �
+ � � Docker Compose � �
+ � � PostgreSQL + pgvector � �
+ � � Temporal (for scheduling) � �
+ � � �
+ � �
+ �
+ �
+
+ � Cudgel Core Engine �
+ � �
+ � � Tree- � � Indexer � �
+ � � sitter � � � �
+ � � � �
+ � � �
+ � �Embedding � � Database � �
+ � �Generator � � (auto- � �
+ � � � � init) � �
+ � � � � �
+ � � �
+ � � �
+ � � Query � � Graph � �
+ � � Engine � � Query � �
+ � � � �
+ �
 ```
 
 **Key Features:**
@@ -273,4 +273,4 @@ cudgel query --help
 - See [CLAUDE.md](CLAUDE.md) for development guide
 - Check out the source code to understand the internals
 
-Happy indexing! 🚀
+Happy indexing!
