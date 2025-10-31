@@ -39,6 +39,9 @@ impl EmbeddingGenerator {
         let dimension = config.embedding.dimension;
         let model_path = &config.embedding.model_path;
 
+        // Check if model files exist before attempting to load
+        Self::check_model_dependencies(model_path)?;
+
         // Initialize ONNX Runtime environment (only once)
         ort::init()
             .with_name("cudgel")
@@ -235,5 +238,72 @@ impl EmbeddingGenerator {
     /// Vector embedding of the query
     pub fn encode_query(&self, query: &str) -> Result<Vec<f32>> {
         self.encode(query)
+    }
+
+    /// Check if all required model files exist
+    ///
+    /// Verifies that the ONNX model and tokenizer files are present.
+    /// Provides helpful error messages with download instructions if not.
+    ///
+    /// # Arguments
+    /// * `model_path` - Path to the model directory
+    ///
+    /// # Returns
+    /// Ok if all files exist, Error with instructions otherwise
+    fn check_model_dependencies(model_path: &std::path::Path) -> Result<()> {
+        let required_files = vec![
+            ("model.onnx", "ONNX model file"),
+            ("tokenizer.json", "Tokenizer configuration"),
+            ("config.json", "Model configuration"),
+        ];
+
+        let mut missing_files = Vec::new();
+
+        for (file, description) in &required_files {
+            let file_path = model_path.join(file);
+            if !file_path.exists() {
+                missing_files.push(format!("  - {} ({})", file, description));
+            }
+        }
+
+        if !missing_files.is_empty() {
+            let error_msg = format!(
+                "Missing required model files in {:?}:\n{}\n\n\
+                 To download the model, run:\n\
+                 \n\
+                 # Create a Python virtual environment\n\
+                 uv venv .venv\n\
+                 source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate\n\
+                 \n\
+                 # Install optimum with ONNX Runtime support\n\
+                 uv pip install 'optimum[onnxruntime]'\n\
+                 \n\
+                 # Export the model to ONNX format\n\
+                 python3 << 'EOF'\n\
+                 from optimum.onnxruntime import ORTModelForFeatureExtraction\n\
+                 from transformers import AutoTokenizer\n\
+                 \n\
+                 model_id = \"sentence-transformers/all-MiniLM-L6-v2\"\n\
+                 output_dir = \"./models/all-MiniLM-L6-v2\"\n\
+                 \n\
+                 print(f\"Loading model from {{model_id}}...\")\n\
+                 model = ORTModelForFeatureExtraction.from_pretrained(model_id, export=True)\n\
+                 tokenizer = AutoTokenizer.from_pretrained(model_id)\n\
+                 \n\
+                 print(f\"Saving ONNX model to {{output_dir}}...\")\n\
+                 model.save_pretrained(output_dir)\n\
+                 tokenizer.save_pretrained(output_dir)\n\
+                 \n\
+                 print(\"Model exported successfully!\")\n\
+                 EOF\n\
+                 \n\
+                 Or use the provided setup script if available.",
+                model_path,
+                missing_files.join("\n")
+            );
+            return Err(Error::Embedding(error_msg));
+        }
+
+        Ok(())
     }
 }
