@@ -122,10 +122,25 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> cudgel::Result<()> {
-    // Initialize tracing
+    // Check if debug mode is enabled
+    let debug_mode = std::env::var("CUDGEL_DEBUG")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    // Initialize tracing with appropriate log levels
+    let env_filter = if debug_mode {
+        // Debug mode: show all INFO logs including ONNX Runtime
+        EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into())
+    } else {
+        // Normal mode: suppress ONNX Runtime logs, show INFO for cudgel
+        EnvFilter::from_default_env()
+            .add_directive(tracing::Level::INFO.into())
+            .add_directive("ort=error".parse().unwrap())
+    };
+
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
+        .with(env_filter)
         .init();
 
     let cli = Cli::parse();
