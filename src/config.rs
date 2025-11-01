@@ -87,9 +87,93 @@ impl Config {
         }
     }
 
+    /// Validate configuration values
+    ///
+    /// # Returns
+    /// Ok if configuration is valid, Err with details if invalid
+    ///
+    /// # Validation Rules
+    /// - Database port must be between 1 and 65535
+    /// - Database host cannot be empty
+    /// - Embedding dimension must be positive
+    /// - Batch size must be positive and <= 10000
+    /// - Max file size must be positive and <= 100MB
+    pub fn validate(&self) -> crate::Result<()> {
+        // Validate database config
+        if self.database.host.trim().is_empty() {
+            return Err(crate::Error::Config(
+                "Database host cannot be empty".to_string(),
+            ));
+        }
+
+        if self.database.port == 0 {
+            return Err(crate::Error::Config(
+                "Database port cannot be 0. Must be between 1 and 65535".to_string(),
+            ));
+        }
+
+        if self.database.database.trim().is_empty() {
+            return Err(crate::Error::Config(
+                "Database name cannot be empty".to_string(),
+            ));
+        }
+
+        if self.database.user.trim().is_empty() {
+            return Err(crate::Error::Config(
+                "Database user cannot be empty".to_string(),
+            ));
+        }
+
+        // Validate embedding config
+        if self.embedding.dimension == 0 {
+            return Err(crate::Error::Config(
+                "Embedding dimension must be positive".to_string(),
+            ));
+        }
+
+        if self.embedding.dimension > 4096 {
+            return Err(crate::Error::Config(format!(
+                "Embedding dimension {} is too large. Maximum is 4096",
+                self.embedding.dimension
+            )));
+        }
+
+        // Validate indexing config
+        if self.indexing.batch_size == 0 {
+            return Err(crate::Error::Config(
+                "Batch size must be positive".to_string(),
+            ));
+        }
+
+        if self.indexing.batch_size > 10000 {
+            return Err(crate::Error::Config(format!(
+                "Batch size {} is too large. Maximum is 10000",
+                self.indexing.batch_size
+            )));
+        }
+
+        if self.indexing.max_file_size == 0 {
+            return Err(crate::Error::Config(
+                "Max file size must be positive".to_string(),
+            ));
+        }
+
+        const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 100MB
+        if self.indexing.max_file_size > MAX_FILE_SIZE {
+            return Err(crate::Error::Config(format!(
+                "Max file size {} bytes is too large. Maximum is {} bytes (100MB)",
+                self.indexing.max_file_size, MAX_FILE_SIZE
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Backward compatibility - just returns local config
     pub fn from_env() -> crate::Result<Self> {
-        Ok(Self::local())
+        let config = Self::local();
+        config.validate()?;
+        Ok(config)
     }
 
     /// Generate PostgreSQL connection string

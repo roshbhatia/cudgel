@@ -174,18 +174,65 @@ impl Indexer {
 
         let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
 
+        // Track skipped files for reporting
+        let mut skipped_large = 0;
+        let mut skipped_unsupported = 0;
+        let mut skipped_no_metadata = 0;
+
         all_files.retain(|path| {
-            path.is_file()
-                && CodeParser::detect_language(path).is_some()
-                && path.metadata()
-                    .map(|m| m.len() <= self.config.indexing.max_file_size as u64)
-                    .unwrap_or(false)
+            if !path.is_file() {
+                return false;
+            }
+
+            // Check if language is supported
+            if CodeParser::detect_language(path).is_none() {
+                skipped_unsupported += 1;
+                return false;
+            }
+
+            // Check file size
+            match path.metadata() {
+                Ok(metadata) => {
+                    let size = metadata.len();
+                    if size > self.config.indexing.max_file_size as u64 {
+                        skipped_large += 1;
+                        eprintln!(
+                            "Skipping large file: {} ({} bytes, max: {} bytes)",
+                            path.display(),
+                            size,
+                            self.config.indexing.max_file_size
+                        );
+                        false
+                    } else if size == 0 {
+                        // Skip empty files
+                        false
+                    } else {
+                        true
+                    }
+                }
+                Err(_) => {
+                    skipped_no_metadata += 1;
+                    false
+                }
+            }
         });
 
         let files = all_files;
         let total_files = files.len();
 
         println!("Found {} files to index", total_files);
+        if skipped_large > 0 {
+            println!(
+                "Skipped {} files exceeding max size ({} bytes)",
+                skipped_large, self.config.indexing.max_file_size
+            );
+        }
+        if skipped_unsupported > 0 {
+            println!("Skipped {} files with unsupported language", skipped_unsupported);
+        }
+        if skipped_no_metadata > 0 {
+            println!("Skipped {} files with inaccessible metadata", skipped_no_metadata);
+        }
 
         let pb = ProgressBar::new(total_files as u64);
         let style = ProgressStyle::default_bar()
@@ -329,10 +376,46 @@ impl Indexer {
             ));
         }
 
+        // Validate symbol name length (prevent extremely long names)
+        const MAX_SYMBOL_NAME_LENGTH: usize = 1000;
+        if symbol.name.len() > MAX_SYMBOL_NAME_LENGTH {
+            return Err(crate::Error::Parse(format!(
+                "Symbol name too long: {} characters (max: {})",
+                symbol.name.len(),
+                MAX_SYMBOL_NAME_LENGTH
+            )));
+        }
+
+        // Validate line numbers are reasonable (end_line should be >= start_line)
+        if symbol.end_line < symbol.start_line {
+            return Err(crate::Error::Parse(format!(
+                "Invalid line numbers for symbol '{}': start={}, end={}",
+                symbol.name, symbol.start_line, symbol.end_line
+            )));
+        }
+
+        // Limit signature and docstring lengths to prevent memory issues
+        const MAX_TEXT_LENGTH: usize = 10000;
+        let signature = symbol.signature.as_ref().map(|s| {
+            if s.len() > MAX_TEXT_LENGTH {
+                &s[..MAX_TEXT_LENGTH]
+            } else {
+                s.as_str()
+            }
+        });
+
+        let docstring = symbol.docstring.as_ref().map(|s| {
+            if s.len() > MAX_TEXT_LENGTH {
+                &s[..MAX_TEXT_LENGTH]
+            } else {
+                s.as_str()
+            }
+        });
+
         let embedding = self.embedder.encode_symbol(
             &symbol.name,
-            symbol.signature.as_deref(),
-            symbol.docstring.as_deref(),
+            signature,
+            docstring,
         )?;
 
         let symbol_id = self
@@ -341,8 +424,8 @@ impl Indexer {
                 file_id,
                 &symbol.name,
                 &symbol.kind,
-                symbol.signature.as_deref(),
-                symbol.docstring.as_deref(),
+                signature,
+                docstring,
                 symbol.start_line as i32,
                 symbol.end_line as i32,
                 &embedding,

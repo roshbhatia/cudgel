@@ -39,6 +39,25 @@ fn create_test_repo() -> TempDir {
     let temp_dir = TempDir::new().unwrap();
     let base_path = temp_dir.path();
 
+    // Initialize as a git repository
+    std::process::Command::new("git")
+        .args(&["init"])
+        .current_dir(base_path)
+        .output()
+        .expect("Failed to initialize git repository");
+
+    std::process::Command::new("git")
+        .args(&["config", "user.email", "test@example.com"])
+        .current_dir(base_path)
+        .output()
+        .expect("Failed to set git user email");
+
+    std::process::Command::new("git")
+        .args(&["config", "user.name", "Test User"])
+        .current_dir(base_path)
+        .output()
+        .expect("Failed to set git user name");
+
     // Create a simple Python file
     let python_code = r#"
 def hello_world(name):
@@ -109,6 +128,19 @@ const processData = (data) => {
 };
 "#;
     fs::write(base_path.join("test.js"), js_code).unwrap();
+
+    // Add files to git
+    std::process::Command::new("git")
+        .args(&["add", "."])
+        .current_dir(base_path)
+        .output()
+        .expect("Failed to git add files");
+
+    std::process::Command::new("git")
+        .args(&["commit", "-m", "Initial commit"])
+        .current_dir(base_path)
+        .output()
+        .expect("Failed to git commit");
 
     temp_dir
 }
@@ -229,6 +261,153 @@ async fn test_config_validation() {
         config.database.host,
         std::env::var("CUDGEL_DB_HOST").unwrap_or_else(|_| "localhost".to_string())
     );
+}
+
+#[test]
+fn test_config_validation_invalid_port() {
+    use cudgel::config::{Config, DatabaseConfig, EmbeddingConfig, IndexingConfig};
+    use std::path::PathBuf;
+
+    // Test with port 0 (invalid)
+    let config = Config {
+        database: DatabaseConfig {
+            host: "localhost".to_string(),
+            port: 0,
+            database: "cudgel".to_string(),
+            user: "test".to_string(),
+            password: "test".to_string(),
+        },
+        embedding: EmbeddingConfig {
+            model_path: PathBuf::from("./models"),
+            dimension: 384,
+        },
+        indexing: IndexingConfig {
+            batch_size: 100,
+            max_file_size: 1024 * 1024,
+        },
+    };
+
+    assert!(config.validate().is_err());
+}
+
+#[test]
+fn test_config_validation_empty_host() {
+    use cudgel::config::{Config, DatabaseConfig, EmbeddingConfig, IndexingConfig};
+    use std::path::PathBuf;
+
+    let config = Config {
+        database: DatabaseConfig {
+            host: "".to_string(),
+            port: 5432,
+            database: "cudgel".to_string(),
+            user: "test".to_string(),
+            password: "test".to_string(),
+        },
+        embedding: EmbeddingConfig {
+            model_path: PathBuf::from("./models"),
+            dimension: 384,
+        },
+        indexing: IndexingConfig {
+            batch_size: 100,
+            max_file_size: 1024 * 1024,
+        },
+    };
+
+    assert!(config.validate().is_err());
+}
+
+#[test]
+fn test_config_validation_invalid_dimension() {
+    use cudgel::config::{Config, DatabaseConfig, EmbeddingConfig, IndexingConfig};
+    use std::path::PathBuf;
+
+    let config = Config {
+        database: DatabaseConfig {
+            host: "localhost".to_string(),
+            port: 5432,
+            database: "cudgel".to_string(),
+            user: "test".to_string(),
+            password: "test".to_string(),
+        },
+        embedding: EmbeddingConfig {
+            model_path: PathBuf::from("./models"),
+            dimension: 0, // Invalid - must be positive
+        },
+        indexing: IndexingConfig {
+            batch_size: 100,
+            max_file_size: 1024 * 1024,
+        },
+    };
+
+    assert!(config.validate().is_err());
+}
+
+#[test]
+fn test_config_validation_invalid_batch_size() {
+    use cudgel::config::{Config, DatabaseConfig, EmbeddingConfig, IndexingConfig};
+    use std::path::PathBuf;
+
+    let config = Config {
+        database: DatabaseConfig {
+            host: "localhost".to_string(),
+            port: 5432,
+            database: "cudgel".to_string(),
+            user: "test".to_string(),
+            password: "test".to_string(),
+        },
+        embedding: EmbeddingConfig {
+            model_path: PathBuf::from("./models"),
+            dimension: 384,
+        },
+        indexing: IndexingConfig {
+            batch_size: 0, // Invalid - must be positive
+            max_file_size: 1024 * 1024,
+        },
+    };
+
+    assert!(config.validate().is_err());
+
+    // Test batch size too large
+    let config = Config {
+        database: DatabaseConfig {
+            host: "localhost".to_string(),
+            port: 5432,
+            database: "cudgel".to_string(),
+            user: "test".to_string(),
+            password: "test".to_string(),
+        },
+        embedding: EmbeddingConfig {
+            model_path: PathBuf::from("./models"),
+            dimension: 384,
+        },
+        indexing: IndexingConfig {
+            batch_size: 20000, // Too large
+            max_file_size: 1024 * 1024,
+        },
+    };
+
+    assert!(config.validate().is_err());
+}
+
+#[test]
+fn test_parser_large_file_handling() {
+    let mut parser = CodeParser::new();
+
+    // Test parser can handle reasonably large files
+    let large_code = "def function_".to_string() + &"a".repeat(1000) + "():\n    pass\n";
+    let result = parser.parse_file(Path::new("test.py"), &large_code);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parser_syntax_error_handling() {
+    let mut parser = CodeParser::new();
+
+    // Python code with syntax errors should still parse (tree-sitter is error-tolerant)
+    let code = "def incomplete_function(\n";
+    let result = parser.parse_file(Path::new("test.py"), code);
+    // Tree-sitter can parse incomplete/invalid syntax, so this should succeed
+    assert!(result.is_ok());
 }
 
 #[test]

@@ -41,8 +41,11 @@ pub enum Error {
     #[error("Database schema not initialized")]
     SchemaNotInitialized,
 
-    #[error("PostgreSQL not running on port 54321")]
+    #[error("PostgreSQL not running on port 54321. Please start PostgreSQL using: task db-start")]
     PostgresNotRunning,
+
+    #[error("pgvector extension not installed. Please install with: CREATE EXTENSION vector;")]
+    PgvectorNotInstalled,
 
     #[error("{0}")]
     Other(String),
@@ -89,9 +92,56 @@ impl Error {
         if self.is_connection_refused() {
             return Error::PostgresNotRunning;
         }
+        if self.is_missing_pgvector() {
+            return Error::PgvectorNotInstalled;
+        }
         if self.is_missing_schema() {
             return Error::SchemaNotInitialized;
         }
         self
+    }
+
+    /// Convert error to user-friendly message with actionable suggestions
+    pub fn to_user_message(&self) -> String {
+        match self {
+            Error::PostgresNotRunning => {
+                format!(
+                    "{}\n\nTroubleshooting steps:\n  1. Start PostgreSQL: task db-start\n  2. Check PostgreSQL status: task db-status\n  3. Verify port 54321 is not in use: lsof -i :54321",
+                    self
+                )
+            }
+            Error::PgvectorNotInstalled => {
+                format!(
+                    "{}\n\nTo install:\n  1. Connect to PostgreSQL: psql -h localhost -p 54321 -U {} cudgel\n  2. Run: CREATE EXTENSION vector;",
+                    self,
+                    std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string())
+                )
+            }
+            Error::SchemaNotInitialized => {
+                format!(
+                    "{}\n\nInitialize database schema:\n  cudgel init-db\n\nThis will create all required tables and indexes.",
+                    self
+                )
+            }
+            Error::RepositoryNotFound(path) => {
+                format!(
+                    "Repository not found: {}\n\nHave you indexed this repository? Try:\n  cudgel index {}",
+                    path, path
+                )
+            }
+            Error::UnsupportedLanguage(lang) => {
+                format!(
+                    "Unsupported language: {}\n\nSupported languages: python, javascript, typescript, rust, go, c, cpp, java\nFile will be skipped during indexing.",
+                    lang
+                )
+            }
+            Error::Embedding(msg) => {
+                format!(
+                    "Embedding generation failed: {}\n\nCheck that the ONNX model is properly installed:\n  ls -la ~/.local/share/cudgel/models/all-MiniLM-L6-v2/\n\nTo reinstall:\n  task setup",
+                    msg
+                )
+            }
+            _ => self.to_string(),
+        }
     }
 }

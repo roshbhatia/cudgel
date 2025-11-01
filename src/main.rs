@@ -52,8 +52,8 @@ enum Commands {
         #[arg(short, long)]
         repo: Option<String>,
 
-        /// Maximum number of results
-        #[arg(short, long, default_value = "10")]
+        /// Maximum number of results (1-1000)
+        #[arg(short, long, default_value = "10", value_parser = validate_limit)]
         limit: i64,
 
         /// Output as JSON
@@ -70,8 +70,8 @@ enum Commands {
         #[arg(short, long)]
         repo: Option<String>,
 
-        /// Traversal depth
-        #[arg(short, long, default_value = "1")]
+        /// Traversal depth (1-10)
+        #[arg(short, long, default_value = "1", value_parser = validate_depth)]
         depth: usize,
 
         /// Graph type (references or calls)
@@ -93,6 +93,30 @@ enum Commands {
         #[arg(long)]
         reset: bool,
     },
+}
+
+/// Validate limit parameter is in range [1, 1000]
+fn validate_limit(s: &str) -> Result<i64, String> {
+    let value: i64 = s.parse().map_err(|_| format!("'{}' is not a valid number", s))?;
+    if value < 1 {
+        Err("limit must be at least 1".to_string())
+    } else if value > 1000 {
+        Err("limit cannot exceed 1000".to_string())
+    } else {
+        Ok(value)
+    }
+}
+
+/// Validate depth parameter is in range [1, 10]
+fn validate_depth(s: &str) -> Result<usize, String> {
+    let value: usize = s.parse().map_err(|_| format!("'{}' is not a valid number", s))?;
+    if value < 1 {
+        Err("depth must be at least 1".to_string())
+    } else if value > 10 {
+        Err("depth cannot exceed 10".to_string())
+    } else {
+        Ok(value)
+    }
 }
 
 #[tokio::main]
@@ -119,24 +143,26 @@ async fn main() -> cudgel::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let config = Arc::new(Config::from_env()?);
 
-    match cli.command {
+    // Load and validate configuration
+    let config = Arc::new(Config::from_env().map_err(|e| {
+        eprintln!("{}", "Configuration Error:".bright_red().bold());
+        eprintln!("{}", e.to_string());
+        e
+    })?);
+
+    let result = match cli.command {
         Commands::Index {
             path,
             name,
             dry_run,
-        } => {
-            cmd_index(config, path, name, dry_run).await?;
-        }
+        } => cmd_index(config, path, name, dry_run).await,
         Commands::Query {
             query,
             repo,
             limit,
             json,
-        } => {
-            cmd_query(config, query, repo, limit, json).await?;
-        }
+        } => cmd_query(config, query, repo, limit, json).await,
         Commands::Graph {
             symbol,
             repo,
@@ -144,12 +170,23 @@ async fn main() -> cudgel::Result<()> {
             graph_type,
             direction,
             json,
-        } => {
-            cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await?;
+        } => cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await,
+        Commands::InitDb { reset } => cmd_init_db(config, reset).await,
+    };
+
+    // Convert errors to user-friendly messages
+    if let Err(e) = result {
+        use cudgel::Error;
+        match &e {
+            Error::PostgresNotRunning | Error::PgvectorNotInstalled | Error::SchemaNotInitialized
+            | Error::RepositoryNotFound(_) | Error::UnsupportedLanguage(_) | Error::Embedding(_) => {
+                eprintln!("\n{}", e.to_user_message());
+            }
+            _ => {
+                eprintln!("\n{}: {}", "Error".bright_red().bold(), e);
+            }
         }
-        Commands::InitDb { reset } => {
-            cmd_init_db(config, reset).await?;
-        }
+        std::process::exit(1);
     }
 
     Ok(())
@@ -161,6 +198,32 @@ async fn cmd_index(
     _name: Option<String>,
     dry_run: bool,
 ) -> cudgel::Result<()> {
+    // Validate path exists and is accessible
+    if !path.exists() {
+        return Err(cudgel::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Path does not exist: {}", path.display()),
+        )));
+    }
+
+    if !path.is_dir() {
+        return Err(cudgel::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Path is not a directory: {}", path.display()),
+        )));
+    }
+
+    // Check if path is readable
+    if let Err(e) = std::fs::read_dir(&path) {
+        return Err(cudgel::Error::Io(std::io::Error::new(
+            e.kind(),
+            format!(
+                "Cannot read directory: {}. Check permissions.",
+                path.display()
+            ),
+        )));
+    }
+
     if dry_run {
         println!(
             "{}",
@@ -178,12 +241,10 @@ async fn cmd_index(
 
     let db = Arc::new(Database::new(&config).await?);
 
-    // Auto-initialize schema if needed
+    // Check database health
     if let Err(e) = db.health_check().await {
-        return Err(cudgel::Error::Other(format!(
-            "Cannot connect to PostgreSQL. Please ensure PostgreSQL is running.\nError: {}",
-            e
-        )));
+        // Convert to user-friendly error
+        return Err(e.with_context());
     }
 
     let mut indexer = Indexer::new(config.clone(), db)?;
@@ -294,6 +355,13 @@ async fn cmd_query(
     limit: i64,
     json: bool,
 ) -> cudgel::Result<()> {
+    // Validate query is not empty or whitespace only
+    if query.trim().is_empty() {
+        return Err(cudgel::Error::Other(
+            "Query cannot be empty. Please provide a meaningful search term.".to_string(),
+        ));
+    }
+
     let db = Arc::new(Database::new(&config).await?);
     let query_engine = QueryEngine::new(config.clone(), db)?;
 
@@ -325,6 +393,13 @@ async fn cmd_graph(
     _direction: String,
     json: bool,
 ) -> cudgel::Result<()> {
+    // Validate symbol name is not empty
+    if symbol.trim().is_empty() {
+        return Err(cudgel::Error::Other(
+            "Symbol name cannot be empty. Please provide a valid symbol name.".to_string(),
+        ));
+    }
+
     let db = Arc::new(Database::new(&config).await?);
     let graph_query = GraphQuery::new(db);
 
@@ -347,6 +422,19 @@ async fn cmd_graph(
     Ok(())
 }
 
+/// Prompt user for confirmation
+fn confirm(prompt: &str) -> bool {
+    use std::io::{self, Write};
+
+    print!("{} [y/N]: ", prompt);
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+
+    matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
+}
+
 async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
     if reset {
         println!(
@@ -355,7 +443,18 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
                 .bright_red()
                 .bold()
         );
-        println!("{}", "Dropping all tables...".yellow());
+        println!("\nThis will:");
+        println!("  • Delete all indexed repositories");
+        println!("  • Delete all code symbols and embeddings");
+        println!("  • Delete all relationships and metadata");
+        println!("\nThis action cannot be undone!");
+
+        if !confirm("\nAre you sure you want to reset the database?") {
+            println!("{}", "Database reset cancelled.".yellow());
+            return Ok(());
+        }
+
+        println!("\n{}", "Dropping all tables...".yellow());
 
         let db = Database::new(&config).await?;
         db.reset_schema().await?;
