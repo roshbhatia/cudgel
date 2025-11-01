@@ -726,4 +726,17 @@ impl Database {
 
         Ok(row.map(|r| r.get("id")))
     }
+
+    pub async fn delete_repository_symbols(&self, repository_id: i32) -> Result<u64> {
+        let client = self.pool.get().await?;
+
+        let rows_affected = client
+            .execute(
+                "DELETE FROM symbols WHERE file_id IN (SELECT id FROM files WHERE repository_id = $1)",
+                &[&repository_id],
+            )
+            .await?;
+
+        Ok(rows_affected)
+    }
 }

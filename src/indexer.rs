@@ -90,31 +90,58 @@ impl Indexer {
         })
     }
 
-    /// Index an entire repository.
-    ///
-    /// Walks the directory tree, identifies source files, parses them, extracts symbols,
-    /// generates embeddings, and stores everything in the database. Displays a progress
-    /// bar during indexing.
-    ///
-    /// # Arguments
-    ///
-    /// * `repo_path` - Path to the repository root directory
-    ///
-    /// # Returns
-    ///
-    /// Returns a tuple of (repository_id, indexing_statistics) on success.
-    ///
-    /// # Errors
-    ///
-    /// May return errors for:
-    /// - Invalid repository path
-    /// - Database connection failures
-    /// - File read errors
-    /// - Parsing errors
-    ///
-    /// Individual file failures are captured in the statistics and don't stop indexing.
+    fn get_git_repo_name(repo_path: &Path) -> String {
+        std::process::Command::new("git")
+            .args(&["-C", &repo_path.to_string_lossy(), "remote", "get-url", "origin"])
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    String::from_utf8(output.stdout).ok().map(|s| {
+                        s.trim()
+                            .rsplit('/')
+                            .next()
+                            .unwrap_or("unknown")
+                            .trim_end_matches(".git")
+                            .to_string()
+                    })
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                repo_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            })
+    }
+
+    fn get_git_tracked_files(repo_path: &Path) -> Result<Vec<PathBuf>> {
+        let output = std::process::Command::new("git")
+            .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
+            .output()
+            .map_err(|e| {
+                crate::Error::Other(format!("Failed to run git ls-files: {}", e))
+            })?;
+
+        if !output.status.success() {
+            return Err(crate::Error::Other(
+                "git ls-files failed - is this a git repository?".to_string(),
+            ));
+        }
+
+        let files_str = String::from_utf8(output.stdout)
+            .map_err(|e| crate::Error::Other(format!("Invalid UTF-8 from git: {}", e)))?;
+
+        Ok(files_str
+            .lines()
+            .map(|line| repo_path.join(line.trim()))
+            .collect())
+    }
+
     pub async fn index_repository(&mut self, repo_path: &Path) -> Result<(i32, IndexingStats)> {
-        // Validate input path
         if !repo_path.exists() {
             return Err(crate::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -132,18 +159,31 @@ impl Indexer {
             )));
         }
 
-        let name = repo_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
+        let absolute_path = repo_path.canonicalize().map_err(|e| {
+            crate::Error::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to get absolute path: {}", e),
+            ))
+        })?;
 
-        let repo_path_str = repo_path.to_string_lossy().to_string();
+        let name = Self::get_git_repo_name(&absolute_path);
+        let repo_path_str = absolute_path.to_string_lossy().to_string();
 
-        // Add repository to database
-        let repo_id = self.db.add_repository(&repo_path_str, name).await?;
+        let repo_id = self.db.add_repository(&repo_path_str, &name).await?;
 
-        // Find all source files
-        let files = self.find_source_files(repo_path)?;
+        self.db.delete_repository_symbols(repo_id).await?;
+
+        let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
+
+        all_files.retain(|path| {
+            path.is_file()
+                && CodeParser::detect_language(path).is_some()
+                && path.metadata()
+                    .map(|m| m.len() <= self.config.indexing.max_file_size as u64)
+                    .unwrap_or(false)
+        });
+
+        let files = all_files;
         let total_files = files.len();
 
         println!("Found {} files to index", total_files);
@@ -311,68 +351,5 @@ impl Indexer {
             .await?;
 
         Ok(symbol_id)
-    }
-
-    /// Find all source files in a repository.
-    ///
-    /// Walks the directory tree, skipping common ignore directories (node_modules, .git, etc.)
-    /// and filtering for supported file types based on file extension.
-    ///
-    /// # Arguments
-    ///
-    /// * `repo_path` - Root path of the repository
-    ///
-    /// # Returns
-    ///
-    /// A vector of paths to source files that should be indexed.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if directory walking fails.
-    fn find_source_files(&self, repo_path: &Path) -> Result<Vec<PathBuf>> {
-        let skip_dirs = [
-            ".git",
-            "node_modules",
-            "__pycache__",
-            "venv",
-            "env",
-            ".venv",
-            "dist",
-            "build",
-            "target",
-            ".next",
-            ".nuxt",
-        ];
-
-        let mut files = Vec::new();
-
-        for entry in WalkDir::new(repo_path)
-            .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| {
-                if e.file_type().is_dir() {
-                    let name = e.file_name().to_string_lossy();
-                    !skip_dirs.iter().any(|&skip| name == skip)
-                } else {
-                    true
-                }
-            })
-        {
-            let entry = entry?;
-            let path = entry.path();
-
-            if !path.is_file() {
-                continue;
-            }
-
-            if CodeParser::detect_language(path).is_some() {
-                let metadata = path.metadata()?;
-                if metadata.len() <= self.config.indexing.max_file_size as u64 {
-                    files.push(path.to_path_buf());
-                }
-            }
-        }
-
-        Ok(files)
     }
 }
