@@ -77,10 +77,28 @@ impl QueryEngine {
     ) -> Result<Vec<SymbolResult>> {
         let query_embedding = self.embedder.encode_query(query)?;
 
+        // Debug: Check if embedding is valid
+        if std::env::var("CUDGEL_DEBUG").is_ok() {
+            eprintln!("Query: \"{}\"", query);
+            eprintln!("Embedding length: {}", query_embedding.len());
+            eprintln!("First 5 values: {:?}", &query_embedding[..5.min(query_embedding.len())]);
+            let norm: f32 = query_embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+            eprintln!("Embedding L2 norm: {:.6}", norm);
+        }
+
         let rows = self
             .db
             .search_symbols(&query_embedding, limit, repository_path)
             .await?;
+
+        if std::env::var("CUDGEL_DEBUG").is_ok() {
+            eprintln!("Query returned {} rows", rows.len());
+            for (i, row) in rows.iter().enumerate().take(3) {
+                let name: String = row.get("name");
+                let similarity: f64 = row.get("similarity");
+                eprintln!("  Result {}: {} (similarity: {:.6})", i + 1, name, similarity);
+            }
+        }
 
         let results = rows
             .iter()

@@ -72,7 +72,8 @@ impl Error {
         match self {
             Error::Database(e) => {
                 let msg = e.to_string();
-                msg.contains("extension \"vector\"") || msg.contains("type \"vector\" does not exist")
+                msg.contains("extension \"vector\"")
+                    || msg.contains("type \"vector\" does not exist")
             }
             _ => false,
         }
@@ -82,7 +83,8 @@ impl Error {
         match self {
             Error::Database(e) => {
                 let msg = e.to_string();
-                msg.contains("relation") && (msg.contains("does not exist") || msg.contains("not found"))
+                msg.contains("relation")
+                    && (msg.contains("does not exist") || msg.contains("not found"))
             }
             _ => false,
         }

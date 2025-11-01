@@ -419,7 +419,11 @@ fn test_embedding_generation() {
     if let Err(e) = &embedding {
         eprintln!("Embedding error: {:?}", e);
     }
-    assert!(embedding.is_ok(), "Failed to generate embedding: {:?}", embedding.err());
+    assert!(
+        embedding.is_ok(),
+        "Failed to generate embedding: {:?}",
+        embedding.err()
+    );
 
     let embedding = embedding.unwrap();
     assert_eq!(embedding.len(), 384); // Default dimension
@@ -476,13 +480,18 @@ async fn test_symbol_query() {
         "calculator add subtract",
         "fibonacci recursive",
         "greeting message",
-        "math calculation"
+        "math calculation",
     ];
 
     let mut found_results = false;
     for query in queries {
         let results = query_engine.search_symbols(query, 10, None).await;
-        assert!(results.is_ok(), "Query '{}' failed: {:?}", query, results.err());
+        assert!(
+            results.is_ok(),
+            "Query '{}' failed: {:?}",
+            query,
+            results.err()
+        );
 
         if !results.as_ref().unwrap().is_empty() {
             found_results = true;

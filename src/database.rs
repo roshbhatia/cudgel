@@ -325,11 +325,13 @@ impl Database {
             .await?;
 
         // Vector index for symbols
+        // Use HNSW instead of IVFFlat for better recall on small-medium datasets
+        // HNSW provides exact nearest neighbor search with good performance
+        // IVFFlat is better for very large datasets (millions of vectors)
         client
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_symbols_embedding
-                 ON symbols USING ivfflat (embedding vector_cosine_ops)
-                 WITH (lists = 100)",
+                 ON symbols USING hnsw (embedding vector_cosine_ops)",
                 &[],
             )
             .await?;
@@ -389,8 +391,7 @@ impl Database {
         client
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_code_chunks_embedding
-                 ON code_chunks USING ivfflat (embedding vector_cosine_ops)
-                 WITH (lists = 100)",
+                 ON code_chunks USING hnsw (embedding vector_cosine_ops)",
                 &[],
             )
             .await?;
@@ -748,11 +749,7 @@ impl Database {
             .collect())
     }
 
-    pub async fn get_file_hash(
-        &self,
-        repository_id: i32,
-        path: &str,
-    ) -> Result<Option<String>> {
+    pub async fn get_file_hash(&self, repository_id: i32, path: &str) -> Result<Option<String>> {
         let client = self.pool.get().await?;
 
         let row = client
@@ -775,11 +772,7 @@ impl Database {
         Ok(rows_affected)
     }
 
-    pub async fn get_file_id(
-        &self,
-        repository_id: i32,
-        path: &str,
-    ) -> Result<Option<i32>> {
+    pub async fn get_file_id(&self, repository_id: i32, path: &str) -> Result<Option<i32>> {
         let client = self.pool.get().await?;
 
         let row = client

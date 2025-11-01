@@ -4,8 +4,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
-    config::Config, database::Database, graph::GraphQuery, indexer::Indexer,
-    query::QueryEngine,
+    config::Config, database::Database, graph::GraphQuery, indexer::Indexer, query::QueryEngine,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -97,7 +96,9 @@ enum Commands {
 
 /// Validate limit parameter is in range [1, 1000]
 fn validate_limit(s: &str) -> Result<i64, String> {
-    let value: i64 = s.parse().map_err(|_| format!("'{}' is not a valid number", s))?;
+    let value: i64 = s
+        .parse()
+        .map_err(|_| format!("'{}' is not a valid number", s))?;
     if value < 1 {
         Err("limit must be at least 1".to_string())
     } else if value > 1000 {
@@ -109,7 +110,9 @@ fn validate_limit(s: &str) -> Result<i64, String> {
 
 /// Validate depth parameter is in range [1, 10]
 fn validate_depth(s: &str) -> Result<usize, String> {
-    let value: usize = s.parse().map_err(|_| format!("'{}' is not a valid number", s))?;
+    let value: usize = s
+        .parse()
+        .map_err(|_| format!("'{}' is not a valid number", s))?;
     if value < 1 {
         Err("depth must be at least 1".to_string())
     } else if value > 10 {
@@ -178,8 +181,12 @@ async fn main() -> cudgel::Result<()> {
     if let Err(e) = result {
         use cudgel::Error;
         match &e {
-            Error::PostgresNotRunning | Error::PgvectorNotInstalled | Error::SchemaNotInitialized
-            | Error::RepositoryNotFound(_) | Error::UnsupportedLanguage(_) | Error::Embedding(_) => {
+            Error::PostgresNotRunning
+            | Error::PgvectorNotInstalled
+            | Error::SchemaNotInitialized
+            | Error::RepositoryNotFound(_)
+            | Error::UnsupportedLanguage(_)
+            | Error::Embedding(_) => {
                 eprintln!("\n{}", e.to_user_message());
             }
             _ => {
@@ -373,8 +380,15 @@ async fn cmd_query(
         match serde_json::to_string_pretty(&results) {
             Ok(json_str) => println!("{}", json_str),
             Err(e) => {
-                eprintln!("{}: Failed to serialize results to JSON: {}", "Error".bright_red().bold(), e);
-                return Err(cudgel::Error::Other(format!("JSON serialization failed: {}", e)));
+                eprintln!(
+                    "{}: Failed to serialize results to JSON: {}",
+                    "Error".bright_red().bold(),
+                    e
+                );
+                return Err(cudgel::Error::Other(format!(
+                    "JSON serialization failed: {}",
+                    e
+                )));
             }
         }
     } else {
@@ -411,8 +425,15 @@ async fn cmd_graph(
         match serde_json::to_string_pretty(&graph) {
             Ok(json_str) => println!("{}", json_str),
             Err(e) => {
-                eprintln!("{}: Failed to serialize graph to JSON: {}", "Error".bright_red().bold(), e);
-                return Err(cudgel::Error::Other(format!("JSON serialization failed: {}", e)));
+                eprintln!(
+                    "{}: Failed to serialize graph to JSON: {}",
+                    "Error".bright_red().bold(),
+                    e
+                );
+                return Err(cudgel::Error::Other(format!(
+                    "JSON serialization failed: {}",
+                    e
+                )));
             }
         }
     } else {
@@ -461,9 +482,7 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
 
         println!(
             "{}",
-            "Database schema reset successfully"
-                .bright_green()
-                .bold()
+            "Database schema reset successfully".bright_green().bold()
         );
     } else {
         println!("{}", "Initializing database schema...".bright_blue().bold());

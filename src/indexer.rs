@@ -91,7 +91,13 @@ impl Indexer {
 
     fn get_git_repo_name(repo_path: &Path) -> String {
         std::process::Command::new("git")
-            .args(&["-C", &repo_path.to_string_lossy(), "remote", "get-url", "origin"])
+            .args(&[
+                "-C",
+                &repo_path.to_string_lossy(),
+                "remote",
+                "get-url",
+                "origin",
+            ])
             .output()
             .ok()
             .and_then(|output| {
@@ -121,9 +127,7 @@ impl Indexer {
         let output = std::process::Command::new("git")
             .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
             .output()
-            .map_err(|e| {
-                crate::Error::Other(format!("Failed to run git ls-files: {}", e))
-            })?;
+            .map_err(|e| crate::Error::Other(format!("Failed to run git ls-files: {}", e)))?;
 
         if !output.status.success() {
             return Err(crate::Error::Other(
@@ -228,10 +232,16 @@ impl Indexer {
             );
         }
         if skipped_unsupported > 0 {
-            println!("Skipped {} files with unsupported language", skipped_unsupported);
+            println!(
+                "Skipped {} files with unsupported language",
+                skipped_unsupported
+            );
         }
         if skipped_no_metadata > 0 {
-            println!("Skipped {} files with inaccessible metadata", skipped_no_metadata);
+            println!(
+                "Skipped {} files with inaccessible metadata",
+                skipped_no_metadata
+            );
         }
 
         let pb = ProgressBar::new(total_files as u64);
@@ -329,13 +339,7 @@ impl Indexer {
 
         let file_id = self
             .db
-            .add_file(
-                repo_id,
-                &path_str,
-                language.as_deref(),
-                &content,
-                &hash,
-            )
+            .add_file(repo_id, &path_str, language.as_deref(), &content, &hash)
             .await?;
 
         if let Some(lang) = &language {
@@ -412,11 +416,9 @@ impl Indexer {
             }
         });
 
-        let embedding = self.embedder.encode_symbol(
-            &symbol.name,
-            signature,
-            docstring,
-        )?;
+        let embedding = self
+            .embedder
+            .encode_symbol(&symbol.name, signature, docstring)?;
 
         let symbol_id = self
             .db
