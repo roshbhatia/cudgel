@@ -31,6 +31,7 @@
 - [ ] T005 [P] Create flake.nix with package output, devShell, and PostgreSQL service
 - [ ] T006 [P] Create .pre-commit-config.yaml with cargo fmt, clippy, test hooks
 - [ ] T007 [P] Create project directory structure (src/cli, src/services, src/db, src/traits, src/utils)
+- [ ] T007a [P] Document ONNX model setup in README.md (download sentence-transformers/all-MiniLM-L6-v2 to ~/.local/share/cudgel/models/)
 - [ ] T008 Create src/lib.rs with public module exports
 - [ ] T009 Create src/main.rs with clap CLI framework and command dispatch
 - [ ] T010 Create src/error.rs with Error enum using thiserror for all error types
@@ -238,7 +239,7 @@
 - [ ] T142 [P] Implement dependency checks helper function (PostgreSQL, Ollama, git) in src/utils
 - [ ] T143 [P] Implement XDG directory creation on startup in src/config.rs
 - [ ] T144 [P] Add performance monitoring (indexing speed, query latency) logging
-- [ ] T145 [P] Add memory usage monitoring during indexing
+- [ ] T145 [P] Add memory usage monitoring during indexing with alerts when approaching 500MB RSS limit
 - [ ] T146 Create CHANGELOG.md with initial release notes (v0.1.0)
 - [ ] T147 Update Cargo.toml metadata (description, authors, license, repository)
 - [ ] T148 Create LICENSE file (MIT based on research)
@@ -350,13 +351,13 @@ Developer D: User Story 4 (T120-T133) - LLM Formats
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Setup (T001-T010)
-2. Complete Phase 2: Foundational (T011-T027) - CRITICAL
-3. Complete Phase 3: User Story 1 (T028-T066)
+1. Complete Phase 1: Setup (T001-T007a) - 11 tasks
+2. Complete Phase 2: Foundational (T011-T027) - CRITICAL - 17 tasks
+3. Complete Phase 3: User Story 1 (T028-T066) - 39 tasks
 4. **STOP and VALIDATE**: Test `cudgel index` and `cudgel query` independently
 5. Deploy/demo MVP
 
-**MVP Scope**: 66 tasks total (Setup + Foundational + US1)
+**MVP Scope**: 67 tasks total (Setup + Foundational + US1)
 
 **MVP Delivers**:
 - Manual repository indexing with incremental updates
@@ -391,10 +392,10 @@ With multiple developers:
 
 ## Task Summary
 
-**Total Tasks**: 151
+**Total Tasks**: 152
 
 **Breakdown by Phase**:
-- Phase 1 (Setup): 10 tasks
+- Phase 1 (Setup): 11 tasks (includes T007a for ONNX model setup)
 - Phase 2 (Foundational): 17 tasks
 - Phase 3 (User Story 1 - P1): 39 tasks
 - Phase 4 (User Story 2 - P2): 25 tasks
@@ -402,7 +403,7 @@ With multiple developers:
 - Phase 6 (User Story 4 - P4): 14 tasks
 - Phase 7 (Polish): 18 tasks
 
-**Parallel Opportunities**: 67 tasks marked [P] (44% parallelizable)
+**Parallel Opportunities**: 68 tasks marked [P] (45% parallelizable)
 
 **Independent Test Criteria**:
 - US1: `cudgel index /path/to/repo && cudgel query "search term"` returns table results
@@ -410,7 +411,7 @@ With multiple developers:
 - US3: `cudgel knowledge` opens markdown in $EDITOR with structured sections
 - US4: `cudgel query "term" --json | jq` outputs valid JSON
 
-**Suggested MVP Scope**: T001-T066 (Setup + Foundational + User Story 1) = 66 tasks
+**Suggested MVP Scope**: T001-T066 (Setup + Foundational + User Story 1) = 67 tasks
 
 ---
 

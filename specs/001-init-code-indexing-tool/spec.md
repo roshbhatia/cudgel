@@ -197,13 +197,13 @@ A developer wants to export query results in LLM-friendly formats (JSON, minifie
 
 - **Schedule**: Represents a scheduled indexing job. Attributes: repository reference, interval (hours), next run time, last execution time, status (active/paused).
 
-- **KnowledgeGraph**: Represents structured documentation for a repository. Attributes: repository reference, markdown content, generated timestamp, last edited timestamp, version number.
+- **KnowledgeDocument**: Represents structured documentation for a repository. Attributes: repository reference, markdown content, generated timestamp, last edited timestamp, version number.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Developers can index a repository with 10,000 files in under 5 minutes on commodity hardware (M1 MacBook or equivalent).
+- **SC-001**: Developers can index a repository with 10,000 files in under 5 minutes on commodity hardware (4-core CPU minimum, 8GB RAM minimum, e.g., M1 MacBook).
 
 - **SC-002**: Developers can execute semantic queries and receive results in under 1 second for repositories with up to 100,000 indexed symbols.
 
@@ -211,7 +211,7 @@ A developer wants to export query results in LLM-friendly formats (JSON, minifie
 
 - **SC-004**: Developers can generate a complete knowledge graph document in under 2 minutes for a repository with 50,000 lines of code.
 
-- **SC-005**: Query result accuracy achieves 80% relevance in top 10 results (manually verified by developers finding the code they were searching for).
+- **SC-005**: Query result accuracy achieves 80% relevance in top 10 results (verified via user study with 10+ developers rating top 10 results per query as relevant/not-relevant for their search intent).
 
 - **SC-006**: System memory footprint remains under 500MB RSS during active indexing operations.
 
