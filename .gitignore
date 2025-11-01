@@ -14,21 +14,14 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
-# OS
-.DS_Store
-Thumbs.db
-
 # Extras
-# ONNX models (download separately)
-models/
-
-# PostgreSQL data (local development)
-.pgdata/
-
-# Additional files to ignore
-*.temp
-*.log
-
-!.specify/
 !.claude/commands/speckit.*.md
 !.envrc
+!.specify/
+*.log
+*.temp
+.DS_Store
+.pgdata/
+.venv/
+Thumbs.db
+models/
