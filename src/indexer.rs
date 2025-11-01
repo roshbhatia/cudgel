@@ -33,7 +33,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use walkdir::WalkDir;
 
 /// Statistics collected during repository indexing.
 ///
@@ -55,6 +54,202 @@ pub struct IndexingStats {
     pub files_by_language: HashMap<String, usize>,
     /// Error messages from failed indexing operations (limited to first 10)
     pub errors: Vec<String>,
+}
+
+/// File filtering configuration for selective indexing.
+///
+/// Provides glob pattern matching and language-based filtering to control
+/// which files get indexed during repository processing.
+///
+/// # Examples
+///
+/// ```no_run
+/// use cudgel::indexer::IndexFilter;
+///
+/// // Include only specific patterns
+/// let filter = IndexFilter::new()
+///     .with_include_patterns(vec!["src/**/*.rs".to_string(), "tests/**/*.rs".to_string()])
+///     .with_exclude_patterns(vec!["**/target/**".to_string()])
+///     .with_languages(vec!["rust".to_string()]);
+///
+/// // Filter supports checking individual files
+/// assert!(filter.should_index_file(std::path::Path::new("src/main.rs")));
+/// ```
+#[derive(Debug, Clone, Default)]
+pub struct IndexFilter {
+    include_patterns: Option<Vec<String>>,
+    exclude_patterns: Option<Vec<String>>,
+    languages: Option<Vec<String>>,
+}
+
+impl IndexFilter {
+    /// Create a new empty filter (no filtering applied).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set include glob patterns.
+    ///
+    /// Only files matching at least one include pattern will be indexed.
+    /// If no include patterns are specified, all files are included by default.
+    pub fn with_include_patterns(mut self, patterns: Vec<String>) -> Self {
+        self.include_patterns = if patterns.is_empty() {
+            None
+        } else {
+            Some(patterns)
+        };
+        self
+    }
+
+    /// Set exclude glob patterns.
+    ///
+    /// Files matching any exclude pattern will be skipped.
+    /// Exclude patterns take precedence over include patterns.
+    pub fn with_exclude_patterns(mut self, patterns: Vec<String>) -> Self {
+        self.exclude_patterns = if patterns.is_empty() {
+            None
+        } else {
+            Some(patterns)
+        };
+        self
+    }
+
+    /// Set language filter.
+    ///
+    /// Only files in the specified languages will be indexed.
+    /// If no languages are specified, all supported languages are indexed.
+    pub fn with_languages(mut self, langs: Vec<String>) -> Self {
+        self.languages = if langs.is_empty() { None } else { Some(langs) };
+        self
+    }
+
+    /// Validate filter configuration.
+    ///
+    /// Checks that language names are valid and patterns are well-formed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any language is unsupported or patterns are invalid.
+    pub fn validate(&self) -> Result<()> {
+        const SUPPORTED_LANGUAGES: &[&str] = &[
+            "python",
+            "javascript",
+            "typescript",
+            "rust",
+            "go",
+            "c",
+            "cpp",
+            "java",
+        ];
+
+        // Validate languages
+        if let Some(langs) = &self.languages {
+            for lang in langs {
+                if !SUPPORTED_LANGUAGES.contains(&lang.as_str()) {
+                    return Err(crate::Error::Config(format!(
+                        "Unsupported language: '{}'. Supported languages: {}",
+                        lang,
+                        SUPPORTED_LANGUAGES.join(", ")
+                    )));
+                }
+            }
+        }
+
+        // Validate glob patterns by attempting to compile them
+        if let Some(patterns) = &self.include_patterns {
+            for pattern in patterns {
+                glob::Pattern::new(pattern).map_err(|e| {
+                    crate::Error::Config(format!("Invalid include pattern '{}': {}", pattern, e))
+                })?;
+            }
+        }
+
+        if let Some(patterns) = &self.exclude_patterns {
+            for pattern in patterns {
+                glob::Pattern::new(pattern).map_err(|e| {
+                    crate::Error::Config(format!("Invalid exclude pattern '{}': {}", pattern, e))
+                })?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if a file should be indexed based on this filter.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - Path to the file to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the file passes all filters and should be indexed, `false` otherwise.
+    pub fn should_index_file(&self, file_path: &Path) -> bool {
+        // Check language filter first (cheapest check)
+        if let Some(langs) = &self.languages {
+            if let Some(detected_lang) = CodeParser::detect_language(file_path) {
+                if !langs.contains(&detected_lang) {
+                    return false;
+                }
+            } else {
+                // Unknown language, skip
+                return false;
+            }
+        }
+
+        let path_str = file_path.to_string_lossy();
+
+        // Check exclude patterns (take precedence)
+        if let Some(exclude) = &self.exclude_patterns {
+            for pattern in exclude {
+                if let Ok(glob_pattern) = glob::Pattern::new(pattern) {
+                    if glob_pattern.matches(&path_str) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Check include patterns (if specified)
+        if let Some(include) = &self.include_patterns {
+            let mut matched = false;
+            for pattern in include {
+                if let Ok(glob_pattern) = glob::Pattern::new(pattern) {
+                    if glob_pattern.matches(&path_str) {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if !matched {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Get reference to include patterns.
+    pub fn include_patterns(&self) -> Option<&Vec<String>> {
+        self.include_patterns.as_ref()
+    }
+
+    /// Get reference to exclude patterns.
+    pub fn exclude_patterns(&self) -> Option<&Vec<String>> {
+        self.exclude_patterns.as_ref()
+    }
+
+    /// Get reference to languages filter.
+    pub fn languages(&self) -> Option<&Vec<String>> {
+        self.languages.as_ref()
+    }
+
+    /// Check if this filter has any active filters.
+    pub fn is_empty(&self) -> bool {
+        self.include_patterns.is_none()
+            && self.exclude_patterns.is_none()
+            && self.languages.is_none()
+    }
 }
 
 /// The main indexing engine for Cudgel.
@@ -92,7 +287,13 @@ impl Indexer {
 
     fn get_git_repo_name(repo_path: &Path) -> String {
         std::process::Command::new("git")
-            .args(&["-C", &repo_path.to_string_lossy(), "remote", "get-url", "origin"])
+            .args([
+                "-C",
+                &repo_path.to_string_lossy(),
+                "remote",
+                "get-url",
+                "origin",
+            ])
             .output()
             .ok()
             .and_then(|output| {
@@ -120,11 +321,9 @@ impl Indexer {
 
     fn get_git_tracked_files(repo_path: &Path) -> Result<Vec<PathBuf>> {
         let output = std::process::Command::new("git")
-            .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
+            .args(["-C", &repo_path.to_string_lossy(), "ls-files"])
             .output()
-            .map_err(|e| {
-                crate::Error::Other(format!("Failed to run git ls-files: {}", e))
-            })?;
+            .map_err(|e| crate::Error::Other(format!("Failed to run git ls-files: {}", e)))?;
 
         if !output.status.success() {
             return Err(crate::Error::Other(
@@ -175,18 +374,251 @@ impl Indexer {
 
         let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
 
+        // Track skipped files for reporting
+        let mut skipped_large = 0;
+        let mut skipped_unsupported = 0;
+        let mut skipped_no_metadata = 0;
+
         all_files.retain(|path| {
-            path.is_file()
-                && CodeParser::detect_language(path).is_some()
-                && path.metadata()
-                    .map(|m| m.len() <= self.config.indexing.max_file_size as u64)
-                    .unwrap_or(false)
+            if !path.is_file() {
+                return false;
+            }
+
+            // Check if language is supported
+            if CodeParser::detect_language(path).is_none() {
+                skipped_unsupported += 1;
+                return false;
+            }
+
+            // Check file size
+            match path.metadata() {
+                Ok(metadata) => {
+                    let size = metadata.len();
+                    if size > self.config.indexing.max_file_size as u64 {
+                        skipped_large += 1;
+                        eprintln!(
+                            "Skipping large file: {} ({} bytes, max: {} bytes)",
+                            path.display(),
+                            size,
+                            self.config.indexing.max_file_size
+                        );
+                        false
+                    } else if size == 0 {
+                        // Skip empty files
+                        false
+                    } else {
+                        true
+                    }
+                }
+                Err(_) => {
+                    skipped_no_metadata += 1;
+                    false
+                }
+            }
         });
 
         let files = all_files;
         let total_files = files.len();
 
         println!("Found {} files to index", total_files);
+        if skipped_large > 0 {
+            println!(
+                "Skipped {} files exceeding max size ({} bytes)",
+                skipped_large, self.config.indexing.max_file_size
+            );
+        }
+        if skipped_unsupported > 0 {
+            println!(
+                "Skipped {} files with unsupported language",
+                skipped_unsupported
+            );
+        }
+        if skipped_no_metadata > 0 {
+            println!(
+                "Skipped {} files with inaccessible metadata",
+                skipped_no_metadata
+            );
+        }
+
+        let pb = ProgressBar::new(total_files as u64);
+        let style = ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
+            .unwrap_or_else(|_| ProgressStyle::default_bar())
+            .progress_chars("=>-");
+        pb.set_style(style);
+
+        let mut stats = IndexingStats {
+            total_files,
+            indexed_files: 0,
+            failed_files: 0,
+            total_symbols: 0,
+            symbols_by_kind: HashMap::new(),
+            files_by_language: HashMap::new(),
+            errors: Vec::new(),
+        };
+
+        for file_path in files {
+            match self.index_file(repo_id, &file_path, &mut stats).await {
+                Ok(_) => {
+                    stats.indexed_files += 1;
+                    pb.set_message(format!("Indexing: {}", file_path.display()));
+                }
+                Err(e) => {
+                    stats.failed_files += 1;
+                    let error_msg = format!("Error indexing {:?}: {}", file_path, e);
+                    eprintln!("{}", error_msg);
+                    if stats.errors.len() < 10 {
+                        stats.errors.push(error_msg);
+                    }
+                }
+            }
+            pb.inc(1);
+        }
+
+        pb.finish_with_message(format!(
+            "Indexed {} files ({} succeeded, {} failed, {} symbols)",
+            total_files, stats.indexed_files, stats.failed_files, stats.total_symbols
+        ));
+
+        Ok((repo_id, stats))
+    }
+
+    /// Index a repository with file filtering.
+    ///
+    /// Similar to `index_repository()` but applies include/exclude patterns and
+    /// language filters before indexing files.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo_path` - Path to the repository to index
+    /// * `filter` - File filtering configuration
+    ///
+    /// # Returns
+    ///
+    /// Tuple of (repository_id, indexing_statistics)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if path validation, git operations, or database operations fail.
+    pub async fn index_repository_with_filter(
+        &mut self,
+        repo_path: &Path,
+        filter: &IndexFilter,
+    ) -> Result<(i32, IndexingStats)> {
+        // Validate path
+        if !repo_path.exists() {
+            return Err(crate::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Repository path does not exist: {}", repo_path.display()),
+            )));
+        }
+
+        if !repo_path.is_dir() {
+            return Err(crate::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Repository path is not a directory: {}",
+                    repo_path.display()
+                ),
+            )));
+        }
+
+        // Validate filter
+        filter.validate()?;
+
+        let absolute_path = repo_path.canonicalize().map_err(|e| {
+            crate::Error::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to get absolute path: {}", e),
+            ))
+        })?;
+
+        let name = Self::get_git_repo_name(&absolute_path);
+        let repo_path_str = absolute_path.to_string_lossy().to_string();
+
+        let repo_id = self.db.add_repository(&repo_path_str, &name).await?;
+        self.db.delete_repository_symbols(repo_id).await?;
+
+        let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
+
+        // Track skipped files for reporting
+        let mut skipped_large = 0;
+        let mut skipped_unsupported = 0;
+        let mut skipped_no_metadata = 0;
+        let mut skipped_by_filter = 0;
+
+        all_files.retain(|path| {
+            if !path.is_file() {
+                return false;
+            }
+
+            // Apply filter first (cheapest check)
+            if !filter.should_index_file(path) {
+                skipped_by_filter += 1;
+                return false;
+            }
+
+            // Check if language is supported
+            if CodeParser::detect_language(path).is_none() {
+                skipped_unsupported += 1;
+                return false;
+            }
+
+            // Check file size
+            match path.metadata() {
+                Ok(metadata) => {
+                    let size = metadata.len();
+                    if size > self.config.indexing.max_file_size as u64 {
+                        skipped_large += 1;
+                        eprintln!(
+                            "Skipping large file: {} ({} bytes, max: {} bytes)",
+                            path.display(),
+                            size,
+                            self.config.indexing.max_file_size
+                        );
+                        false
+                    } else if size == 0 {
+                        // Skip empty files
+                        false
+                    } else {
+                        true
+                    }
+                }
+                Err(_) => {
+                    skipped_no_metadata += 1;
+                    false
+                }
+            }
+        });
+
+        let files = all_files;
+        let total_files = files.len();
+
+        println!("Found {} files to index", total_files);
+        if skipped_by_filter > 0 {
+            println!(
+                "Skipped {} files due to include/exclude/language filters",
+                skipped_by_filter
+            );
+        }
+        if skipped_large > 0 {
+            println!(
+                "Skipped {} files exceeding max size ({} bytes)",
+                skipped_large, self.config.indexing.max_file_size
+            );
+        }
+        if skipped_unsupported > 0 {
+            println!(
+                "Skipped {} files with unsupported language",
+                skipped_unsupported
+            );
+        }
+        if skipped_no_metadata > 0 {
+            println!(
+                "Skipped {} files with inaccessible metadata",
+                skipped_no_metadata
+            );
+        }
 
         let pb = ProgressBar::new(total_files as u64);
         let style = ProgressStyle::default_bar()
@@ -283,13 +715,7 @@ impl Indexer {
 
         let file_id = self
             .db
-            .add_file(
-                repo_id,
-                &path_str,
-                language.as_deref(),
-                &content,
-                &hash,
-            )
+            .add_file(repo_id, &path_str, language.as_deref(), &content, &hash)
             .await?;
 
         if let Some(lang) = &language {
@@ -330,11 +756,45 @@ impl Indexer {
             ));
         }
 
-        let embedding = self.embedder.encode_symbol(
-            &symbol.name,
-            symbol.signature.as_deref(),
-            symbol.docstring.as_deref(),
-        )?;
+        // Validate symbol name length (prevent extremely long names)
+        const MAX_SYMBOL_NAME_LENGTH: usize = 1000;
+        if symbol.name.len() > MAX_SYMBOL_NAME_LENGTH {
+            return Err(crate::Error::Parse(format!(
+                "Symbol name too long: {} characters (max: {})",
+                symbol.name.len(),
+                MAX_SYMBOL_NAME_LENGTH
+            )));
+        }
+
+        // Validate line numbers are reasonable (end_line should be >= start_line)
+        if symbol.end_line < symbol.start_line {
+            return Err(crate::Error::Parse(format!(
+                "Invalid line numbers for symbol '{}': start={}, end={}",
+                symbol.name, symbol.start_line, symbol.end_line
+            )));
+        }
+
+        // Limit signature and docstring lengths to prevent memory issues
+        const MAX_TEXT_LENGTH: usize = 10000;
+        let signature = symbol.signature.as_ref().map(|s| {
+            if s.len() > MAX_TEXT_LENGTH {
+                &s[..MAX_TEXT_LENGTH]
+            } else {
+                s.as_str()
+            }
+        });
+
+        let docstring = symbol.docstring.as_ref().map(|s| {
+            if s.len() > MAX_TEXT_LENGTH {
+                &s[..MAX_TEXT_LENGTH]
+            } else {
+                s.as_str()
+            }
+        });
+
+        let embedding = self
+            .embedder
+            .encode_symbol(&symbol.name, signature, docstring)?;
 
         let symbol_id = self
             .db
@@ -342,8 +802,8 @@ impl Indexer {
                 file_id,
                 &symbol.name,
                 &symbol.kind,
-                symbol.signature.as_deref(),
-                symbol.docstring.as_deref(),
+                signature,
+                docstring,
                 symbol.start_line as i32,
                 symbol.end_line as i32,
                 &embedding,

@@ -152,6 +152,7 @@ Architecture MUST follow service-oriented patterns with trait-based extension po
 - Required defaults:
   - PostgreSQL: `localhost:54321`, user/db from `$USER`
   - Embedding model path: `~/.local/share/cudgel/models/all-MiniLM-L6-v2`
+  - Ollama: `localhost:11434`, model `llama3.2:8b` (for knowledge generation)
   - Log level: `info`
 
 ### Dependency Startup Checks
@@ -160,6 +161,7 @@ On every `cudgel` invocation, MUST verify:
 - PostgreSQL running on configured port (fail fast with actionable error)
 - Database schema initialized (auto-init if missing, versioned migrations)
 - Embedding models present at expected path (download hint if missing)
+- Ollama service available for knowledge generation (fail gracefully for knowledge command only)
 - XDG directories exist and are writable
 
 **Rationale**: Explicit dependency checks provide immediate, actionable feedback rather than cryptic downstream failures.
@@ -171,6 +173,7 @@ On every `cudgel` invocation, MUST verify:
 - **Async Runtime**: Tokio (default features disabled, opt-in to needed features)
 - **Database**: PostgreSQL 14+ (pgvector extension required)
 - **Embeddings**: ONNX Runtime with sentence-transformers models
+- **Knowledge Generation**: Ollama with llama3.2:8b model
 
 ### Performance and Scale Targets
 

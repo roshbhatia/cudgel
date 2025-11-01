@@ -1,342 +1,45 @@
 # Cudgel
 
-A code indexing tool that combines tree-sitter parsing, PostgreSQL/pgvector embeddings, Temporal workflows, and LSP integration for intelligent code search and analysis.
+> **/ËˆkÊŒdÊ’.É™l/** 
+> *noun*:
+>   a short, thick stick used as a weapon.
+> *verb*: 
+>   beat with a cudgel.
 
-**One-time setup** - run `cudgel setup` once, then services start automatically on login!
+`cudgel` is a code indexing tool designed to help supercharge your LLM prompts by providing knowledge and context up front within your queries, accross all your repositories.
 
-## Features
+As the name implies, it's not meant to be a replacement for tools like `find`, `fd`, `grep`, `ripgrep`, and `ast-grep` that are better at tightly scoped searching that provides precise results, but rather store and provide more general information about a repository.
 
-- **Natural Language Search**: Find code using plain English queries
-- **Tree-sitter Parsing**: Multi-language AST parsing (Python, JS/TS, Rust, Go, C/C++, Java)
-- **Code Relationships**: Track and query references and call graphs
-- **Auto-Scheduling**: Periodic re-indexing with `--schedule` flag
-- **macOS Launch Agents**: Persistent services via launchctl
-- **Rich CLI**: Beautiful terminal UI with progress bars and tables
+It's inspired by tools like:
+- https://github.com/tree-sitter/tree-sitter
+- https://ast-grep.github.io
+- https://github.com/Davidyz/VectorCode
+- https://github.com/modelcontextprotocol/servers/tree/main/src/memory
 
-## Quick Start
-
-### Prerequisites
-
-- **Rust 1.70+** - [Install Rust](https://rustup.rs/)
-- **Homebrew** - [Install Homebrew](https://brew.sh) (macOS)
-- **Docker** - [Install Docker](https://docs.docker.com/get-docker/) (for Temporal)
-
-### Installation
-
-```bash
-git clone https://github.com/roshbhatia/cudgel.git
-cd cudgel
-cargo install --path .
-```
-
-### One-Time Setup
-
-```bash
-cudgel setup
-```
-
-This installs PostgreSQL 16 via Homebrew and creates Launch Agents for automatic startup.
-
-### Usage
-
-**Index a repository:**
-```bash
-cudgel index /path/to/repo
-```
-
-**Index with scheduled re-indexing:**
-```bash
-cudgel index . --schedule hourly # every hour
-cudgel index . --schedule daily # every 24 hours
-cudgel index . --schedule 6 # every 6 hours
-```
-
-**Manage services:**
-```bash
-cudgel services status # Check status
-cudgel services stop # Stop services
-cudgel services start # Start services
-```
-
-**Search your code:**
-```bash
-cudgel query "function that handles authentication"
-cudgel query "error handling" --limit 5
-```
-
-**Explore relationships:**
-```bash
-cudgel graph authenticate_user --depth 2
-```
-
-See [QUICKSTART.md](QUICKSTART.md) for a complete guide.
+It's built with tools like `Rust`, `Postgres`, `TreeSitter`, `uv`, `ONYX`, `llama3`, and `Ollama` to provide a local-first, privacy-focused experience.
 
 ## Architecture
 
-```
+`cudgel` is comprised of a few discrete components:
+- `cudgel index`: Start index tasks manually and register/deregister scheduled repository index tasks. 
+- `cudgel orchestrator`: A daemon process that runs in the background, managing scheduled index tasks.
+- `cudgel query`: Take a string as a query and return the results of the indexing process.
+- `cudgel knowledge`: Maintain a knowledge graph of the indexed repo using local LLMs through `llama3.2:8b` via Ollama w/ support for manual edits.
 
- ‚ CLI ‚ Your commands
- ¬ ˜
- ‚
- ¼
- ‚ Auto-Service Manager ‚
- ‚ (Docker Compose) ‚
- ‚ PostgreSQL + pgvector ‚
- ‚ Temporal ‚
- ¬ ˜
- ‚
- ¼
- ‚ Cudgel Core Engine ‚
- ‚ ‚
- ‚ ‚ Tree- ‚ ‚ Indexer ‚ ‚
- ‚ ‚ sitter ‚ ¬ ˜ ‚
- ‚ ˜ ‚ ‚
- ‚ ¼ ‚
- ‚ ‚Embedding ‚ ‚ Database ‚ ‚
- ‚ ‚Generator ‚ ‚ (auto- ‚ ‚
- ‚ ˜ ‚ init) ‚ ‚
- ‚ ¬ ˜ ‚
- ‚ ¼ ‚
- ‚ ‚ Query ‚ ‚ Graph ‚ ‚
- ‚ ‚ Engine ‚ ‚ Query ‚ ‚
- ‚ ˜ ˜ ‚
- ˜
-```
 
-## How It Works
+`cudgel` stores all it's data in a local Postgres database. It's designed to be local-first and self-contained.
 
-1. **First Run**: When you run `cudgel index`, it automatically:
- - Starts PostgreSQL + Temporal via Docker (~30 seconds first time)
- - Initializes the database schema
- - Indexes your code
+### Indexing
 
-2. **Parsing**: Uses tree-sitter to parse source files into ASTs
+'Indexing' is very much an overloaded term in this context.
 
-3. **Symbol Extraction**: Extracts functions, classes, methods, etc. from ASTs
+`cudgel` uses TreeSitter to extract ASTs from the codebase, and then stores those ASTs as graphs in Postgres. It also generates embeddings for the ASTs, symbols, and call hierarchies via `ONYX` via the `sentence-transformers/all-MiniLM-L6-v2` model for semantic code embeddings, which are stored in a vector database.
 
-4. **Embeddings**: Generates vector embeddings for semantic search
+Hierarchical Navigable Small Worlds (HNSW) is used as the indexing strategy. HNSW tends to work better for the sizes of codebases I tend to deal with day-to-day. https://www.pinecone.io/learn/series/faiss/hnsw/ provides a nice introdcution to how the approach works.
 
-5. **Storage**: Stores everything in PostgreSQL with pgvector for fast similarity search
+## Closing thoughts
 
-6. **Scheduling** (optional): Uses Temporal workflows for periodic re-indexing
+Disclaimer: a lot of this has been out of my depth. I'm an infrastructure engineer by trade who works on Kubernetes at scale. The primary motiviation behind this was to make a tool that works decently enough to define relationships accross various kinds of codebases -- repositories that house nested go templates, Kubernetes controllers, various microservices, CI workflow definitions, CLI tools, etc. 
 
-## Supported Languages
+This project was built on a number of devtools I created previously (see https://github.com/roshbhatia/sysinit for the Neovim config which contains lua code that I started using to inject context into my prompts to various CLI tools) but this project was built via a combination of Claude Code, spec-kit, and my own manual tools.
 
-- Python (`.py`)
-- JavaScript/JSX (`.js`, `.jsx`)
-- TypeScript/TSX (`.ts`, `.tsx`)
-- Rust (`.rs`)
-- Go (`.go`)
-- C/C++ (`.c`, `.cpp`, `.h`, `.hpp`)
-- Java (`.java`)
-
-## Development
-
-### Quick Setup
-
-```bash
-# Using Task (recommended)
-task --list # See available tasks
-task build # Build project
-task test # Run tests
-task pre-commit # Run all checks
-
-# Using cargo directly
-cargo build # Build
-cargo test # Test
-cargo clippy # Lint
-cargo fmt # Format
-```
-
-### Development Tools
-
-We provide comprehensive dev tooling:
-
-- **Nix Shell** (`shell.nix`) - Reproducible dev environment
-- **Task** (`Taskfile.yml`) - Task automation (build, test, lint, etc.)
-- **Pre-commit Hooks** (`.pre-commit-config.yaml`) - Automatic quality checks
-- **GitHub Actions** (`.github/workflows/`) - CI/CD pipelines
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
-
-### With Nix
-
-```bash
-nix-shell # Enter dev shell
-task install-hooks # Setup git hooks
-task build # Build
-task test # Test
-```
-
-### Pre-commit Hooks
-
-```bash
-# Install hooks (one-time)
-task install-hooks
-
-# Hooks will automatically run on commit:
-# - Format code (cargo fmt)
-# - Lint (cargo clippy)
-# - Run tests (on push)
-```
-
-## Project Structure
-
-```
-cudgel/
- src/
- ‚ main.rs # CLI entry point
- ‚ config.rs # Configuration (hardcoded local defaults)
- ‚ services.rs # Auto-managed Docker services
- ‚ database.rs # PostgreSQL + pgvector operations
- ‚ indexer.rs # Repository indexing orchestration
- ‚ parser.rs # Tree-sitter parsing
- ‚ embeddings.rs # Vector embedding generation
- ‚ query.rs # Natural language search
- ‚ graph.rs # Code relationship analysis
- ‚ lsp.rs # LSP server implementation
- ‚ temporal.rs # Temporal workflow integration
- ‚ error.rs # Error types
- tests/
- ‚ integration_tests.rs
- Taskfile.yml # Task automation
- shell.nix # Nix development environment
- .pre-commit-config.yaml
- .github/workflows/ # CI/CD
- CLAUDE.md # Development guide for AI assistants
- CONTRIBUTING.md # Contribution guidelines
- QUICKSTART.md # Quick start guide
-```
-
-## CLI Commands
-
-```bash
-# Index repositories
-cudgel index <path> # Index once
-cudgel index <path> --schedule hourly # With periodic re-indexing
-
-# Search code
-cudgel query "search term" # Basic search
-cudgel query "term" --limit 10 # Limit results
-cudgel query "term" --json # JSON output
-
-# Explore relationships
-cudgel graph <symbol> # Show relationships
-cudgel graph <symbol> --depth 3 # Deep traversal
-cudgel graph <symbol> --json # JSON output
-
-# LSP server (for IDE integration)
-cudgel lsp # Start LSP server
-
-# Database management (optional)
-cudgel init-db # Manual schema init
-cudgel schedule <path> # Standalone scheduling
-```
-
-## Configuration
-
-**No configuration needed!** Everything uses hardcoded local defaults:
-
-- PostgreSQL: `localhost:5432`, user/pass/db = `cudgel`
-- Temporal: `localhost:7233`
-- Embeddings: Dummy vectors (384D) for development
-
-All services auto-start via Docker when first needed.
-
-## Testing
-
-```bash
-# Run all tests
-cargo test
-
-# Run specific tests
-cargo test test_name
-
-# Integration tests (requires PostgreSQL)
-cargo test --test integration_tests
-
-# With Task
-task test # All tests
-task test-unit # Unit tests only
-task test-integration # Integration tests only
-```
-
-## CI/CD
-
-We use GitHub Actions for continuous integration:
-
-- **CI Pipeline** (`.github/workflows/ci.yml`):
- - Runs on push/PR
- - Tests on Linux and macOS
- - Runs fmt, clippy, and tests
- - Security audit
-
-- **Release Pipeline** (`.github/workflows/release.yml`):
- - Triggers on version tags (`v*`)
- - Builds binaries for all platforms
- - Creates GitHub releases
- - Publishes to crates.io
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
-
-- Development setup
-- Code style guidelines
-- Testing requirements
-- Pull request process
-
-Quick contribution workflow:
-
-```bash
-# 1. Fork and clone
-git clone https://github.com/YOUR_USERNAME/cudgel.git
-cd cudgel
-
-# 2. Setup development environment
-task install-hooks
-
-# 3. Create a feature branch
-git checkout -b feature/my-feature
-
-# 4. Make changes and test
-task pre-commit
-
-# 5. Commit and push
-git commit -m "feat: Add my feature"
-git push origin feature/my-feature
-
-# 6. Create Pull Request on GitHub
-```
-
-## Roadmap
-
-- [ ] Production-ready ONNX embeddings
-- [ ] More language support (Ruby, PHP, Swift, Kotlin)
-- [ ] VSCode extension
-- [ ] Web UI for browsing code
-- [ ] Incremental indexing (only changed files)
-- [ ] Cross-repository search
-- [ ] AI-powered code explanations
-
-## License
-
-[MIT License](LICENSE) - See LICENSE file for details
-
-## Credits
-
-Built with:
-- [tree-sitter](https://tree-sitter.github.io/) - Incremental parsing
-- [PostgreSQL](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector) - Vector database
-- [Temporal](https://temporal.io/) - Workflow orchestration
-- [Rust](https://www.rust-lang.org/) - Systems programming language
-
-## Links
-
-- **Documentation**: [QUICKSTART.md](QUICKSTART.md), [CLAUDE.md](CLAUDE.md)
-- **Issues**: [GitHub Issues](https://github.com/roshbhatia/cudgel/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/roshbhatia/cudgel/discussions)
-
----
-
-Made with and Claude Code

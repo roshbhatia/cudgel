@@ -112,7 +112,10 @@ impl CodeParser {
         }
 
         self.parsers.get_mut(language).ok_or_else(|| {
-            Error::Parse(format!("Parser for language '{}' not found after initialization", language))
+            Error::Parse(format!(
+                "Parser for language '{}' not found after initialization",
+                language
+            ))
         })
     }
 

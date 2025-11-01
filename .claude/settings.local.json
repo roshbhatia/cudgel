@@ -60,7 +60,17 @@
       "Bash(psql:*)",
       "Bash(/opt/homebrew/opt/postgresql@17/bin/psql:*)",
       "Bash(CUDGEL_DEBUG=1 cudgel query:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git fetch:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(CUDGEL_DEBUG=1 cargo run:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh pr view:*)"
     ],
     "deny": [],
     "ask": []
