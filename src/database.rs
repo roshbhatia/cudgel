@@ -194,6 +194,12 @@ impl Database {
         // Drop tables in reverse dependency order
         // Note: "references" is a reserved keyword, so it needs to be quoted
         client
+            .execute("DROP TABLE IF EXISTS knowledge_documents CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS scheduled_tasks CASCADE", &[])
+            .await?;
+        client
             .execute("DROP TABLE IF EXISTS code_chunks CASCADE", &[])
             .await?;
         client
@@ -385,6 +391,65 @@ impl Database {
                 "CREATE INDEX IF NOT EXISTS idx_code_chunks_embedding
                  ON code_chunks USING ivfflat (embedding vector_cosine_ops)
                  WITH (lists = 100)",
+                &[],
+            )
+            .await?;
+
+        // Scheduled tasks table (User Story 2: Automatic Re-indexing)
+        client
+            .execute(
+                "CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id SERIAL PRIMARY KEY,
+                    repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+                    interval_hours INTEGER NOT NULL CHECK (interval_hours > 0 AND interval_hours <= 8760),
+                    next_run_at TIMESTAMPTZ NOT NULL,
+                    last_run_at TIMESTAMPTZ,
+                    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')),
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                )",
+                &[],
+            )
+            .await?;
+
+        client
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_repo_id ON scheduled_tasks(repo_id)",
+                &[],
+            )
+            .await?;
+
+        client
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next_run ON scheduled_tasks(next_run_at) WHERE status = 'active'",
+                &[],
+            )
+            .await?;
+
+        client
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status)",
+                &[],
+            )
+            .await?;
+
+        // Knowledge documents table (User Story 3: Knowledge Graph Generation)
+        client
+            .execute(
+                "CREATE TABLE IF NOT EXISTS knowledge_documents (
+                    id SERIAL PRIMARY KEY,
+                    repo_id INTEGER NOT NULL UNIQUE REFERENCES repositories(id) ON DELETE CASCADE,
+                    content TEXT NOT NULL CHECK (content != ''),
+                    generated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_edited_at TIMESTAMPTZ,
+                    version INTEGER DEFAULT 1 CHECK (version > 0)
+                )",
+                &[],
+            )
+            .await?;
+
+        client
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_documents_repo_id ON knowledge_documents(repo_id)",
                 &[],
             )
             .await?;

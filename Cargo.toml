@@ -59,6 +59,10 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenv = "0.15"
+git2 = "0.18"
+
+# LLM for knowledge generation (User Story 3)
+ollama-rs = "0.2"
 
 # Pretty output
 comfy-table = "7.1"

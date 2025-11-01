@@ -24,17 +24,17 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create Cargo project with workspace structure and bin/lib targets
-- [ ] T002 [P] Add core dependencies to Cargo.toml (clap, tokio, sqlx, thiserror, anyhow, tracing)
-- [ ] T003 [P] Add tree-sitter dependencies to Cargo.toml (tree-sitter + 8 language grammars)
-- [ ] T004 [P] Add utility dependencies to Cargo.toml (config, walkdir, sha2, serde, chrono, ollama-rs)
+- [X] T001 Create Cargo project with workspace structure and bin/lib targets
+- [X] T002 [P] Add core dependencies to Cargo.toml (clap, tokio, sqlx, thiserror, anyhow, tracing)
+- [X] T003 [P] Add tree-sitter dependencies to Cargo.toml (tree-sitter + 8 language grammars)
+- [X] T004 [P] Add utility dependencies to Cargo.toml (config, walkdir, sha2, serde, chrono, ollama-rs)
 - [ ] T005 [P] Create flake.nix with package output, devShell, and PostgreSQL service
 - [ ] T006 [P] Create .pre-commit-config.yaml with cargo fmt, clippy, test hooks
 - [ ] T007 [P] Create project directory structure (src/cli, src/services, src/db, src/traits, src/utils)
 - [ ] T007a [P] Document ONNX model setup in README.md (download sentence-transformers/all-MiniLM-L6-v2 to ~/.local/share/cudgel/models/)
-- [ ] T008 Create src/lib.rs with public module exports
-- [ ] T009 Create src/main.rs with clap CLI framework and command dispatch
-- [ ] T010 Create src/error.rs with Error enum using thiserror for all error types
+- [X] T008 Create src/lib.rs with public module exports
+- [X] T009 Create src/main.rs with clap CLI framework and command dispatch
+- [X] T010 Create src/error.rs with Error enum using thiserror for all error types
 
 ---
 
@@ -44,22 +44,24 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T011 Create migrations/001_init.sql with repositories, files, symbols tables
-- [ ] T012 Create migrations/002_pgvector.sql with embeddings table and HNSW index
-- [ ] T013 Create migrations/003_schedules.sql with scheduled_tasks table
-- [ ] T014 Create migrations/004_knowledge.sql with knowledge_documents table
-- [ ] T015 Create src/config.rs implementing Config struct with config crate + XDG paths
-- [ ] T016 [P] Create src/utils/xdg.rs with XDG Base Directory helper functions
+**Note**: Schema is implemented inline in src/database.rs (not separate migrations), includes scheduled_tasks and knowledge_documents tables
+
+- [X] T011 Create migrations/001_init.sql with repositories, files, symbols tables (implemented in database.rs)
+- [X] T012 Create migrations/002_pgvector.sql with embeddings table and HNSW index (implemented in database.rs)
+- [X] T013 Create migrations/003_schedules.sql with scheduled_tasks table (implemented in database.rs)
+- [X] T014 Create migrations/004_knowledge.sql with knowledge_documents table (implemented in database.rs)
+- [X] T015 Create src/config.rs implementing Config struct with config crate + XDG paths
+- [ ] T016 [P] Create src/utils/xdg.rs with XDG Base Directory helper functions (partially in config.rs)
 - [ ] T017 [P] Create src/utils/git.rs with git2 wrapper for listing tracked files
-- [ ] T018 [P] Create src/utils/hash.rs with SHA256 file content hashing
-- [ ] T019 Create src/db/mod.rs with PgPool connection and migration runner
-- [ ] T020 [P] Create src/db/repos.rs with Repository CRUD operations (sqlx)
-- [ ] T021 [P] Create src/db/files.rs with File CRUD operations (sqlx)
-- [ ] T022 [P] Create src/db/symbols.rs with Symbol CRUD operations (sqlx)
-- [ ] T023 [P] Create src/db/embeddings.rs with Embedding CRUD and pgvector similarity search
+- [ ] T018 [P] Create src/utils/hash.rs with SHA256 file content hashing (inline in indexer.rs)
+- [X] T019 Create src/db/mod.rs with PgPool connection and migration runner (database.rs)
+- [X] T020 [P] Create src/db/repos.rs with Repository CRUD operations (sqlx) (inline in database.rs)
+- [X] T021 [P] Create src/db/files.rs with File CRUD operations (sqlx) (inline in database.rs)
+- [X] T022 [P] Create src/db/symbols.rs with Symbol CRUD operations (sqlx) (inline in database.rs)
+- [X] T023 [P] Create src/db/embeddings.rs with Embedding CRUD and pgvector similarity search (inline in database.rs)
 - [ ] T024 Create src/traits/mod.rs with public trait exports
-- [ ] T025 Create src/traits/parser.rs defining LanguageParser trait
-- [ ] T026 Create src/traits/embeddings.rs defining EmbeddingGenerator trait
+- [ ] T025 Create src/traits/parser.rs defining LanguageParser trait (parser is direct impl, not trait-based)
+- [ ] T026 Create src/traits/embeddings.rs defining EmbeddingGenerator trait (embeddings is direct impl)
 - [ ] T027 Create src/services/mod.rs with public service exports
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
