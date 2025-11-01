@@ -1,5 +1,3 @@
-//! Integration tests for Cudgel
-
 use cudgel::{
     config::Config, database::Database, embeddings::EmbeddingGenerator, graph::GraphQuery,
     indexer::Indexer, parser::CodeParser, query::QueryEngine,
