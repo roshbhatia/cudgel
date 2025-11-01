@@ -1,0 +1,10 @@
+{
+  "name": "cudgel",
+  "version": "0.0.0",
+  "description": "local rag, knowledge base, etc. cli tool for providing information to cli agents",
+  "main": "src/main.rs",
+  "repository": "https://github.com/roshbhatia/cudgel.git",
+  "author": "Roshan Bhatia <rshnbhatia@gmail.com>",
+  "license": "MIT",
+  "private": true
+}
