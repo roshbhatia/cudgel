@@ -119,11 +119,7 @@ impl IndexFilter {
     /// Only files in the specified languages will be indexed.
     /// If no languages are specified, all supported languages are indexed.
     pub fn with_languages(mut self, langs: Vec<String>) -> Self {
-        self.languages = if langs.is_empty() {
-            None
-        } else {
-            Some(langs)
-        };
+        self.languages = if langs.is_empty() { None } else { Some(langs) };
         self
     }
 
@@ -291,7 +287,7 @@ impl Indexer {
 
     fn get_git_repo_name(repo_path: &Path) -> String {
         std::process::Command::new("git")
-            .args(&[
+            .args([
                 "-C",
                 &repo_path.to_string_lossy(),
                 "remote",
@@ -325,7 +321,7 @@ impl Indexer {
 
     fn get_git_tracked_files(repo_path: &Path) -> Result<Vec<PathBuf>> {
         let output = std::process::Command::new("git")
-            .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
+            .args(["-C", &repo_path.to_string_lossy(), "ls-files"])
             .output()
             .map_err(|e| crate::Error::Other(format!("Failed to run git ls-files: {}", e)))?;
 

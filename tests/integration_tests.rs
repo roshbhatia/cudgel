@@ -41,19 +41,19 @@ fn create_test_repo() -> TempDir {
 
     // Initialize as a git repository
     std::process::Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(base_path)
         .output()
         .expect("Failed to initialize git repository");
 
     std::process::Command::new("git")
-        .args(&["config", "user.email", "test@example.com"])
+        .args(["config", "user.email", "test@example.com"])
         .current_dir(base_path)
         .output()
         .expect("Failed to set git user email");
 
     std::process::Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(base_path)
         .output()
         .expect("Failed to set git user name");
@@ -131,13 +131,13 @@ const processData = (data) => {
 
     // Add files to git
     std::process::Command::new("git")
-        .args(&["add", "."])
+        .args(["add", "."])
         .current_dir(base_path)
         .output()
         .expect("Failed to git add files");
 
     std::process::Command::new("git")
-        .args(&["commit", "-m", "Initial commit"])
+        .args(["commit", "-m", "Initial commit"])
         .current_dir(base_path)
         .output()
         .expect("Failed to git commit");
@@ -659,8 +659,7 @@ fn test_index_filter_include_patterns() {
     use cudgel::indexer::IndexFilter;
     use std::path::Path;
 
-    let filter =
-        IndexFilter::new().with_include_patterns(vec!["**/src/**/*.rs".to_string()]);
+    let filter = IndexFilter::new().with_include_patterns(vec!["**/src/**/*.rs".to_string()]);
 
     // Should match files in src directory
     assert!(filter.should_index_file(Path::new("project/src/main.rs")));
@@ -676,8 +675,10 @@ fn test_index_filter_exclude_patterns() {
     use cudgel::indexer::IndexFilter;
     use std::path::Path;
 
-    let filter =
-        IndexFilter::new().with_exclude_patterns(vec!["**/target/**".to_string(), "**/node_modules/**".to_string()]);
+    let filter = IndexFilter::new().with_exclude_patterns(vec![
+        "**/target/**".to_string(),
+        "**/node_modules/**".to_string(),
+    ]);
 
     // Should not match excluded directories
     assert!(!filter.should_index_file(Path::new("project/target/debug/main.rs")));
@@ -735,8 +736,8 @@ fn test_index_filter_wildcards() {
     use std::path::Path;
 
     let filter = IndexFilter::new().with_include_patterns(vec![
-        "**/*.rs".to_string(),        // All .rs files
-        "src/**/*.py".to_string(),    // Python files in src
+        "**/*.rs".to_string(),     // All .rs files
+        "src/**/*.py".to_string(), // Python files in src
     ]);
 
     // Should match .rs files at any level

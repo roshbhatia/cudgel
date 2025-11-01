@@ -199,7 +199,6 @@ impl Default for Config {
 
 /// XDG Base Directory helper functions
 /// These functions check environment variables first, then fall back to XDG defaults
-
 /// Get XDG_DATA_HOME directory (default: ~/.local/share)
 fn xdg_data_home() -> PathBuf {
     std::env::var("XDG_DATA_HOME")

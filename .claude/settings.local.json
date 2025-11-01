@@ -67,7 +67,9 @@
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
       "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
       "Bash(git rev-parse:*)",
-      "Bash(CUDGEL_DEBUG=1 cargo run:*)"
+      "Bash(CUDGEL_DEBUG=1 cargo run:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)"
     ],
     "deny": [],
     "ask": []

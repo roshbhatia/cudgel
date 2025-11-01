@@ -81,7 +81,10 @@ impl QueryEngine {
         if std::env::var("CUDGEL_DEBUG").is_ok() {
             eprintln!("Query: \"{}\"", query);
             eprintln!("Embedding length: {}", query_embedding.len());
-            eprintln!("First 5 values: {:?}", &query_embedding[..5.min(query_embedding.len())]);
+            eprintln!(
+                "First 5 values: {:?}",
+                &query_embedding[..5.min(query_embedding.len())]
+            );
             let norm: f32 = query_embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
             eprintln!("Embedding L2 norm: {:.6}", norm);
         }
@@ -96,7 +99,12 @@ impl QueryEngine {
             for (i, row) in rows.iter().enumerate().take(3) {
                 let name: String = row.get("name");
                 let similarity: f64 = row.get("similarity");
-                eprintln!("  Result {}: {} (similarity: {:.6})", i + 1, name, similarity);
+                eprintln!(
+                    "  Result {}: {} (similarity: {:.6})",
+                    i + 1,
+                    name,
+                    similarity
+                );
             }
         }
 

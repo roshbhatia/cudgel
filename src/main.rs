@@ -172,10 +172,9 @@ async fn main() -> cudgel::Result<()> {
     let cli = Cli::parse();
 
     // Load and validate configuration
-    let config = Arc::new(Config::from_env().map_err(|e| {
+    let config = Arc::new(Config::from_env().inspect_err(|e| {
         eprintln!("{}", "Configuration Error:".bright_red().bold());
-        eprintln!("{}", e.to_string());
-        e
+        eprintln!("{}", e);
     })?);
 
     let result = match cli.command {
@@ -307,7 +306,9 @@ async fn cmd_index(
     // TODO: Support multiple repository roots
     let repo_path = &resolved_paths[0];
 
-    let (repo_id, stats) = indexer.index_repository_with_filter(repo_path, &filter).await?;
+    let (repo_id, stats) = indexer
+        .index_repository_with_filter(repo_path, &filter)
+        .await?;
 
     println!(
         "\n{}",
@@ -367,7 +368,7 @@ async fn cmd_index_dry_run_with_filter(
     for repo_path in paths {
         // Get git tracked files
         let output = std::process::Command::new("git")
-            .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
+            .args(["-C", &repo_path.to_string_lossy(), "ls-files"])
             .output()
             .map_err(|e| cudgel::Error::Other(format!("Failed to run git ls-files: {}", e)))?;
 
@@ -509,14 +510,12 @@ async fn cmd_query(
             minify_query_results(&results)?
         } else if json {
             // Compact JSON (single line)
-            serde_json::to_string(&results).map_err(|e| {
-                cudgel::Error::Other(format!("JSON serialization failed: {}", e))
-            })?
+            serde_json::to_string(&results)
+                .map_err(|e| cudgel::Error::Other(format!("JSON serialization failed: {}", e)))?
         } else {
             // Pretty-printed JSON (indented)
-            serde_json::to_string_pretty(&results).map_err(|e| {
-                cudgel::Error::Other(format!("JSON serialization failed: {}", e))
-            })?
+            serde_json::to_string_pretty(&results)
+                .map_err(|e| cudgel::Error::Other(format!("JSON serialization failed: {}", e)))?
         };
 
         println!("{}", json_str);
