@@ -66,11 +66,16 @@ impl Config {
     pub fn local() -> Self {
         Config {
             database: DatabaseConfig {
-                host: "localhost".to_string(),
-                port: 54321,
-                database: "cudgel".to_string(),
-                user: std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string()),
-                password: "cudgel".to_string(),
+                host: std::env::var("PGHOST").unwrap_or_else(|_| "localhost".to_string()),
+                port: std::env::var("PGPORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(54321),
+                database: std::env::var("PGDATABASE").unwrap_or_else(|_| "cudgel".to_string()),
+                user: std::env::var("PGUSER")
+                    .or_else(|_| std::env::var("USER"))
+                    .unwrap_or_else(|_| "cudgel".to_string()),
+                password: std::env::var("PGPASSWORD").unwrap_or_else(|_| "cudgel".to_string()),
             },
             embedding: EmbeddingConfig {
                 // Check XDG_DATA_HOME for model path

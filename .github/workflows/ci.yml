@@ -19,6 +19,21 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         rust: [stable]
 
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cudgel
+        ports:
+          - 54321:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,6 +61,41 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set PostgreSQL environment (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "PGHOST=localhost" >> $GITHUB_ENV
+          echo "PGPORT=54321" >> $GITHUB_ENV
+          echo "PGUSER=postgres" >> $GITHUB_ENV
+          echo "PGPASSWORD=postgres" >> $GITHUB_ENV
+          echo "PGDATABASE=cudgel" >> $GITHUB_ENV
+
+      - name: Install and setup PostgreSQL (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install postgresql@17 pgvector
+          brew services start postgresql@17
+
+          # Wait for PostgreSQL to start
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 2>/dev/null; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 1
+          done
+
+          # Create database and enable pgvector
+          createdb cudgel
+          psql -d cudgel -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+          # Set environment variables
+          echo "PGHOST=localhost" >> $GITHUB_ENV
+          echo "PGPORT=5432" >> $GITHUB_ENV
+          echo "PGUSER=$USER" >> $GITHUB_ENV
+          echo "PGDATABASE=cudgel" >> $GITHUB_ENV
 
       - name: Run tests
         run: cargo test --verbose
