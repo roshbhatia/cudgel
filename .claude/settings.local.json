@@ -60,7 +60,9 @@
       "Bash(psql:*)",
       "Bash(/opt/homebrew/opt/postgresql@17/bin/psql:*)",
       "Bash(CUDGEL_DEBUG=1 cudgel query:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git fetch:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)"
     ],
     "deny": [],
     "ask": []
