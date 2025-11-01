@@ -105,10 +105,8 @@ impl EmbeddingGenerator {
 
         // Convert to i64 for ONNX input
         let input_ids_i64: Vec<i64> = input_ids.iter().map(|&id| id as i64).collect();
-        let attention_mask_i64: Vec<i64> =
-            attention_mask.iter().map(|&mask| mask as i64).collect();
-        let token_type_ids_i64: Vec<i64> =
-            token_type_ids.iter().map(|&id| id as i64).collect();
+        let attention_mask_i64: Vec<i64> = attention_mask.iter().map(|&mask| mask as i64).collect();
+        let token_type_ids_i64: Vec<i64> = token_type_ids.iter().map(|&id| id as i64).collect();
 
         let seq_len = input_ids.len();
 
@@ -153,11 +151,8 @@ impl EmbeddingGenerator {
         let hidden_dim = shape_dims[2];
 
         // Convert to ndarray for easier manipulation
-        let hidden_states = Array2::from_shape_vec(
-            (output_seq_len, hidden_dim),
-            data.to_vec(),
-        )
-        .map_err(|e| Error::Embedding(format!("Failed to reshape tensor: {}", e)))?;
+        let hidden_states = Array2::from_shape_vec((output_seq_len, hidden_dim), data.to_vec())
+            .map_err(|e| Error::Embedding(format!("Failed to reshape tensor: {}", e)))?;
 
         // Mean pooling: average over the sequence dimension, weighted by attention mask
         let attention_mask_f32: Vec<f32> = attention_mask.iter().map(|&m| m as f32).collect();

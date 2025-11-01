@@ -1,10 +1,12 @@
-name: CI
+name: pr
 
 on:
   push:
-    branches: [main, develop]
+    branches-ignore:
+      - main
   pull_request:
-    branches: [main, develop]
+    branches-ignore:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,11 +15,22 @@ env:
 jobs:
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        rust: [stable]
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cudgel
+        ports:
+          - 54321:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -26,29 +39,35 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
       - name: Cache cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cache cargo index
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cache cargo build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
-        run: cargo test --verbose
+      # Commented out as there's only integration tests now which require the model to be downloaded. Once we have unit tests, we'll uncomment this. Integration tests can just be run locally.
+      # - name: Run tests
+      #   run: cargo test --verbose
+      #   env:
+      #     PGHOST: localhost
+      #     PGPORT: "54321"
+      #     PGUSER: postgres
+      #     PGPASSWORD: postgres
+      #     PGDATABASE: cudgel
 
   fmt:
     name: Rustfmt
@@ -74,10 +93,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -94,4 +110,4 @@ jobs:
         run: cargo install cargo-audit
       - name: Run security audit
         run: cargo audit
-        continue-on-error: true  # Don't fail CI on advisories
+        continue-on-error: true
