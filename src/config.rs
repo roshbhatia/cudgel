@@ -1,6 +1,7 @@
 //! Configuration management
 //!
-//! Hardcoded for local-only usage. No env vars required - everything "just works".
+//! Follows XDG Base Directory specification with sensible defaults.
+//! Checks environment variables first, then falls back to XDG defaults.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -59,7 +60,8 @@ pub struct IndexingConfig {
 }
 
 impl Config {
-    /// Create a new config with hardcoded local defaults
+    /// Create a new config with XDG-compliant defaults
+    /// Checks environment variables first, then falls back to XDG defaults
     /// Uses non-standard port to avoid conflicts (PostgreSQL: 54321)
     pub fn local() -> Self {
         Config {
@@ -71,7 +73,11 @@ impl Config {
                 password: "cudgel".to_string(),
             },
             embedding: EmbeddingConfig {
-                model_path: PathBuf::from("./models/all-MiniLM-L6-v2"),
+                // Check XDG_DATA_HOME for model path
+                model_path: xdg_data_home()
+                    .join("cudgel/models/all-MiniLM-L6-v2")
+                    .canonicalize()
+                    .unwrap_or_else(|_| PathBuf::from("./models/all-MiniLM-L6-v2")),
                 dimension: 384,
             },
             indexing: IndexingConfig {
@@ -105,4 +111,78 @@ impl Default for Config {
     fn default() -> Self {
         Self::local()
     }
+}
+
+/// XDG Base Directory helper functions
+/// These functions check environment variables first, then fall back to XDG defaults
+
+/// Get XDG_DATA_HOME directory (default: ~/.local/share)
+fn xdg_data_home() -> PathBuf {
+    std::env::var("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::var("HOME")
+                .map(|home| PathBuf::from(home).join(".local/share"))
+                .expect("HOME environment variable must be set")
+        })
+}
+
+/// Get XDG_CONFIG_HOME directory (default: ~/.config)
+#[allow(dead_code)]
+fn xdg_config_home() -> PathBuf {
+    std::env::var("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::var("HOME")
+                .map(|home| PathBuf::from(home).join(".config"))
+                .expect("HOME environment variable must be set")
+        })
+}
+
+/// Get XDG_STATE_HOME directory (default: ~/.local/state)
+#[allow(dead_code)]
+fn xdg_state_home() -> PathBuf {
+    std::env::var("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::var("HOME")
+                .map(|home| PathBuf::from(home).join(".local/state"))
+                .expect("HOME environment variable must be set")
+        })
+}
+
+/// Get XDG_CACHE_HOME directory (default: ~/.cache)
+#[allow(dead_code)]
+fn xdg_cache_home() -> PathBuf {
+    std::env::var("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::var("HOME")
+                .map(|home| PathBuf::from(home).join(".cache"))
+                .expect("HOME environment variable must be set")
+        })
+}
+
+/// Get cudgel data directory (XDG_DATA_HOME/cudgel)
+pub fn cudgel_data_dir() -> PathBuf {
+    xdg_data_home().join("cudgel")
+}
+
+/// Get cudgel config directory (XDG_CONFIG_HOME/cudgel)
+#[allow(dead_code)]
+pub fn cudgel_config_dir() -> PathBuf {
+    xdg_config_home().join("cudgel")
+}
+
+/// Get cudgel state directory (XDG_STATE_HOME/cudgel)
+/// Used for orchestrator logs, PID files, etc.
+#[allow(dead_code)]
+pub fn cudgel_state_dir() -> PathBuf {
+    xdg_state_home().join("cudgel")
+}
+
+/// Get cudgel cache directory (XDG_CACHE_HOME/cudgel)
+#[allow(dead_code)]
+pub fn cudgel_cache_dir() -> PathBuf {
+    xdg_cache_home().join("cudgel")
 }
