@@ -211,7 +211,7 @@ A developer wants to export query results in LLM-friendly formats (JSON, minifie
 
 - **SC-004**: Developers can generate a complete knowledge graph document in under 2 minutes for a repository with 50,000 lines of code.
 
-- **SC-005**: Query result accuracy achieves 80% relevance in top 10 results (verified via user study with 10+ developers rating top 10 results per query as relevant/not-relevant for their search intent).
+- **SC-005**: Query result accuracy achieves 80% relevance in top 10 results (verified by rating top 10 results per query as relevant/not-relevant for your search intent across 20+ test queries).
 
 - **SC-006**: System memory footprint remains under 500MB RSS during active indexing operations.
 
