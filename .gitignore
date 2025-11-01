@@ -8,3 +8,6 @@ models/
 
 # Python virtual environment
 .venv/
+
+!.specify/
+!.claude/

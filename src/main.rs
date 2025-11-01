@@ -391,13 +391,25 @@ fn display_query_results(results: &[cudgel::query::SymbolResult]) {
 
     let mut table = Table::new();
     table.load_preset(UTF8_FULL);
-    table.set_header(vec!["Name", "Kind", "File", "Line", "Similarity"]);
+    table.set_header(vec![
+        "Name",
+        "Kind",
+        "Signature",
+        "Repo",
+        "File",
+        "Language",
+        "Line",
+        "Similarity",
+    ]);
 
     for result in results {
         table.add_row(vec![
             result.name.clone(),
             result.kind.clone(),
+            result.signature.clone().unwrap_or_else(|| "-".to_string()),
+            result.repo_name.clone(),
             result.path.clone(),
+            result.language.clone().unwrap_or_else(|| "-".to_string()),
             result.start_line.to_string(),
             format!("{:.3}", result.similarity),
         ]);
