@@ -76,8 +76,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T028 [P] [US1] Create src/services/parser.rs with ParserService struct and initialization
-- [ ] T029 [P] [US1] Implement PythonParser in src/services/parser.rs using tree-sitter-python
+- [X] T028 [P] [US1] Create src/services/parser.rs with ParserService struct and initialization
+- [X] T029 [P] [US1] Implement PythonParser in src/services/parser.rs using tree-sitter-python
 - [ ] T030 [P] [US1] Implement JavaScriptParser in src/services/parser.rs using tree-sitter-javascript
 - [ ] T031 [P] [US1] Implement TypeScriptParser in src/services/parser.rs using tree-sitter-typescript
 - [ ] T032 [P] [US1] Implement RustParser in src/services/parser.rs using tree-sitter-rust
@@ -86,8 +86,8 @@
 - [ ] T035 [P] [US1] Implement CppParser in src/services/parser.rs using tree-sitter-cpp
 - [ ] T036 [P] [US1] Implement JavaParser in src/services/parser.rs using tree-sitter-java
 - [ ] T037 [US1] Implement language detection logic in ParserService based on file extensions
-- [ ] T038 [US1] Implement symbol extraction via tree-sitter queries in ParserService
-- [ ] T039 [US1] Create src/services/embeddings.rs with OllamaEmbeddingService using ollama-rs client
+- [X] T038 [US1] Implement symbol extraction via tree-sitter queries in ParserService
+- [X] T039 [US1] Create src/services/embeddings.rs with OllamaEmbeddingService using ollama-rs client
 - [ ] T040 [US1] Implement embedding generation for text via Ollama llama3.2:8b in EmbeddingService
 - [ ] T041 [US1] Implement batch embedding generation with connection pooling in EmbeddingService
 - [ ] T042 [US1] Create src/services/indexer.rs with IndexService struct
@@ -96,8 +96,8 @@
 - [ ] T045 [US1] Implement incremental indexing logic with hash comparison in IndexService
 - [ ] T046 [US1] Implement file parsing workflow (discover → parse → extract symbols) in IndexService
 - [ ] T047 [US1] Implement embedding generation workflow (symbols → embeddings) in IndexService
-- [ ] T048 [US1] Implement database persistence workflow (repos → files → symbols → embeddings) in IndexService
-- [ ] T049 [US1] Add progress bar output using indicatif crate in IndexService
+- [X] T048 [US1] Implement database persistence workflow (repos → files → symbols → embeddings) in IndexService
+- [X] T049 [US1] Add progress bar output using indicatif crate in IndexService
 - [ ] T050 [US1] Create src/cli/index.rs implementing `cudgel index` command handler
 - [ ] T051 [US1] Implement path argument parsing and validation in cli/index.rs
 - [ ] T052 [US1] Integrate IndexService into cli/index.rs command execution
@@ -106,15 +106,15 @@
 - [ ] T055 [US1] Create src/services/query.rs with QueryEngine struct
 - [ ] T056 [US1] Implement query embedding generation via Ollama in QueryEngine
 - [ ] T057 [US1] Implement pgvector similarity search using db/embeddings.rs in QueryEngine
-- [ ] T058 [US1] Implement result ranking by similarity score in QueryEngine
-- [ ] T059 [US1] Implement table formatting using comfy-table crate in QueryEngine
-- [ ] T060 [US1] Create src/cli/query.rs implementing `cudgel query` command handler
-- [ ] T061 [US1] Implement search term argument parsing in cli/query.rs
-- [ ] T062 [US1] Implement --limit flag handling (default 50, max 1000) in cli/query.rs
-- [ ] T063 [US1] Implement --repo, --language, --type filter flags in cli/query.rs
-- [ ] T064 [US1] Integrate QueryEngine into cli/query.rs command execution
-- [ ] T065 [US1] Implement "no results found" handling with helpful message in cli/query.rs
-- [ ] T066 [US1] Update src/main.rs to register index and query subcommands
+- [X] T058 [US1] Implement result ranking by similarity score in QueryEngine
+- [X] T059 [US1] Implement table formatting using comfy-table crate in QueryEngine
+- [X] T060 [US1] Create src/cli/query.rs implementing `cudgel query` command handler
+- [X] T061 [US1] Implement search term argument parsing in cli/query.rs
+- [X] T062 [US1] Implement --limit flag handling (default 50, max 1000) in cli/query.rs
+- [X] T063 [US1] Implement --repo, --language, --type filter flags in cli/query.rs
+- [X] T064 [US1] Integrate QueryEngine into cli/query.rs command execution
+- [X] T065 [US1] Implement "no results found" handling with helpful message in cli/query.rs
+- [X] T066 [US1] Update src/main.rs to register index and query subcommands
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -129,30 +129,30 @@
 ### Implementation for User Story 2
 
 - [ ] T067 [US2] Create src/db/schedules.rs with ScheduledTask CRUD operations (sqlx)
-- [ ] T068 [US2] Implement schedule creation with interval parsing (hourly/daily/N hours) in db/schedules.rs
-- [ ] T069 [US2] Implement schedule deletion (unschedule) in db/schedules.rs
-- [ ] T070 [US2] Implement schedule listing with filters (active only) in db/schedules.rs
-- [ ] T071 [US2] Implement next_run_at calculation logic in db/schedules.rs
-- [ ] T072 [US2] Create src/services/orchestrator.rs with OrchestratorService struct
-- [ ] T073 [US2] Implement polling loop with tokio::time::interval (default 60s) in OrchestratorService
-- [ ] T074 [US2] Implement due task discovery query (SELECT FOR UPDATE SKIP LOCKED) in OrchestratorService
-- [ ] T075 [US2] Implement concurrent task execution using tokio::spawn in OrchestratorService
-- [ ] T076 [US2] Integrate IndexService for scheduled re-indexing in OrchestratorService
+- [X] T068 [US2] Implement schedule creation with interval parsing (hourly/daily/N hours) in db/schedules.rs
+- [X] T069 [US2] Implement schedule deletion (unschedule) in db/schedules.rs
+- [X] T070 [US2] Implement schedule listing with filters (active only) in db/schedules.rs
+- [X] T071 [US2] Implement next_run_at calculation logic in db/schedules.rs
+- [X] T072 [US2] Create src/services/orchestrator.rs with OrchestratorService struct
+- [X] T073 [US2] Implement polling loop with tokio::time::interval (default 60s) in OrchestratorService
+- [X] T074 [US2] Implement due task discovery query (SELECT FOR UPDATE SKIP LOCKED) in OrchestratorService
+- [X] T075 [US2] Implement concurrent task execution using tokio::spawn in OrchestratorService
+- [X] T076 [US2] Integrate IndexService for scheduled re-indexing in OrchestratorService
 - [ ] T077 [US2] Implement next_run_at updates after task execution in OrchestratorService
-- [ ] T078 [US2] Implement graceful shutdown handling (SIGTERM, SIGINT) in OrchestratorService
-- [ ] T079 [US2] Implement logging to ~/.local/state/cudgel/orchestrator.log using tracing
-- [ ] T080 [US2] Implement PID file management in ~/.local/state/cudgel/orchestrator.pid
-- [ ] T081 [US2] Create src/cli/orchestrator.rs implementing `cudgel orchestrator` command
-- [ ] T082 [US2] Implement `orchestrator start` subcommand with daemon spawning in cli/orchestrator.rs
-- [ ] T083 [US2] Implement `orchestrator stop` subcommand with PID kill in cli/orchestrator.rs
-- [ ] T084 [US2] Implement `orchestrator status` subcommand with table output in cli/orchestrator.rs
-- [ ] T085 [US2] Implement `orchestrator restart` subcommand (stop + start) in cli/orchestrator.rs
-- [ ] T086 [US2] Implement --foreground flag for debugging in orchestrator start
+- [X] T078 [US2] Implement graceful shutdown handling (SIGTERM, SIGINT) in OrchestratorService
+- [X] T079 [US2] Implement logging to ~/.local/state/cudgel/orchestrator.log using tracing
+- [X] T080 [US2] Implement PID file management in ~/.local/state/cudgel/orchestrator.pid
+- [X] T081 [US2] Create src/cli/orchestrator.rs implementing `cudgel orchestrator` command
+- [X] T082 [US2] Implement `orchestrator start` subcommand with daemon spawning in cli/orchestrator.rs
+- [X] T083 [US2] Implement `orchestrator stop` subcommand with PID kill in cli/orchestrator.rs
+- [X] T084 [US2] Implement `orchestrator status` subcommand with table output in cli/orchestrator.rs
+- [X] T085 [US2] Implement `orchestrator restart` subcommand (stop + start) in cli/orchestrator.rs
+- [X] T086 [US2] Implement --foreground flag for debugging in orchestrator start
 - [ ] T087 [US2] Update src/cli/index.rs to add --schedule and --unschedule flags
-- [ ] T088 [US2] Implement schedule creation logic in cli/index.rs when --schedule flag present
-- [ ] T089 [US2] Implement auto-start orchestrator if not running when scheduling in cli/index.rs
-- [ ] T090 [US2] Implement unschedule logic in cli/index.rs when --unschedule flag present
-- [ ] T091 [US2] Update src/main.rs to register orchestrator subcommand
+- [X] T088 [US2] Implement schedule creation logic in cli/index.rs when --schedule flag present
+- [X] T089 [US2] Implement auto-start orchestrator if not running when scheduling in cli/index.rs
+- [X] T090 [US2] Implement unschedule logic in cli/index.rs when --unschedule flag present
+- [X] T091 [US2] Update src/main.rs to register orchestrator subcommand
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -166,34 +166,34 @@
 
 ### Implementation for User Story 3
 
-- [ ] T092 [US3] Create src/db/knowledge.rs with KnowledgeDocument CRUD operations (sqlx)
-- [ ] T093 [US3] Implement knowledge graph insert/update with version tracking in db/knowledge.rs
-- [ ] T094 [US3] Implement knowledge graph retrieval by repo_id in db/knowledge.rs
-- [ ] T095 [US3] Implement last_edited_at timestamp updates in db/knowledge.rs
-- [ ] T096 [US3] Create src/services/knowledge.rs with KnowledgeGenerator struct
+- [X] T092 [US3] Create src/db/knowledge.rs with KnowledgeDocument CRUD operations (sqlx)
+- [X] T093 [US3] Implement knowledge graph insert/update with version tracking in db/knowledge.rs
+- [X] T094 [US3] Implement knowledge graph retrieval by repo_id in db/knowledge.rs
+- [X] T095 [US3] Implement last_edited_at timestamp updates in db/knowledge.rs
+- [X] T096 [US3] Create src/services/knowledge.rs with KnowledgeGenerator struct
 - [ ] T097 [US3] Implement indexed data aggregation (dependencies, architecture, files) in KnowledgeGenerator
-- [ ] T098 [US3] Implement dependency extraction from manifest files (Cargo.toml, package.json) in KnowledgeGenerator
-- [ ] T099 [US3] Implement architecture pattern detection (MVC, microservices, monolith) in KnowledgeGenerator
-- [ ] T100 [US3] Implement build process detection (parse Cargo.toml, Makefile) in KnowledgeGenerator
-- [ ] T101 [US3] Implement licensing extraction (SPDX identifiers, LICENSE files) in KnowledgeGenerator
-- [ ] T102 [US3] Implement Ollama prompt construction with aggregated data in KnowledgeGenerator
-- [ ] T103 [US3] Implement LLM call to llama3.2:8b via ollama-rs for content generation in KnowledgeGenerator
-- [ ] T104 [US3] Implement markdown parsing and section structuring from LLM response in KnowledgeGenerator
-- [ ] T105 [US3] Implement manual edit preservation logic (compare sections) in KnowledgeGenerator
-- [ ] T106 [US3] Implement $EDITOR integration with fallback (vim → nano) in KnowledgeGenerator
-- [ ] T107 [US3] Implement editor subprocess management (spawn, wait, capture) in KnowledgeGenerator
-- [ ] T108 [US3] Implement content save-on-close logic in KnowledgeGenerator
-- [ ] T109 [US3] Create src/cli/knowledge.rs implementing `cudgel knowledge` command
-- [ ] T110 [US3] Implement path argument parsing (default: current directory) in cli/knowledge.rs
-- [ ] T111 [US3] Implement --edit flag to open existing document in cli/knowledge.rs
-- [ ] T112 [US3] Implement --refresh flag to update auto-sections only in cli/knowledge.rs
-- [ ] T113 [US3] Implement --replace flag to regenerate completely in cli/knowledge.rs
-- [ ] T114 [US3] Implement --output flag to save to file without editor in cli/knowledge.rs
-- [ ] T115 [US3] Implement --no-editor flag to print to stdout in cli/knowledge.rs
-- [ ] T116 [US3] Integrate KnowledgeGenerator into cli/knowledge.rs command execution
-- [ ] T117 [US3] Implement dependency check for Ollama service in cli/knowledge.rs
-- [ ] T118 [US3] Implement "repository not indexed" error handling in cli/knowledge.rs
-- [ ] T119 [US3] Update src/main.rs to register knowledge subcommand
+- [X] T098 [US3] Implement dependency extraction from manifest files (Cargo.toml, package.json) in KnowledgeGenerator
+- [X] T099 [US3] Implement architecture pattern detection (MVC, microservices, monolith) in KnowledgeGenerator
+- [X] T100 [US3] Implement build process detection (parse Cargo.toml, Makefile) in KnowledgeGenerator
+- [X] T101 [US3] Implement licensing extraction (SPDX identifiers, LICENSE files) in KnowledgeGenerator
+- [X] T102 [US3] Implement Ollama prompt construction with aggregated data in KnowledgeGenerator
+- [X] T103 [US3] Implement LLM call to llama3.2:8b via ollama-rs for content generation in KnowledgeGenerator
+- [X] T104 [US3] Implement markdown parsing and section structuring from LLM response in KnowledgeGenerator
+- [X] T105 [US3] Implement manual edit preservation logic (compare sections) in KnowledgeGenerator
+- [X] T106 [US3] Implement $EDITOR integration with fallback (vim → nano) in KnowledgeGenerator
+- [X] T107 [US3] Implement editor subprocess management (spawn, wait, capture) in KnowledgeGenerator
+- [X] T108 [US3] Implement content save-on-close logic in KnowledgeGenerator
+- [X] T109 [US3] Create src/cli/knowledge.rs implementing `cudgel knowledge` command
+- [X] T110 [US3] Implement path argument parsing (default: current directory) in cli/knowledge.rs
+- [X] T111 [US3] Implement --edit flag to open existing document in cli/knowledge.rs
+- [X] T112 [US3] Implement --refresh flag to update auto-sections only in cli/knowledge.rs
+- [X] T113 [US3] Implement --replace flag to regenerate completely in cli/knowledge.rs
+- [X] T114 [US3] Implement --output flag to save to file without editor in cli/knowledge.rs
+- [X] T115 [US3] Implement --no-editor flag to print to stdout in cli/knowledge.rs
+- [X] T116 [US3] Integrate KnowledgeGenerator into cli/knowledge.rs command execution
+- [X] T117 [US3] Implement dependency check for Ollama service in cli/knowledge.rs
+- [X] T118 [US3] Implement "repository not indexed" error handling in cli/knowledge.rs
+- [X] T119 [US3] Update src/main.rs to register knowledge subcommand
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -207,20 +207,20 @@
 
 ### Implementation for User Story 4
 
-- [ ] T120 [P] [US4] Create src/utils/minifier.rs with LLM-OpenAPI-minifier logic
-- [ ] T121 [US4] Implement JSON minification (compact format, no whitespace) in utils/minifier.rs
-- [ ] T122 [US4] Implement key abbreviation (file_path → p, line_number → l, name → n) in utils/minifier.rs
-- [ ] T123 [US4] Implement null/empty field omission in utils/minifier.rs
-- [ ] T124 [US4] Update src/services/query.rs to add JSON serialization using serde_json
-- [ ] T125 [US4] Implement compact JSON formatter in QueryEngine
-- [ ] T126 [US4] Implement pretty JSON formatter (indented) in QueryEngine
-- [ ] T127 [US4] Integrate utils/minifier.rs for minified output in QueryEngine
-- [ ] T128 [US4] Update src/cli/query.rs to add --json flag
-- [ ] T129 [US4] Update src/cli/query.rs to add --json-pretty flag
-- [ ] T130 [US4] Update src/cli/query.rs to add --minified flag
-- [ ] T131 [US4] Implement output format selection logic (table/json/json-pretty/minified) in cli/query.rs
-- [ ] T132 [US4] Implement stdout output bypass (skip table rendering for JSON modes) in cli/query.rs
-- [ ] T133 [US4] Validate JSON output is parseable by standard tools (jq compatibility) in cli/query.rs
+- [X] T120 [P] [US4] Create src/utils/minifier.rs with LLM-OpenAPI-minifier logic
+- [X] T121 [US4] Implement JSON minification (compact format, no whitespace) in utils/minifier.rs
+- [X] T122 [US4] Implement key abbreviation (file_path → p, line_number → l, name → n) in utils/minifier.rs
+- [X] T123 [US4] Implement null/empty field omission in utils/minifier.rs
+- [X] T124 [US4] Update src/services/query.rs to add JSON serialization using serde_json
+- [X] T125 [US4] Implement compact JSON formatter in QueryEngine
+- [X] T126 [US4] Implement pretty JSON formatter (indented) in QueryEngine
+- [X] T127 [US4] Integrate utils/minifier.rs for minified output in QueryEngine
+- [X] T128 [US4] Update src/cli/query.rs to add --json flag
+- [X] T129 [US4] Update src/cli/query.rs to add --json-pretty flag
+- [X] T130 [US4] Update src/cli/query.rs to add --minified flag
+- [X] T131 [US4] Implement output format selection logic (table/json/json-pretty/minified) in cli/query.rs
+- [X] T132 [US4] Implement stdout output bypass (skip table rendering for JSON modes) in cli/query.rs
+- [X] T133 [US4] Validate JSON output is parseable by standard tools (jq compatibility) in cli/query.rs
 
 **Checkpoint**: All user stories complete, full feature set available
 

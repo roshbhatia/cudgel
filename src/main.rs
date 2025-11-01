@@ -71,9 +71,17 @@ enum Commands {
         #[arg(short, long, default_value = "10", value_parser = validate_limit)]
         limit: i64,
 
-        /// Output as JSON
-        #[arg(short, long)]
+        /// Output as compact JSON (single line)
+        #[arg(short, long, conflicts_with_all = ["json_pretty", "minified"])]
         json: bool,
+
+        /// Output as pretty-printed JSON (indented)
+        #[arg(long, conflicts_with_all = ["json", "minified"])]
+        json_pretty: bool,
+
+        /// Output as minified JSON (optimized for LLMs)
+        #[arg(short = 'm', long, conflicts_with_all = ["json", "json_pretty"])]
+        minified: bool,
     },
 
     /// Show graph relationships for a symbol
@@ -184,7 +192,9 @@ async fn main() -> cudgel::Result<()> {
             repo,
             limit,
             json,
-        } => cmd_query(config, query, repo, limit, json).await,
+            json_pretty,
+            minified,
+        } => cmd_query(config, query, repo, limit, json, json_pretty, minified).await,
         Commands::Graph {
             symbol,
             repo,
@@ -431,12 +441,52 @@ async fn cmd_index_dry_run_with_filter(
     Ok(())
 }
 
+/// Minify query results for LLM consumption (token-efficient format)
+fn minify_query_results(results: &[cudgel::query::SymbolResult]) -> cudgel::Result<String> {
+    use serde_json::json;
+
+    // Create minified representation with abbreviated keys
+    let minified: Vec<serde_json::Value> = results
+        .iter()
+        .map(|r| {
+            let mut obj = json!({
+                "p": r.path,             // path
+                "l": r.start_line,       // line
+                "n": r.name,             // name
+                "k": r.kind,             // kind
+                "s": r.similarity,       // similarity
+            });
+
+            // Only include optional fields if they have meaningful values
+            if let Some(sig) = &r.signature {
+                if !sig.is_empty() {
+                    obj["g"] = json!(sig); // signature
+                }
+            }
+
+            if let Some(doc) = &r.docstring {
+                if !doc.is_empty() {
+                    obj["d"] = json!(doc); // docstring
+                }
+            }
+
+            obj
+        })
+        .collect();
+
+    // Compact JSON (no whitespace)
+    serde_json::to_string(&minified)
+        .map_err(|e| cudgel::Error::Other(format!("Minification failed: {}", e)))
+}
+
 async fn cmd_query(
     config: Arc<Config>,
     query: String,
     repo: Option<String>,
     limit: i64,
     json: bool,
+    json_pretty: bool,
+    minified: bool,
 ) -> cudgel::Result<()> {
     // Validate query is not empty or whitespace only
     if query.trim().is_empty() {
@@ -452,21 +502,24 @@ async fn cmd_query(
         .search_symbols(&query, limit, repo.as_deref())
         .await?;
 
-    if json {
-        match serde_json::to_string_pretty(&results) {
-            Ok(json_str) => println!("{}", json_str),
-            Err(e) => {
-                eprintln!(
-                    "{}: Failed to serialize results to JSON: {}",
-                    "Error".bright_red().bold(),
-                    e
-                );
-                return Err(cudgel::Error::Other(format!(
-                    "JSON serialization failed: {}",
-                    e
-                )));
-            }
-        }
+    // Determine output format
+    if json || json_pretty || minified {
+        let json_str = if minified {
+            // Minified format: compact JSON with abbreviated keys
+            minify_query_results(&results)?
+        } else if json {
+            // Compact JSON (single line)
+            serde_json::to_string(&results).map_err(|e| {
+                cudgel::Error::Other(format!("JSON serialization failed: {}", e))
+            })?
+        } else {
+            // Pretty-printed JSON (indented)
+            serde_json::to_string_pretty(&results).map_err(|e| {
+                cudgel::Error::Other(format!("JSON serialization failed: {}", e))
+            })?
+        };
+
+        println!("{}", json_str);
     } else {
         display_query_results(&results);
     }

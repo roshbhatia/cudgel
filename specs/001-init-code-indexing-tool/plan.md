@@ -3,7 +3,35 @@
 **Branch**: `001-init-code-indexing-tool` | **Date**: 2025-10-31 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/001-init-code-indexing-tool/spec.md`
 
+**Status**: ✅ **US1 & US4 Complete** - Ready for merge and v0.1.0 release
+
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+
+## Implementation Status
+
+### ✅ Completed (Production-Ready)
+
+**User Story 1: Index and Query Codebase (P1)**
+- ✅ Multi-language parsing with tree-sitter (8 languages)
+- ✅ Incremental indexing with SHA256 hash-based change detection
+- ✅ ONNX-based embeddings (sentence-transformers/all-MiniLM-L6-v2)
+- ✅ pgvector semantic search with HNSW indexing
+- ✅ Advanced file filtering (glob patterns, include/exclude, language filtering)
+- ✅ Go-style recursive path syntax (`./...` for multi-directory indexing)
+- ✅ Table and JSON output formats
+- ✅ Comprehensive error handling and validation
+- ✅ 32 tests passing with high code quality
+
+**User Story 4: LLM Export Formats (P4)**
+- ✅ `--json` flag for compact JSON output
+- ✅ `--json-pretty` flag for indented JSON
+- ✅ `--minified` flag with abbreviated keys (p, l, n, k, s) for token efficiency
+- ✅ jq-compatible output for piping
+
+### ⏸️ Deferred to Future Specs
+
+**User Story 2: Automatic Scheduling (P2)** → Will be implemented in `002-automatic-re-indexing` spec
+**User Story 3: Knowledge Graph (P3)** → Will be implemented in `003-knowledge-graph-generation` spec
 
 ## Summary
 

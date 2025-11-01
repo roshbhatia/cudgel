@@ -2,18 +2,32 @@
 
 **Feature Branch**: `001-init-code-indexing-tool`
 **Created**: 2025-10-31
-**Status**: Draft
+**Status**: Implemented (US1 + US4 Complete)
 **Input**: User description: "Build Cudgel, a local-first codebase intelligence system with four components: orchestrator daemon, index CLI, query CLI, and knowledge CLI"
+
+**Implementation Note**: This spec originally covered 4 user stories. US1 (Index and Query) and US4 (LLM Export Formats) are now complete and production-ready. US2 (Scheduling) and US3 (Knowledge Graph) will be implemented in separate specs/branches (002-automatic-re-indexing, 003-knowledge-graph-generation).
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Index and Query Codebase (Priority: P1)
+### User Story 1 - Index and Query Codebase (Priority: P1) ✅ IMPLEMENTED
+
+**Status**: ✅ Complete and Production-Ready
 
 A developer wants to index their local repository and perform semantic searches to understand their codebase without manually grepping or browsing files.
 
 **Why this priority**: This is the core MVP functionality. Without the ability to index and search, no other features provide value. This delivers immediate utility by enabling fast, semantic code discovery.
 
 **Independent Test**: Can be fully tested by running `cudgel index /path/to/repo` followed by `cudgel query "authentication logic"` and verifying that relevant code symbols are returned in a human-readable table format.
+
+**Implementation Features**:
+- ✅ Multi-language support (Python, JavaScript, TypeScript, Rust, Go, C, C++, Java)
+- ✅ Incremental indexing with SHA256 hash-based change detection
+- ✅ ONNX-based embeddings (sentence-transformers/all-MiniLM-L6-v2)
+- ✅ pgvector semantic search with HNSW indexing
+- ✅ Advanced file filtering (glob patterns, include/exclude, language filtering)
+- ✅ Go-style recursive path syntax (`./...`)
+- ✅ Table and JSON output formats
+- ✅ Comprehensive test coverage (32 tests passing)
 
 **Acceptance Scenarios**:
 
@@ -71,13 +85,23 @@ A developer wants to generate high-level structured documentation about their co
 
 ---
 
-### User Story 4 - Export Query Results for LLM Consumption (Priority: P4)
+### User Story 4 - Export Query Results for LLM Consumption (Priority: P4) ✅ IMPLEMENTED
+
+**Status**: ✅ Complete and Production-Ready
 
 A developer wants to export query results in LLM-friendly formats (JSON, minified) to easily provide codebase context to AI assistants without manual copying or formatting.
 
 **Why this priority**: This enhances the query functionality from P1 by adding machine-readable output formats. Valuable for LLM integration workflows but not essential for basic code search.
 
 **Independent Test**: Can be fully tested by running `cudgel query "parser logic" --json` and verifying the output is valid JSON containing the same search results as the default table format, suitable for piping to other tools or LLMs.
+
+**Implementation Features**:
+- ✅ `--json` flag for compact JSON output (single line)
+- ✅ `--json-pretty` flag for indented, human-readable JSON
+- ✅ `--minified` flag for LLM-optimized format with abbreviated keys
+- ✅ Token-efficient minification (p=path, l=line, n=name, k=kind, s=similarity)
+- ✅ Omits empty/null fields to reduce token count
+- ✅ jq-compatible output for piping to other tools
 
 **Acceptance Scenarios**:
 
