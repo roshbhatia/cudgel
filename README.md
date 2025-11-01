@@ -3,8 +3,9 @@
 > **/ˈkʌdʒ.əl/** 
 > *noun*:
 >   a short, thick stick used as a weapon.
+> 
 > *verb*: 
->   beat with a cudgel.
+>   to beat with a cudgel.
 
 `cudgel` is a code indexing tool designed to help supercharge your LLM prompts by providing knowledge and context up front within your queries, accross all your repositories.
 
