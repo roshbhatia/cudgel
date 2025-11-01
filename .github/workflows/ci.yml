@@ -13,11 +13,7 @@ env:
 jobs:
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        rust: [stable]
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -41,7 +37,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
       - name: Cache cargo registry
@@ -62,39 +57,12 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Set PostgreSQL environment (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Set PostgreSQL environment
         run: |
           echo "PGHOST=localhost" >> $GITHUB_ENV
           echo "PGPORT=54321" >> $GITHUB_ENV
           echo "PGUSER=postgres" >> $GITHUB_ENV
           echo "PGPASSWORD=postgres" >> $GITHUB_ENV
-          echo "PGDATABASE=cudgel" >> $GITHUB_ENV
-
-      - name: Install and setup PostgreSQL (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install postgresql@17 pgvector
-          brew services start postgresql@17
-
-          # Wait for PostgreSQL to start
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 2>/dev/null; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... ($i/30)"
-            sleep 1
-          done
-
-          # Create database and enable pgvector
-          createdb cudgel
-          psql -d cudgel -c "CREATE EXTENSION IF NOT EXISTS vector;"
-
-          # Set environment variables
-          echo "PGHOST=localhost" >> $GITHUB_ENV
-          echo "PGPORT=5432" >> $GITHUB_ENV
-          echo "PGUSER=$USER" >> $GITHUB_ENV
           echo "PGDATABASE=cudgel" >> $GITHUB_ENV
 
       - name: Run tests
@@ -124,10 +92,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
