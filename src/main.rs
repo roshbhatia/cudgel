@@ -8,7 +8,6 @@ use cudgel::{
 };
 use std::path::PathBuf;
 use std::sync::Arc;
-use walkdir::WalkDir;
 // use syntect::{
 //     easy::HighlightLines,
 //     highlighting::{Style, ThemeSet},
@@ -30,12 +29,29 @@ struct Cli {
 enum Commands {
     /// Index a code repository
     Index {
-        /// Path to the repository
-        path: PathBuf,
+        /// Paths to index (supports glob patterns like ./**/*.rs)
+        /// Use ./... for recursive indexing (Go-style)
+        #[arg(required = true)]
+        paths: Vec<String>,
 
         /// Repository name (defaults to directory name)
         #[arg(short, long)]
         name: Option<String>,
+
+        /// Include only files matching these patterns (comma-separated globs)
+        /// Example: --include "*.go,*.rs,*.py"
+        #[arg(long, value_delimiter = ',')]
+        include: Option<Vec<String>>,
+
+        /// Exclude files matching these patterns (comma-separated globs)
+        /// Example: --exclude "*.test.js,*_test.go"
+        #[arg(long, value_delimiter = ',')]
+        exclude: Option<Vec<String>>,
+
+        /// Index only these languages (comma-separated)
+        /// Supported: rust, python, javascript, typescript, go, c, cpp, java
+        #[arg(short, long, value_delimiter = ',')]
+        languages: Option<Vec<String>>,
 
         /// Dry run - show what would be indexed without actually indexing
         #[arg(long)]
@@ -156,10 +172,13 @@ async fn main() -> cudgel::Result<()> {
 
     let result = match cli.command {
         Commands::Index {
-            path,
+            paths,
             name,
+            include,
+            exclude,
+            languages,
             dry_run,
-        } => cmd_index(config, path, name, dry_run).await,
+        } => cmd_index(config, paths, name, include, exclude, languages, dry_run).await,
         Commands::Query {
             query,
             repo,
@@ -201,35 +220,32 @@ async fn main() -> cudgel::Result<()> {
 
 async fn cmd_index(
     config: Arc<Config>,
-    path: PathBuf,
+    paths: Vec<String>,
     _name: Option<String>,
+    include: Option<Vec<String>>,
+    exclude: Option<Vec<String>>,
+    languages: Option<Vec<String>>,
     dry_run: bool,
 ) -> cudgel::Result<()> {
-    // Validate path exists and is accessible
-    if !path.exists() {
-        return Err(cudgel::Error::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Path does not exist: {}", path.display()),
-        )));
+    use cudgel::indexer::IndexFilter;
+
+    // Validate and normalize paths
+    let resolved_paths = resolve_index_paths(&paths)?;
+
+    if resolved_paths.is_empty() {
+        return Err(cudgel::Error::Other(
+            "No valid paths found to index. Check your path patterns.".to_string(),
+        ));
     }
 
-    if !path.is_dir() {
-        return Err(cudgel::Error::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("Path is not a directory: {}", path.display()),
-        )));
-    }
+    // Build filter configuration
+    let filter = IndexFilter::new()
+        .with_include_patterns(include.unwrap_or_default())
+        .with_exclude_patterns(exclude.unwrap_or_default())
+        .with_languages(languages.unwrap_or_default());
 
-    // Check if path is readable
-    if let Err(e) = std::fs::read_dir(&path) {
-        return Err(cudgel::Error::Io(std::io::Error::new(
-            e.kind(),
-            format!(
-                "Cannot read directory: {}. Check permissions.",
-                path.display()
-            ),
-        )));
-    }
+    // Validate filter
+    filter.validate()?;
 
     if dry_run {
         println!(
@@ -239,11 +255,32 @@ async fn cmd_index(
     }
 
     println!("{}", "Indexing repository...".bright_blue().bold());
-    println!("Path: {}", path.display());
+    println!("Paths: {}", resolved_paths.len());
+    for path in &resolved_paths {
+        println!("  - {}", path.display());
+    }
+
+    if let Some(patterns) = filter.include_patterns() {
+        if !patterns.is_empty() {
+            println!("Include patterns: {}", patterns.join(", "));
+        }
+    }
+
+    if let Some(patterns) = filter.exclude_patterns() {
+        if !patterns.is_empty() {
+            println!("Exclude patterns: {}", patterns.join(", "));
+        }
+    }
+
+    if let Some(langs) = filter.languages() {
+        if !langs.is_empty() {
+            println!("Languages: {}", langs.join(", "));
+        }
+    }
 
     if dry_run {
         // Dry run mode - just scan and report
-        return cmd_index_dry_run(&path).await;
+        return cmd_index_dry_run_with_filter(&resolved_paths, &filter).await;
     }
 
     let db = Arc::new(Database::new(&config).await?);
@@ -256,7 +293,11 @@ async fn cmd_index(
 
     let mut indexer = Indexer::new(config.clone(), db)?;
 
-    let (repo_id, stats) = indexer.index_repository(&path).await?;
+    // Use first path as the repository root for now
+    // TODO: Support multiple repository roots
+    let repo_path = &resolved_paths[0];
+
+    let (repo_id, stats) = indexer.index_repository_with_filter(repo_path, &filter).await?;
 
     println!(
         "\n{}",
@@ -297,45 +338,71 @@ async fn cmd_index(
     Ok(())
 }
 
-/// Perform a dry run of indexing - scan files and report what would be indexed
-async fn cmd_index_dry_run(path: &PathBuf) -> cudgel::Result<()> {
+/// Perform a dry run of indexing with file filtering - scan files and report what would be indexed
+async fn cmd_index_dry_run_with_filter(
+    paths: &[PathBuf],
+    filter: &cudgel::indexer::IndexFilter,
+) -> cudgel::Result<()> {
     use cudgel::parser::CodeParser;
     use std::collections::HashMap;
 
     println!("\n{}", "Scanning repository...".bright_cyan().bold());
 
     let mut files_by_language: HashMap<String, usize> = HashMap::new();
-    let mut total_files = 0;
+    let mut total_files_discovered = 0;
     let mut supported_files = 0;
     let mut unsupported_files = 0;
+    let mut filtered_out = 0;
 
-    for entry in WalkDir::new(path)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if !entry.file_type().is_file() {
-            continue;
+    for repo_path in paths {
+        // Get git tracked files
+        let output = std::process::Command::new("git")
+            .args(&["-C", &repo_path.to_string_lossy(), "ls-files"])
+            .output()
+            .map_err(|e| cudgel::Error::Other(format!("Failed to run git ls-files: {}", e)))?;
+
+        if !output.status.success() {
+            return Err(cudgel::Error::Other(
+                "git ls-files failed - is this a git repository?".to_string(),
+            ));
         }
 
-        let file_path = entry.path();
-        total_files += 1;
+        let files_str = String::from_utf8(output.stdout)
+            .map_err(|e| cudgel::Error::Other(format!("Invalid UTF-8 from git: {}", e)))?;
 
-        if let Some(lang) = CodeParser::detect_language(file_path) {
-            *files_by_language.entry(lang).or_insert(0) += 1;
-            supported_files += 1;
-        } else {
-            unsupported_files += 1;
+        for line in files_str.lines() {
+            let file_path = repo_path.join(line.trim());
+
+            if !file_path.is_file() {
+                continue;
+            }
+
+            total_files_discovered += 1;
+
+            // Apply filter
+            if !filter.should_index_file(&file_path) {
+                filtered_out += 1;
+                continue;
+            }
+
+            // Check language support
+            if let Some(lang) = CodeParser::detect_language(&file_path) {
+                *files_by_language.entry(lang).or_insert(0) += 1;
+                supported_files += 1;
+            } else {
+                unsupported_files += 1;
+            }
         }
     }
 
     println!("\n{}", "Dry Run Summary:".bright_green().bold());
-    println!("  Total files found: {}", total_files);
-    println!("  Supported files: {} ", supported_files);
+    println!("  Total files discovered: {}", total_files_discovered);
+    println!("  Filtered out by patterns/languages: {}", filtered_out);
+    println!("  Supported files to index: {}", supported_files);
     println!("  Unsupported/skipped files: {}", unsupported_files);
 
     if !files_by_language.is_empty() {
-        println!("\n  Files by language:");
+        println!("\n  Files to index by language:");
         let mut sorted: Vec<_> = files_by_language.iter().collect();
         sorted.sort_by(|a, b| b.1.cmp(a.1));
         for (lang, count) in sorted {
@@ -343,14 +410,23 @@ async fn cmd_index_dry_run(path: &PathBuf) -> cudgel::Result<()> {
         }
     }
 
-    println!(
-        "\n{}",
-        format!(
-            "Run without --dry-run to actually index {} files",
-            supported_files
-        )
-        .bright_yellow()
-    );
+    if supported_files == 0 {
+        println!(
+            "\n{}",
+            "WARNING: No files would be indexed. Check your filter settings."
+                .bright_yellow()
+                .bold()
+        );
+    } else {
+        println!(
+            "\n{}",
+            format!(
+                "Run without --dry-run to actually index {} files",
+                supported_files
+            )
+            .bright_yellow()
+        );
+    }
 
     Ok(())
 }
@@ -441,6 +517,102 @@ async fn cmd_graph(
     }
 
     Ok(())
+}
+
+/// Resolve index paths from user input, supporting glob patterns and ./... syntax
+fn resolve_index_paths(patterns: &[String]) -> cudgel::Result<Vec<PathBuf>> {
+    use glob::glob;
+    use std::collections::HashSet;
+
+    let mut resolved = HashSet::new();
+
+    for pattern in patterns {
+        // Handle ./... syntax (Go-style recursive)
+        if pattern.ends_with("/...") || pattern == "./..." {
+            let base = pattern.trim_end_matches("/...");
+            let base_path = if base.is_empty() || base == "." {
+                PathBuf::from(".")
+            } else {
+                PathBuf::from(base)
+            };
+
+            if !base_path.exists() {
+                return Err(cudgel::Error::Other(format!(
+                    "Path does not exist: {}",
+                    base_path.display()
+                )));
+            }
+
+            resolved.insert(base_path.canonicalize().map_err(|e| {
+                cudgel::Error::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to canonicalize path: {}", e),
+                ))
+            })?);
+            continue;
+        }
+
+        // Check if pattern contains glob characters
+        if pattern.contains('*') || pattern.contains('?') || pattern.contains('[') {
+            // Use glob to expand pattern
+            match glob(pattern) {
+                Ok(paths) => {
+                    let mut found_any = false;
+                    for entry in paths {
+                        match entry {
+                            Ok(path) => {
+                                found_any = true;
+                                if path.is_dir() {
+                                    if let Ok(canonical) = path.canonicalize() {
+                                        resolved.insert(canonical);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Warning: Failed to read glob entry: {}", e);
+                            }
+                        }
+                    }
+                    if !found_any {
+                        eprintln!("Warning: Pattern '{}' matched no directories", pattern);
+                    }
+                }
+                Err(e) => {
+                    return Err(cudgel::Error::Other(format!(
+                        "Invalid glob pattern '{}': {}",
+                        pattern, e
+                    )));
+                }
+            }
+        } else {
+            // Regular path
+            let path = PathBuf::from(pattern);
+            if !path.exists() {
+                return Err(cudgel::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Path does not exist: {}", path.display()),
+                )));
+            }
+
+            if !path.is_dir() {
+                return Err(cudgel::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Path is not a directory: {}", path.display()),
+                )));
+            }
+
+            resolved.insert(path.canonicalize().map_err(|e| {
+                cudgel::Error::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to canonicalize path: {}", e),
+                ))
+            })?);
+        }
+    }
+
+    let mut paths: Vec<PathBuf> = resolved.into_iter().collect();
+    paths.sort();
+    Ok(paths)
 }
 
 /// Prompt user for confirmation

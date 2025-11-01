@@ -565,3 +565,241 @@ async fn test_database_operations() {
     assert!(symbol_id.is_ok());
     assert!(symbol_id.unwrap() > 0);
 }
+
+// ============================================================================
+// IndexFilter Tests
+// ============================================================================
+
+#[test]
+fn test_index_filter_validation_valid_languages() {
+    use cudgel::indexer::IndexFilter;
+
+    // Test all supported languages
+    let filter = IndexFilter::new().with_languages(vec![
+        "python".to_string(),
+        "rust".to_string(),
+        "javascript".to_string(),
+        "typescript".to_string(),
+        "go".to_string(),
+        "c".to_string(),
+        "cpp".to_string(),
+        "java".to_string(),
+    ]);
+
+    assert!(filter.validate().is_ok());
+}
+
+#[test]
+fn test_index_filter_validation_invalid_language() {
+    use cudgel::indexer::IndexFilter;
+
+    let filter = IndexFilter::new().with_languages(vec!["ruby".to_string()]);
+
+    let result = filter.validate();
+    assert!(result.is_err());
+    let error = result.unwrap_err().to_string();
+    assert!(error.contains("Unsupported language"));
+    assert!(error.contains("ruby"));
+}
+
+#[test]
+fn test_index_filter_validation_invalid_include_pattern() {
+    use cudgel::indexer::IndexFilter;
+
+    // Invalid glob pattern (unmatched bracket)
+    let filter = IndexFilter::new().with_include_patterns(vec!["src/**/*[".to_string()]);
+
+    let result = filter.validate();
+    assert!(result.is_err());
+    let error = result.unwrap_err().to_string();
+    assert!(error.contains("Invalid include pattern"));
+}
+
+#[test]
+fn test_index_filter_validation_invalid_exclude_pattern() {
+    use cudgel::indexer::IndexFilter;
+
+    // Invalid glob pattern (unmatched bracket)
+    let filter = IndexFilter::new().with_exclude_patterns(vec!["target/**/*[".to_string()]);
+
+    let result = filter.validate();
+    assert!(result.is_err());
+    let error = result.unwrap_err().to_string();
+    assert!(error.contains("Invalid exclude pattern"));
+}
+
+#[test]
+fn test_index_filter_empty_filter() {
+    use cudgel::indexer::IndexFilter;
+
+    let filter = IndexFilter::new();
+    assert!(filter.is_empty());
+    assert!(filter.validate().is_ok());
+}
+
+#[test]
+fn test_index_filter_language_filtering() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter = IndexFilter::new().with_languages(vec!["rust".to_string(), "python".to_string()]);
+
+    // Should match Rust and Python files
+    assert!(filter.should_index_file(Path::new("src/main.rs")));
+    assert!(filter.should_index_file(Path::new("test.py")));
+
+    // Should not match other languages
+    assert!(!filter.should_index_file(Path::new("app.js")));
+    assert!(!filter.should_index_file(Path::new("Main.java")));
+    assert!(!filter.should_index_file(Path::new("main.go")));
+}
+
+#[test]
+fn test_index_filter_include_patterns() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter =
+        IndexFilter::new().with_include_patterns(vec!["**/src/**/*.rs".to_string()]);
+
+    // Should match files in src directory
+    assert!(filter.should_index_file(Path::new("project/src/main.rs")));
+    assert!(filter.should_index_file(Path::new("src/lib.rs")));
+
+    // Should not match files outside src directory
+    assert!(!filter.should_index_file(Path::new("tests/test.rs")));
+    assert!(!filter.should_index_file(Path::new("main.rs")));
+}
+
+#[test]
+fn test_index_filter_exclude_patterns() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter =
+        IndexFilter::new().with_exclude_patterns(vec!["**/target/**".to_string(), "**/node_modules/**".to_string()]);
+
+    // Should not match excluded directories
+    assert!(!filter.should_index_file(Path::new("project/target/debug/main.rs")));
+    assert!(!filter.should_index_file(Path::new("app/node_modules/package/index.js")));
+
+    // Should match files not in excluded directories
+    assert!(filter.should_index_file(Path::new("src/main.rs")));
+    assert!(filter.should_index_file(Path::new("app/src/index.js")));
+}
+
+#[test]
+fn test_index_filter_exclude_takes_precedence() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter = IndexFilter::new()
+        .with_include_patterns(vec!["**/*.rs".to_string()])
+        .with_exclude_patterns(vec!["**/target/**".to_string()]);
+
+    // Should not match even though it's a .rs file (exclude takes precedence)
+    assert!(!filter.should_index_file(Path::new("project/target/debug/main.rs")));
+
+    // Should match .rs files not in target
+    assert!(filter.should_index_file(Path::new("src/main.rs")));
+}
+
+#[test]
+fn test_index_filter_combined_filters() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter = IndexFilter::new()
+        .with_include_patterns(vec!["**/src/**".to_string()])
+        .with_exclude_patterns(vec!["**/*test*.rs".to_string()])
+        .with_languages(vec!["rust".to_string()]);
+
+    // Should match: in src, is rust, not a test file
+    assert!(filter.should_index_file(Path::new("project/src/main.rs")));
+    assert!(filter.should_index_file(Path::new("src/lib.rs")));
+
+    // Should not match: not in src
+    assert!(!filter.should_index_file(Path::new("main.rs")));
+
+    // Should not match: is a test file (excluded)
+    assert!(!filter.should_index_file(Path::new("src/main_test.rs")));
+    assert!(!filter.should_index_file(Path::new("src/test_utils.rs")));
+
+    // Should not match: wrong language
+    assert!(!filter.should_index_file(Path::new("src/main.py")));
+}
+
+#[test]
+fn test_index_filter_wildcards() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter = IndexFilter::new().with_include_patterns(vec![
+        "**/*.rs".to_string(),        // All .rs files
+        "src/**/*.py".to_string(),    // Python files in src
+    ]);
+
+    // Should match .rs files at any level
+    assert!(filter.should_index_file(Path::new("main.rs")));
+    assert!(filter.should_index_file(Path::new("lib.rs")));
+    assert!(filter.should_index_file(Path::new("src/main.rs")));
+
+    // Should match nested .py files in src
+    assert!(filter.should_index_file(Path::new("src/utils.py")));
+    assert!(filter.should_index_file(Path::new("src/nested/helper.py")));
+
+    // Should not match .py files outside src
+    assert!(!filter.should_index_file(Path::new("test.py")));
+    assert!(!filter.should_index_file(Path::new("scripts/build.py")));
+}
+
+#[test]
+fn test_index_filter_accessor_methods() {
+    use cudgel::indexer::IndexFilter;
+
+    let include = vec!["*.rs".to_string()];
+    let exclude = vec!["**/target/**".to_string()];
+    let languages = vec!["rust".to_string()];
+
+    let filter = IndexFilter::new()
+        .with_include_patterns(include.clone())
+        .with_exclude_patterns(exclude.clone())
+        .with_languages(languages.clone());
+
+    assert_eq!(filter.include_patterns(), Some(&include));
+    assert_eq!(filter.exclude_patterns(), Some(&exclude));
+    assert_eq!(filter.languages(), Some(&languages));
+    assert!(!filter.is_empty());
+}
+
+#[test]
+fn test_index_filter_empty_patterns() {
+    use cudgel::indexer::IndexFilter;
+
+    // Empty vectors should be treated as None
+    let filter = IndexFilter::new()
+        .with_include_patterns(vec![])
+        .with_exclude_patterns(vec![])
+        .with_languages(vec![]);
+
+    assert!(filter.is_empty());
+    assert_eq!(filter.include_patterns(), None);
+    assert_eq!(filter.exclude_patterns(), None);
+    assert_eq!(filter.languages(), None);
+}
+
+#[test]
+fn test_index_filter_case_sensitivity() {
+    use cudgel::indexer::IndexFilter;
+    use std::path::Path;
+
+    let filter = IndexFilter::new().with_include_patterns(vec!["**/*.RS".to_string()]);
+
+    // Glob patterns are typically case-sensitive on Unix, case-insensitive on Windows
+    // This test documents the behavior without asserting it
+    let matches_lowercase = filter.should_index_file(Path::new("src/main.rs"));
+    let matches_uppercase = filter.should_index_file(Path::new("src/MAIN.RS"));
+
+    // At least one should match on any platform
+    assert!(matches_lowercase || matches_uppercase);
+}
