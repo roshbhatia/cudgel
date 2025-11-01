@@ -62,7 +62,9 @@
       "Bash(CUDGEL_DEBUG=1 cudgel query:*)",
       "Bash(rm:*)",
       "Bash(git fetch:*)",
-      "Bash(.specify/scripts/bash/create-new-feature.sh:*)"
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)"
     ],
     "deny": [],
     "ask": []
