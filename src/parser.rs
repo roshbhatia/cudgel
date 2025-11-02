@@ -292,3 +292,191 @@ impl Default for CodeParser {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_detect_language_python() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.py")),
+            Some("python".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.pyw")),
+            Some("python".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_javascript() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.js")),
+            Some("javascript".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.jsx")),
+            Some("javascript".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.mjs")),
+            Some("javascript".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_typescript() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.ts")),
+            Some("typescript".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.tsx")),
+            Some("typescript".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_rust() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.rs")),
+            Some("rust".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_go() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.go")),
+            Some("go".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_c() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.c")),
+            Some("c".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.h")),
+            Some("c".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_cpp() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.cpp")),
+            Some("cpp".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.cc")),
+            Some("cpp".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.cxx")),
+            Some("cpp".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.hpp")),
+            Some("cpp".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.hh")),
+            Some("cpp".to_string())
+        );
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.hxx")),
+            Some("cpp".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_java() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.java")),
+            Some("java".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_language_unsupported() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.txt")),
+            None
+        );
+        assert_eq!(CodeParser::detect_language(&PathBuf::from("test.md")), None);
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("test.xml")),
+            None
+        );
+    }
+
+    #[test]
+    fn test_detect_language_no_extension() {
+        assert_eq!(
+            CodeParser::detect_language(&PathBuf::from("Makefile")),
+            None
+        );
+        assert_eq!(CodeParser::detect_language(&PathBuf::from("README")), None);
+    }
+
+    #[test]
+    fn test_compute_hash_consistent() {
+        let parser = CodeParser::new();
+        let content = "fn main() { println!(\"Hello\"); }";
+
+        let hash1 = parser.compute_hash(content);
+        let hash2 = parser.compute_hash(content);
+
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_compute_hash_different_content() {
+        let parser = CodeParser::new();
+
+        let hash1 = parser.compute_hash("fn main() {}");
+        let hash2 = parser.compute_hash("fn test() {}");
+
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_compute_hash_format() {
+        let parser = CodeParser::new();
+        let hash = parser.compute_hash("test");
+
+        // SHA256 produces 64 hex characters
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_get_language_supported() {
+        assert!(CodeParser::get_language("python").is_ok());
+        assert!(CodeParser::get_language("javascript").is_ok());
+        assert!(CodeParser::get_language("typescript").is_ok());
+        assert!(CodeParser::get_language("rust").is_ok());
+        assert!(CodeParser::get_language("go").is_ok());
+        assert!(CodeParser::get_language("c").is_ok());
+        assert!(CodeParser::get_language("cpp").is_ok());
+        assert!(CodeParser::get_language("java").is_ok());
+    }
+
+    #[test]
+    fn test_get_language_unsupported() {
+        assert!(CodeParser::get_language("unknown").is_err());
+        assert!(CodeParser::get_language("ruby").is_err());
+        assert!(CodeParser::get_language("php").is_err());
+    }
+
+    #[test]
+    fn test_parser_default() {
+        let parser = CodeParser::default();
+        assert_eq!(parser.parsers.len(), 0);
+    }
+}

@@ -70,7 +70,12 @@
       "Bash(CUDGEL_DEBUG=1 cargo run:*)",
       "Bash(gh pr checks:*)",
       "Bash(gh run view:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(cudgel graph:*)",
+      "Bash(while read file)",
+      "Bash(do echo '=== $file ===')",
+      "Bash(done)",
+      "Bash(for file in src/*.rs)"
     ],
     "deny": [],
     "ask": []

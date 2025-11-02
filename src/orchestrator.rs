@@ -122,7 +122,11 @@ pub fn stop_daemon() -> Result<()> {
         // Wait for process to exit (up to 5 seconds)
         for _ in 0..50 {
             if is_running()?.is_none() {
-                fs::remove_file(pid_file_path())?;
+                // PID file may already be removed by is_running()
+                let pid_path = pid_file_path();
+                if pid_path.exists() {
+                    fs::remove_file(pid_path)?;
+                }
                 info!("Orchestrator daemon stopped");
                 return Ok(());
             }
@@ -131,7 +135,10 @@ pub fn stop_daemon() -> Result<()> {
 
         // If still running after 5 seconds, force kill
         let _ = kill(Pid::from_raw(pid as i32), Signal::SIGKILL);
-        fs::remove_file(pid_file_path())?;
+        let pid_path = pid_file_path();
+        if pid_path.exists() {
+            fs::remove_file(pid_path)?;
+        }
         warn!("Orchestrator daemon force-killed");
     }
 
