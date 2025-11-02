@@ -48,7 +48,7 @@ All code MUST follow Rust best practices and idiomatic patterns:
 ### II. Local-First Architecture
 
 Cudgel MUST operate entirely on local infrastructure with zero external service dependencies:
-- All data persists locally (PostgreSQL on port 54321)
+- All data persists locally (PostgreSQL on port 45678)
 - All processing happens locally (tree-sitter parsing, ONNX embeddings)
 - No cloud services, APIs, or telemetry
 - Network operations limited to localhost only
@@ -92,26 +92,29 @@ Comments MUST NOT:
 
 **Rationale**: Clear code is easier to maintain than commented code. The compiler enforces correctness; humans should read intent from structure and names, not English prose.
 
-### VI. Nix Flake as Primary Install Method
+### VI. Nix Shell as Primary Development Environment
 
-The canonical installation path MUST be via Nix flake:
-- `flake.nix` provides reproducible development shell
-- Pins exact versions of all system dependencies (Rust, PostgreSQL, ONNX Runtime)
+The canonical development environment MUST be via Nix shell:
+- `shell.nix` provides reproducible development shell with instant loading
+- Pins exact versions of all system dependencies (Rust, PostgreSQL 17+, ONNX Runtime, uv, ollama)
+- shellHook MUST NOT block on slow operations (downloads moved to explicit commands)
 - Alternative methods (cargo install, binary releases) are secondary
-- CI/CD MUST validate flake builds
+- Development tools accessible via `task` commands (task health, task install-models, etc.)
+- CI/CD MUST validate builds work in Nix environment
 
-**Rationale**: Nix guarantees reproducible builds across machines, eliminating "works on my machine" issues. Flakes provide hermetic environments for both development and production.
+**Rationale**: Nix guarantees reproducible builds across machines, eliminating "works on my machine" issues. Instant shell loading ensures developer productivity.
 
 ### VII. Pre-commit Hooks and High Test Coverage
 
 Quality gates MUST enforce correctness before code reaches main:
 - Pre-commit hooks run: `cargo fmt`, `cargo clippy -- -D warnings`
-- Unit tests MUST cover all business logic (target: >80% coverage)
-- Integration tests MUST run in Docker with PostgreSQL fixtures
-- Tests MUST be fast (unit: <1s total, integration: <10s total)
+- Unit tests MUST cover all business logic (current: 48 unit tests covering config, database, orchestrator, parser)
+- Integration tests MUST run with native PostgreSQL on port 45678 (current: 42 integration tests)
+- Tests MUST be fast (unit: <1s total, integration: <15s total)
 - CI MUST fail on formatting, linting, or test failures
+- Current coverage: 90 tests total (48 unit + 42 integration)
 
-**Rationale**: Automated quality checks catch regressions immediately. Fast tests enable TDD. Docker integration tests ensure database schema correctness.
+**Rationale**: Automated quality checks catch regressions immediately. Fast tests enable TDD. Native PostgreSQL integration tests ensure database schema correctness.
 
 ### VIII. 12-Factor Principles (Where Applicable)
 
@@ -145,26 +148,36 @@ Architecture MUST follow service-oriented patterns with trait-based extension po
 
 ### Configuration Management
 
-- Config file format: TOML (human-readable, Rust ecosystem standard)
-- Location: `~/.config/cudgel/config.toml`
-- Sane defaults MUST allow zero-config operation
-- Overrides: Environment variables > Config file > Hardcoded defaults
-- Required defaults:
-  - PostgreSQL: `localhost:54321`, user/db from `$USER`
+- Config profiles via code: `Config::local()`, `Config::test()`, `Config::ci()`
+- Configuration constants defined in `DatabaseConfig` (single source of truth)
+- Environment variables MUST use `CUDGEL_*` prefix for isolation from system PostgreSQL
+- Validation: `Config::local()` returns `Result<Config, Error>` (fail-fast on invalid config)
+- Overrides: CUDGEL_* env vars > Hardcoded defaults (no config files)
+- Required defaults (via `DatabaseConfig` constants):
+  - PostgreSQL: `localhost:45678` (DEFAULT_PORT), user from `$USER`, database `cudgel` (DEFAULT_DATABASE)
   - Embedding model path: `~/.local/share/cudgel/models/all-MiniLM-L6-v2`
   - Ollama: `localhost:11434`, model `llama3.2:8b` (for knowledge generation)
   - Log level: `info`
+- Environment variables:
+  - `CUDGEL_POSTGRES_HOST` - Database host (default: localhost)
+  - `CUDGEL_POSTGRES_PORT` - Database port (default: 45678)
+  - `CUDGEL_POSTGRES_DATABASE` - Database name (default: cudgel)
+  - `CUDGEL_POSTGRES_USER` - Database user (default: $USER)
+  - `CUDGEL_POSTGRES_PASSWORD` - Database password (default: cudgel)
 
 ### Dependency Startup Checks
 
 On every `cudgel` invocation, MUST verify:
 - PostgreSQL running on configured port (fail fast with actionable error)
 - Database schema initialized (auto-init if missing, versioned migrations)
-- Embedding models present at expected path (download hint if missing)
+- Configuration validation (Config::local() validates on construction)
+- Embedding models present at expected path (download hint if missing, use `task install-models`)
 - Ollama service available for knowledge generation (fail gracefully for knowledge command only)
 - XDG directories exist and are writable
 
-**Rationale**: Explicit dependency checks provide immediate, actionable feedback rather than cryptic downstream failures.
+Development environment health check available via: `task health`
+
+**Rationale**: Explicit dependency checks provide immediate, actionable feedback rather than cryptic downstream failures. Fail-fast validation prevents runtime errors.
 
 ### Language and Toolchain
 
@@ -196,13 +209,17 @@ On push to remote:
 
 ### Testing Discipline
 
-- **Unit tests**: In-module or `tests/` directory, no external dependencies
-- **Integration tests**: Docker Compose fixture with PostgreSQL, full end-to-end
+- **Unit tests**: In-module `#[cfg(test)]` blocks, no external dependencies (48 tests)
+  - `config.rs`: 23 tests (validation, XDG paths, config profiles)
+  - `database.rs`: 3 tests (connection strings, scheduled tasks)
+  - `orchestrator.rs`: 6 tests (PID management, daemon lifecycle)
+  - `parser.rs`: 18 tests (language detection, hashing, tree-sitter)
+- **Integration tests**: Native PostgreSQL on port 45678, full end-to-end (42 tests)
 - **Contract tests**: Public API surface (CLI commands, service traits)
 - **Test organization**:
-  - `tests/unit/` - Pure logic, no I/O
-  - `tests/integration/` - Full stack with real PostgreSQL
-  - `tests/fixtures/` - Sample code repositories for indexing tests
+  - Unit tests: In-module via `#[cfg(test)]`
+  - Integration tests: `tests/integration_tests.rs`
+  - Fixtures: Sample code in integration test setup
 
 ### Code Review Requirements
 
@@ -280,4 +297,25 @@ This constitution is a living document. As Cudgel evolves:
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2025-10-31 | **Last Amended**: 2025-10-31
+**Version**: 1.1.0 | **Ratified**: 2025-10-31 | **Last Amended**: 2025-11-02
+
+## Changelog
+
+### 1.1.0 (2025-11-02) - Configuration & DevOps Improvements
+
+**Modified Principles:**
+- II. Local-First Architecture: Updated PostgreSQL port 54321 → 45678
+- VI. Nix as Primary Method: Updated to focus on shell.nix with instant loading
+- VII. Pre-commit Hooks: Updated test counts (90 total: 48 unit + 42 integration)
+
+**Technical Constraints Updates:**
+- Configuration Management: Added CUDGEL_* environment variables, Config profiles, DatabaseConfig constants
+- Dependency Startup Checks: Added Config validation, task health command
+- Testing Discipline: Updated with actual test counts and organization
+
+**Rationale:**
+- Port 45678 is a better default (less likely to conflict than 54321)
+- CUDGEL_* prefix isolates configuration from system PostgreSQL
+- Config::local() returning Result enables fail-fast validation
+- Configuration constants provide single source of truth
+- shell.nix improvements: instant loading, explicit model installation via task command
