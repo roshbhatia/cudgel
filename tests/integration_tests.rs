@@ -9,7 +9,7 @@ use tempfile::TempDir;
 
 /// Helper to check if PostgreSQL is available for testing
 async fn is_postgres_available() -> bool {
-    let config = Config::from_env().unwrap_or_default();
+    let config = Config::local();
     match Database::new(&config).await {
         Ok(db) => db.health_check().await.unwrap_or(false),
         Err(_) => false,
@@ -23,7 +23,7 @@ async fn setup_test_db() -> Option<Arc<Database>> {
         return None;
     }
 
-    let config = Config::from_env().unwrap_or_default();
+    let config = Config::local();
     let db = Database::new(&config).await.ok()?;
 
     // Initialize schema
@@ -250,14 +250,13 @@ struct Point {
 #[tokio::test]
 async fn test_config_validation() {
     // Test valid config
-    let config = Config::from_env();
-    assert!(config.is_ok());
+    let config = Config::local();
+    assert!(config.validate().is_ok());
 
     // Config should have default values
-    let config = config.unwrap();
     assert_eq!(
         config.database.host,
-        std::env::var("CUDGEL_DB_HOST").unwrap_or_else(|_| "localhost".to_string())
+        std::env::var("PGHOST").unwrap_or_else(|_| "localhost".to_string())
     );
 }
 
@@ -410,7 +409,7 @@ fn test_parser_syntax_error_handling() {
 
 #[test]
 fn test_embedding_generation() {
-    let config = Arc::new(Config::from_env().unwrap_or_default());
+    let config = Arc::new(Config::local());
     let embedder = EmbeddingGenerator::new(config).expect("Failed to create embedder");
 
     let embedding = embedder.encode("test text");
@@ -438,7 +437,7 @@ async fn test_repository_indexing() {
         None => return,
     };
 
-    let config = Arc::new(Config::from_env().unwrap_or_default());
+    let config = Arc::new(Config::local());
     let temp_repo = create_test_repo();
 
     let mut indexer = Indexer::new(config.clone(), db.clone()).unwrap();
@@ -462,7 +461,7 @@ async fn test_symbol_query() {
         None => return,
     };
 
-    let config = Arc::new(Config::from_env().unwrap_or_default());
+    let config = Arc::new(Config::local());
     let temp_repo = create_test_repo();
 
     // Index the repository
@@ -510,7 +509,7 @@ async fn test_graph_query() {
         None => return,
     };
 
-    let config = Arc::new(Config::from_env().unwrap_or_default());
+    let config = Arc::new(Config::local());
     let temp_repo = create_test_repo();
 
     // Index the repository
@@ -801,4 +800,278 @@ fn test_index_filter_case_sensitivity() {
 
     // At least one should match on any platform
     assert!(matches_lowercase || matches_uppercase);
+}
+
+// ============================================================================
+// Orchestrator and Scheduling Tests (User Story 2)
+// ============================================================================
+
+#[tokio::test]
+async fn test_create_scheduled_task() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository first
+    let repo_id = db
+        .add_repository("/test/repo", "test_scheduled_repo")
+        .await
+        .expect("Failed to add repository");
+
+    // Create a scheduled task
+    let task_id = db
+        .create_scheduled_task(repo_id, 24)
+        .await
+        .expect("Failed to create scheduled task");
+
+    assert!(task_id > 0);
+
+    // Verify the task was created
+    let tasks = db
+        .get_scheduled_tasks()
+        .await
+        .expect("Failed to get scheduled tasks");
+
+    assert!(!tasks.is_empty());
+    let task = tasks.iter().find(|t| t.id == task_id).unwrap();
+    assert_eq!(task.repo_id, repo_id);
+    assert_eq!(task.interval_hours, 24);
+    assert_eq!(task.status, "active");
+}
+
+#[tokio::test]
+async fn test_scheduled_task_upsert() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository
+    let repo_id = db
+        .add_repository("/test/repo2", "test_upsert_repo")
+        .await
+        .expect("Failed to add repository");
+
+    // Create initial scheduled task (hourly)
+    let task_id1 = db
+        .create_scheduled_task(repo_id, 1)
+        .await
+        .expect("Failed to create first task");
+
+    // Update to daily - should upsert and return same task_id
+    let task_id2 = db
+        .create_scheduled_task(repo_id, 24)
+        .await
+        .expect("Failed to update task");
+
+    assert_eq!(
+        task_id1, task_id2,
+        "Task ID should remain the same on upsert"
+    );
+
+    // Verify the interval was updated
+    let tasks = db.get_scheduled_tasks().await.unwrap();
+    let task = tasks.iter().find(|t| t.id == task_id1).unwrap();
+    assert_eq!(task.interval_hours, 24);
+}
+
+#[tokio::test]
+async fn test_delete_scheduled_task() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository and task
+    let repo_id = db
+        .add_repository("/test/repo3", "test_delete_repo")
+        .await
+        .expect("Failed to add repository");
+
+    db.create_scheduled_task(repo_id, 24)
+        .await
+        .expect("Failed to create task");
+
+    // Delete the task
+    let deleted_count = db
+        .delete_scheduled_task(repo_id)
+        .await
+        .expect("Failed to delete task");
+
+    assert_eq!(deleted_count, 1);
+
+    // Verify task is gone
+    let tasks = db.get_scheduled_tasks().await.unwrap();
+    assert!(!tasks.iter().any(|t| t.repo_id == repo_id));
+}
+
+#[tokio::test]
+async fn test_get_due_tasks() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository and task
+    let repo_id = db
+        .add_repository("/test/repo4", "test_due_repo")
+        .await
+        .expect("Failed to add repository");
+
+    let task_id = db
+        .create_scheduled_task(repo_id, 1)
+        .await
+        .expect("Failed to create task");
+
+    // Update the task to be due in the past
+    let past_time = chrono::Utc::now() - chrono::Duration::hours(2);
+    let next_run_past = chrono::Utc::now() - chrono::Duration::hours(1);
+    db.update_task_execution(task_id, past_time, next_run_past)
+        .await
+        .expect("Failed to update task to be due");
+
+    // Now check for due tasks - our task should be due
+    let due_tasks = db.get_due_tasks().await.expect("Failed to get due tasks");
+
+    // Should find our task since next_run_at is in the past
+    assert!(due_tasks.iter().any(|t| t.id == task_id));
+}
+
+#[tokio::test]
+async fn test_update_task_execution() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository and task
+    let repo_id = db
+        .add_repository("/test/repo5", "test_update_repo")
+        .await
+        .expect("Failed to add repository");
+
+    let task_id = db
+        .create_scheduled_task(repo_id, 1)
+        .await
+        .expect("Failed to create task");
+
+    // Update task execution times
+    let now = chrono::Utc::now();
+    let next_run = now + chrono::Duration::hours(1);
+
+    db.update_task_execution(task_id, now, next_run)
+        .await
+        .expect("Failed to update task execution");
+
+    // Verify the update
+    let tasks = db.get_scheduled_tasks().await.unwrap();
+    let task = tasks.iter().find(|t| t.id == task_id).unwrap();
+
+    assert!(task.last_run_at.is_some());
+    let last_run = task.last_run_at.unwrap();
+    assert!((last_run - now).num_seconds().abs() < 2); // Within 2 seconds
+}
+
+#[tokio::test]
+async fn test_get_repository() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository
+    let repo_id = db
+        .add_repository("/test/get_repo", "test_get_repo")
+        .await
+        .expect("Failed to add repository");
+
+    // Retrieve the repository
+    let repo = db
+        .get_repository(repo_id)
+        .await
+        .expect("Failed to get repository");
+
+    assert!(repo.is_some());
+    let repo = repo.unwrap();
+    assert_eq!(repo.id, repo_id);
+    assert_eq!(repo.path, "/test/get_repo");
+    assert_eq!(repo.name, "test_get_repo");
+}
+
+#[tokio::test]
+async fn test_get_repository_not_found() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Try to get a non-existent repository
+    let repo = db
+        .get_repository(999999)
+        .await
+        .expect("Failed to execute query");
+
+    assert!(repo.is_none());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_orchestrator_is_not_running() {
+    use cudgel::orchestrator;
+
+    // Stop any running orchestrator first
+    let _ = orchestrator::stop_daemon();
+
+    // Check that no orchestrator is running
+    let status = orchestrator::is_running();
+    assert!(status.is_ok());
+
+    // Either None (not running) or Some(pid) that's stale
+    // We just verify the function works without error
+}
+
+#[cfg(unix)]
+#[test]
+fn test_orchestrator_pid_file_location() {
+    use cudgel::config::xdg_state_home;
+
+    // Verify the PID file location follows XDG spec
+    let expected_pid_dir = xdg_state_home().join("cudgel");
+    let expected_pid_file = expected_pid_dir.join("orchestrator.pid");
+
+    // Just verify the path construction works
+    assert!(expected_pid_file.to_string_lossy().contains("cudgel"));
+    assert!(expected_pid_file
+        .to_string_lossy()
+        .ends_with("orchestrator.pid"));
+}
+
+#[tokio::test]
+async fn test_scheduled_task_validation() {
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Create a test repository
+    let repo_id = db
+        .add_repository("/test/validation", "test_validation")
+        .await
+        .expect("Failed to add repository");
+
+    // Test invalid interval (0 hours) - should fail due to CHECK constraint
+    let result = db.create_scheduled_task(repo_id, 0).await;
+    assert!(result.is_err());
+
+    // Test invalid interval (too large - > 8760 hours/1 year) - should fail
+    let result = db.create_scheduled_task(repo_id, 10000).await;
+    assert!(result.is_err());
+
+    // Test valid intervals
+    let result = db.create_scheduled_task(repo_id, 1).await;
+    assert!(result.is_ok());
+
+    let result = db.create_scheduled_task(repo_id, 8760).await; // 1 year
+    assert!(result.is_ok());
 }

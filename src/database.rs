@@ -102,6 +102,27 @@ pub struct Reference {
     pub column: i32,
 }
 
+/// Scheduled indexing task
+///
+/// Represents a repository that should be automatically re-indexed on a schedule.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTask {
+    /// Database primary key
+    pub id: i32,
+    /// Foreign key to repository
+    pub repo_id: i32,
+    /// Interval in hours (1-8760)
+    pub interval_hours: i32,
+    /// Last time task was executed
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Next scheduled execution time
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+    /// Task status ("active", "paused", "cancelled")
+    pub status: String,
+    /// When task was created
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
 impl Database {
     /// Create a new database connection and auto-initialize schema if needed
     pub async fn new(config: &Config) -> Result<Self> {
@@ -401,7 +422,7 @@ impl Database {
             .execute(
                 "CREATE TABLE IF NOT EXISTS scheduled_tasks (
                     id SERIAL PRIMARY KEY,
-                    repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+                    repo_id INTEGER NOT NULL UNIQUE REFERENCES repositories(id) ON DELETE CASCADE,
                     interval_hours INTEGER NOT NULL CHECK (interval_hours > 0 AND interval_hours <= 8760),
                     next_run_at TIMESTAMPTZ NOT NULL,
                     last_run_at TIMESTAMPTZ,
@@ -796,5 +817,238 @@ impl Database {
             .await?;
 
         Ok(rows_affected)
+    }
+
+    // Scheduled Tasks Operations
+
+    /// Create a new scheduled task for a repository
+    pub async fn create_scheduled_task(&self, repo_id: i32, interval_hours: i32) -> Result<i32> {
+        let client = self.pool.get().await?;
+
+        // Calculate next_run_at based on interval
+        let next_run_at = chrono::Utc::now() + chrono::Duration::hours(interval_hours as i64);
+
+        let row = client
+            .query_one(
+                "INSERT INTO scheduled_tasks (repo_id, interval_hours, next_run_at)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (repo_id)
+                 DO UPDATE SET interval_hours = $2, next_run_at = $3
+                 RETURNING id",
+                &[&repo_id, &interval_hours, &next_run_at],
+            )
+            .await?;
+
+        Ok(row.get("id"))
+    }
+
+    /// Delete a scheduled task for a repository
+    pub async fn delete_scheduled_task(&self, repo_id: i32) -> Result<u64> {
+        let client = self.pool.get().await?;
+
+        let rows_affected = client
+            .execute(
+                "DELETE FROM scheduled_tasks WHERE repo_id = $1",
+                &[&repo_id],
+            )
+            .await?;
+
+        Ok(rows_affected)
+    }
+
+    /// Get all scheduled tasks
+    pub async fn get_scheduled_tasks(&self) -> Result<Vec<ScheduledTask>> {
+        let client = self.pool.get().await?;
+
+        let rows = client
+            .query(
+                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, created_at
+                 FROM scheduled_tasks
+                 WHERE status = 'active'
+                 ORDER BY next_run_at",
+                &[],
+            )
+            .await?;
+
+        Ok(rows
+            .iter()
+            .map(|row| ScheduledTask {
+                id: row.get("id"),
+                repo_id: row.get("repo_id"),
+                interval_hours: row.get("interval_hours"),
+                last_run_at: row.get("last_run_at"),
+                next_run_at: row.get("next_run_at"),
+                status: row.get("status"),
+                created_at: row.get("created_at"),
+            })
+            .collect())
+    }
+
+    /// Get tasks that are due to run (next_run_at <= now)
+    pub async fn get_due_tasks(&self) -> Result<Vec<ScheduledTask>> {
+        let client = self.pool.get().await?;
+
+        let now = chrono::Utc::now();
+        let rows = client
+            .query(
+                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, created_at
+                 FROM scheduled_tasks
+                 WHERE next_run_at <= $1 AND status = 'active'
+                 ORDER BY next_run_at",
+                &[&now],
+            )
+            .await?;
+
+        Ok(rows
+            .iter()
+            .map(|row| ScheduledTask {
+                id: row.get("id"),
+                repo_id: row.get("repo_id"),
+                interval_hours: row.get("interval_hours"),
+                last_run_at: row.get("last_run_at"),
+                next_run_at: row.get("next_run_at"),
+                status: row.get("status"),
+                created_at: row.get("created_at"),
+            })
+            .collect())
+    }
+
+    /// Update task execution times after running
+    pub async fn update_task_execution(
+        &self,
+        task_id: i32,
+        last_run: chrono::DateTime<chrono::Utc>,
+        next_run: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        let client = self.pool.get().await?;
+
+        client
+            .execute(
+                "UPDATE scheduled_tasks SET last_run_at = $1, next_run_at = $2 WHERE id = $3",
+                &[&last_run, &next_run, &task_id],
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Get repository by ID
+    pub async fn get_repository(&self, repository_id: i32) -> Result<Option<Repository>> {
+        let client = self.pool.get().await?;
+
+        let row = client
+            .query_opt(
+                "SELECT id, path, name, indexed_at, last_updated, metadata FROM repositories WHERE id = $1",
+                &[&repository_id],
+            )
+            .await?;
+
+        Ok(row.map(|r| Repository {
+            id: r.get("id"),
+            path: r.get("path"),
+            name: r.get("name"),
+            indexed_at: r.get("indexed_at"),
+            last_updated: r.get("last_updated"),
+            metadata: r.get("metadata"),
+        }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{DatabaseConfig, EmbeddingConfig, IndexingConfig};
+
+    #[test]
+    fn test_database_url_formatting() {
+        let config = Config {
+            database: DatabaseConfig {
+                host: "localhost".to_string(),
+                port: 54321,
+                database: "cudgel".to_string(),
+                user: "testuser".to_string(),
+                password: "testpass".to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: std::path::PathBuf::from("/tmp/models"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        };
+
+        let url = config.database_url();
+        assert_eq!(
+            url,
+            "host=localhost port=54321 dbname=cudgel user=testuser password=testpass"
+        );
+    }
+
+    #[test]
+    fn test_database_url_special_characters() {
+        let config = Config {
+            database: DatabaseConfig {
+                host: "db.example.com".to_string(),
+                port: 5432,
+                database: "my-database".to_string(),
+                user: "user@domain".to_string(),
+                password: "p@ssw0rd!".to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: std::path::PathBuf::from("/tmp/models"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        };
+
+        let url = config.database_url();
+        assert_eq!(
+            url,
+            "host=db.example.com port=5432 dbname=my-database user=user@domain password=p@ssw0rd!"
+        );
+    }
+
+    #[test]
+    fn test_scheduled_task_struct_creation() {
+        let now = chrono::Utc::now();
+        let task = ScheduledTask {
+            id: 1,
+            repo_id: 10,
+            interval_hours: 24,
+            last_run_at: Some(now),
+            next_run_at: now + chrono::Duration::hours(24),
+            status: "active".to_string(),
+            created_at: now,
+        };
+
+        assert_eq!(task.id, 1);
+        assert_eq!(task.repo_id, 10);
+        assert_eq!(task.interval_hours, 24);
+        assert_eq!(task.status, "active");
+        assert!(task.last_run_at.is_some());
+    }
+
+    #[test]
+    fn test_repository_struct_creation() {
+        let now = chrono::Utc::now().naive_utc();
+        let repo = Repository {
+            id: 1,
+            path: "/test/path".to_string(),
+            name: "test_repo".to_string(),
+            indexed_at: now,
+            last_updated: now,
+            metadata: serde_json::json!({}),
+        };
+
+        assert_eq!(repo.id, 1);
+        assert_eq!(repo.path, "/test/path");
+        assert_eq!(repo.name, "test_repo");
+        assert_eq!(repo.indexed_at, now);
+        assert_eq!(repo.last_updated, now);
     }
 }

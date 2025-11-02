@@ -56,6 +56,15 @@ enum Commands {
         /// Dry run - show what would be indexed without actually indexing
         #[arg(long)]
         dry_run: bool,
+
+        /// Schedule automatic re-indexing (hourly, daily, weekly, or hours as integer)
+        /// Example: --schedule hourly or --schedule 6 (for every 6 hours)
+        #[arg(long, conflicts_with = "unschedule")]
+        schedule: Option<String>,
+
+        /// Remove scheduled indexing for this repository
+        #[arg(long, conflicts_with = "schedule")]
+        unschedule: bool,
     },
 
     /// Query code using natural language
@@ -116,6 +125,29 @@ enum Commands {
         #[arg(long)]
         reset: bool,
     },
+
+    /// Manage the orchestrator daemon for scheduled indexing
+    #[command(subcommand)]
+    Orchestrator(OrchestratorCommand),
+}
+
+#[derive(Subcommand)]
+enum OrchestratorCommand {
+    /// Start the orchestrator daemon
+    Start,
+
+    /// Stop the orchestrator daemon
+    Stop,
+
+    /// Check orchestrator daemon status
+    Status,
+
+    /// Restart the orchestrator daemon
+    Restart,
+
+    /// Run the daemon (internal use only)
+    #[command(hide = true)]
+    RunDaemon,
 }
 
 /// Validate limit parameter is in range [1, 1000]
@@ -172,10 +204,12 @@ async fn main() -> cudgel::Result<()> {
     let cli = Cli::parse();
 
     // Load and validate configuration
-    let config = Arc::new(Config::from_env().inspect_err(|e| {
+    let config = Config::local();
+    config.validate().inspect_err(|e| {
         eprintln!("{}", "Configuration Error:".bright_red().bold());
         eprintln!("{}", e);
-    })?);
+    })?;
+    let config = Arc::new(config);
 
     let result = match cli.command {
         Commands::Index {
@@ -185,7 +219,14 @@ async fn main() -> cudgel::Result<()> {
             exclude,
             languages,
             dry_run,
-        } => cmd_index(config, paths, name, include, exclude, languages, dry_run).await,
+            schedule,
+            unschedule,
+        } => {
+            cmd_index(
+                config, paths, name, include, exclude, languages, dry_run, schedule, unschedule,
+            )
+            .await
+        }
         Commands::Query {
             query,
             repo,
@@ -203,6 +244,7 @@ async fn main() -> cudgel::Result<()> {
             json,
         } => cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await,
         Commands::InitDb { reset } => cmd_init_db(config, reset).await,
+        Commands::Orchestrator(cmd) => cmd_orchestrator(config, cmd).await,
     };
 
     // Convert errors to user-friendly messages
@@ -227,6 +269,7 @@ async fn main() -> cudgel::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn cmd_index(
     config: Arc<Config>,
     paths: Vec<String>,
@@ -235,6 +278,8 @@ async fn cmd_index(
     exclude: Option<Vec<String>>,
     languages: Option<Vec<String>>,
     dry_run: bool,
+    schedule: Option<String>,
+    unschedule: bool,
 ) -> cudgel::Result<()> {
     use cudgel::indexer::IndexFilter;
 
@@ -344,6 +389,64 @@ async fn cmd_index(
         for error in &stats.errors {
             println!("    {}", error);
         }
+    }
+
+    // Handle scheduling
+    if unschedule {
+        let db = cudgel::database::Database::new(&config).await?;
+        let deleted = db.delete_scheduled_task(repo_id).await?;
+        if deleted > 0 {
+            println!(
+                "\n{}",
+                "Removed scheduled indexing for this repository"
+                    .bright_yellow()
+                    .bold()
+            );
+        } else {
+            println!(
+                "\n{}",
+                "No scheduled indexing found for this repository".bright_yellow()
+            );
+        }
+    } else if let Some(schedule_str) = schedule {
+        // Parse schedule string to interval in hours
+        let interval_hours = match schedule_str.as_str() {
+            "hourly" => 1,
+            "daily" => 24,
+            "weekly" => 168, // 7 * 24
+            num => num.parse::<i32>().map_err(|_| {
+                cudgel::Error::Other(format!(
+                    "Invalid schedule: '{}'. Use 'hourly', 'daily', 'weekly', or a number of hours (1-8760)",
+                    schedule_str
+                ))
+            })?,
+        };
+
+        // Validate interval
+        if !(1..=8760).contains(&interval_hours) {
+            return Err(cudgel::Error::Other(
+                "Schedule interval must be between 1 and 8760 hours (1 year)".to_string(),
+            ));
+        }
+
+        let db = cudgel::database::Database::new(&config).await?;
+        db.create_scheduled_task(repo_id, interval_hours).await?;
+
+        println!(
+            "\n{}",
+            format!(
+                "Scheduled automatic re-indexing every {} hour{}",
+                interval_hours,
+                if interval_hours == 1 { "" } else { "s" }
+            )
+            .bright_green()
+            .bold()
+        );
+        println!(
+            "{}",
+            "Start the orchestrator with 'cudgel orchestrator start' to enable scheduled indexing"
+                .bright_cyan()
+        );
     }
 
     Ok(())
@@ -720,6 +823,114 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
                 .bright_green()
                 .bold()
         );
+    }
+
+    Ok(())
+}
+
+async fn cmd_orchestrator(config: Arc<Config>, cmd: OrchestratorCommand) -> cudgel::Result<()> {
+    use cudgel::orchestrator;
+
+    match cmd {
+        OrchestratorCommand::Start => {
+            println!("{}", "Starting orchestrator daemon...".bright_blue().bold());
+            orchestrator::start_daemon(&config)?;
+            println!(
+                "{}",
+                "Orchestrator daemon started successfully"
+                    .bright_green()
+                    .bold()
+            );
+            println!(
+                "Logs: {}",
+                cudgel::config::xdg_state_home()
+                    .join("cudgel/orchestrator.log")
+                    .display()
+            );
+        }
+        OrchestratorCommand::Stop => {
+            println!("{}", "Stopping orchestrator daemon...".bright_blue().bold());
+            orchestrator::stop_daemon()?;
+            println!(
+                "{}",
+                "Orchestrator daemon stopped successfully"
+                    .bright_green()
+                    .bold()
+            );
+        }
+        OrchestratorCommand::Status => {
+            match orchestrator::is_running()? {
+                Some(pid) => {
+                    println!(
+                        "{}",
+                        format!("Orchestrator is running (PID: {})", pid)
+                            .bright_green()
+                            .bold()
+                    );
+
+                    // Display scheduled tasks
+                    let db = cudgel::database::Database::new(&config).await?;
+                    let tasks = db.get_scheduled_tasks().await?;
+
+                    if tasks.is_empty() {
+                        println!("\n{}", "No scheduled tasks".yellow());
+                    } else {
+                        println!("\n{}", "Scheduled Tasks:".bright_cyan().bold());
+                        for task in tasks {
+                            let repo = db.get_repository(task.repo_id).await?;
+                            let repo_name = repo
+                                .map(|r| r.name)
+                                .unwrap_or_else(|| format!("Unknown (ID: {})", task.repo_id));
+                            println!(
+                                "  • {} - every {} hour{}, next run: {}",
+                                repo_name,
+                                task.interval_hours,
+                                if task.interval_hours == 1 { "" } else { "s" },
+                                task.next_run_at.format("%Y-%m-%d %H:%M:%S")
+                            );
+                        }
+                    }
+                }
+                None => {
+                    println!("{}", "Orchestrator is not running".bright_yellow().bold());
+                }
+            }
+        }
+        OrchestratorCommand::Restart => {
+            println!(
+                "{}",
+                "Restarting orchestrator daemon...".bright_blue().bold()
+            );
+            orchestrator::restart_daemon(&config)?;
+            println!(
+                "{}",
+                "Orchestrator daemon restarted successfully"
+                    .bright_green()
+                    .bold()
+            );
+        }
+        OrchestratorCommand::RunDaemon => {
+            // This is called internally by the daemon process
+            // Set up logging to file
+            use tracing_subscriber::EnvFilter;
+
+            let log_path = cudgel::config::xdg_state_home().join("cudgel/orchestrator.log");
+            let log_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)?;
+
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(
+                    EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+                )
+                .with_writer(log_file)
+                .try_init();
+
+            // Run the polling loop
+            let config_owned = Arc::try_unwrap(config).unwrap_or_else(|arc| (*arc).clone());
+            orchestrator::run_polling_loop(config_owned).await?;
+        }
     }
 
     Ok(())
