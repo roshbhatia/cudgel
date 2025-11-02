@@ -918,13 +918,13 @@ async fn cmd_orchestrator(
                 .append(true)
                 .open(&log_path)?;
 
-            tracing_subscriber::fmt()
+            let _ = tracing_subscriber::fmt()
                 .with_env_filter(
                     EnvFilter::try_from_default_env()
                         .unwrap_or_else(|_| EnvFilter::new("info")),
                 )
                 .with_writer(log_file)
-                .init();
+                .try_init();
 
             // Run the polling loop
             let config_owned = Arc::try_unwrap(config).unwrap_or_else(|arc| (*arc).clone());

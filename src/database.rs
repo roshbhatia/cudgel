@@ -114,13 +114,13 @@ pub struct ScheduledTask {
     /// Interval in hours (1-8760)
     pub interval_hours: i32,
     /// Last time task was executed
-    pub last_run_at: Option<chrono::NaiveDateTime>,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Next scheduled execution time
-    pub next_run_at: chrono::NaiveDateTime,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
     /// Task status ("active", "paused", "cancelled")
     pub status: String,
     /// When task was created
-    pub created_at: chrono::NaiveDateTime,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl Database {
@@ -422,7 +422,7 @@ impl Database {
             .execute(
                 "CREATE TABLE IF NOT EXISTS scheduled_tasks (
                     id SERIAL PRIMARY KEY,
-                    repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+                    repo_id INTEGER NOT NULL UNIQUE REFERENCES repositories(id) ON DELETE CASCADE,
                     interval_hours INTEGER NOT NULL CHECK (interval_hours > 0 AND interval_hours <= 8760),
                     next_run_at TIMESTAMPTZ NOT NULL,
                     last_run_at TIMESTAMPTZ,
@@ -830,8 +830,7 @@ impl Database {
         let client = self.pool.get().await?;
 
         // Calculate next_run_at based on interval
-        let next_run_at = chrono::Utc::now().naive_utc()
-            + chrono::Duration::hours(interval_hours as i64);
+        let next_run_at = chrono::Utc::now() + chrono::Duration::hours(interval_hours as i64);
 
         let row = client
             .query_one(
@@ -893,7 +892,7 @@ impl Database {
     pub async fn get_due_tasks(&self) -> Result<Vec<ScheduledTask>> {
         let client = self.pool.get().await?;
 
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         let rows = client
             .query(
                 "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, created_at
@@ -922,8 +921,8 @@ impl Database {
     pub async fn update_task_execution(
         &self,
         task_id: i32,
-        last_run: chrono::NaiveDateTime,
-        next_run: chrono::NaiveDateTime,
+        last_run: chrono::DateTime<chrono::Utc>,
+        next_run: chrono::DateTime<chrono::Utc>,
     ) -> Result<()> {
         let client = self.pool.get().await?;
 
