@@ -229,7 +229,7 @@ fn xdg_config_home() -> PathBuf {
 
 /// Get XDG_STATE_HOME directory (default: ~/.local/state)
 #[allow(dead_code)]
-fn xdg_state_home() -> PathBuf {
+pub fn xdg_state_home() -> PathBuf {
     std::env::var("XDG_STATE_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {

@@ -69,6 +69,10 @@ ollama-rs = "0.2"
 comfy-table = "7.1"
 syntect = "5.2"
 
+# Unix process management (conditional dependency)
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["signal"] }
+
 [dev-dependencies]
 tempfile = "3.10"
 
