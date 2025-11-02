@@ -28,7 +28,7 @@ Thumbs.db
 .env.local
 .env.*
 
-# ONNX models (download separately)
+# ONNX models (primary location: ~/.local/share/cudgel/models/)
 models/
 
 # Python virtual environment
