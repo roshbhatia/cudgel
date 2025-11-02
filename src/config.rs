@@ -170,13 +170,6 @@ impl Config {
         Ok(())
     }
 
-    /// Backward compatibility - just returns local config
-    pub fn from_env() -> crate::Result<Self> {
-        let config = Self::local();
-        config.validate()?;
-        Ok(config)
-    }
-
     /// Generate PostgreSQL connection string
     ///
     /// Returns a connection string in libpq format for use with tokio-postgres.
