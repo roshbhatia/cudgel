@@ -56,6 +56,15 @@ enum Commands {
         /// Dry run - show what would be indexed without actually indexing
         #[arg(long)]
         dry_run: bool,
+
+        /// Schedule automatic re-indexing (hourly, daily, weekly, or hours as integer)
+        /// Example: --schedule hourly or --schedule 6 (for every 6 hours)
+        #[arg(long, conflicts_with = "unschedule")]
+        schedule: Option<String>,
+
+        /// Remove scheduled indexing for this repository
+        #[arg(long, conflicts_with = "schedule")]
+        unschedule: bool,
     },
 
     /// Query code using natural language
@@ -185,7 +194,22 @@ async fn main() -> cudgel::Result<()> {
             exclude,
             languages,
             dry_run,
-        } => cmd_index(config, paths, name, include, exclude, languages, dry_run).await,
+            schedule,
+            unschedule,
+        } => {
+            cmd_index(
+                config,
+                paths,
+                name,
+                include,
+                exclude,
+                languages,
+                dry_run,
+                schedule,
+                unschedule,
+            )
+            .await
+        }
         Commands::Query {
             query,
             repo,
@@ -235,6 +259,8 @@ async fn cmd_index(
     exclude: Option<Vec<String>>,
     languages: Option<Vec<String>>,
     dry_run: bool,
+    schedule: Option<String>,
+    unschedule: bool,
 ) -> cudgel::Result<()> {
     use cudgel::indexer::IndexFilter;
 
@@ -344,6 +370,65 @@ async fn cmd_index(
         for error in &stats.errors {
             println!("    {}", error);
         }
+    }
+
+    // Handle scheduling
+    if unschedule {
+        let db = cudgel::database::Database::new(&config).await?;
+        let deleted = db.delete_scheduled_task(repo_id).await?;
+        if deleted > 0 {
+            println!(
+                "\n{}",
+                "Removed scheduled indexing for this repository"
+                    .bright_yellow()
+                    .bold()
+            );
+        } else {
+            println!(
+                "\n{}",
+                "No scheduled indexing found for this repository"
+                    .bright_yellow()
+            );
+        }
+    } else if let Some(schedule_str) = schedule {
+        // Parse schedule string to interval in hours
+        let interval_hours = match schedule_str.as_str() {
+            "hourly" => 1,
+            "daily" => 24,
+            "weekly" => 168, // 7 * 24
+            num => num.parse::<i32>().map_err(|_| {
+                cudgel::Error::Other(format!(
+                    "Invalid schedule: '{}'. Use 'hourly', 'daily', 'weekly', or a number of hours (1-8760)",
+                    schedule_str
+                ))
+            })?,
+        };
+
+        // Validate interval
+        if !(1..=8760).contains(&interval_hours) {
+            return Err(cudgel::Error::Other(
+                "Schedule interval must be between 1 and 8760 hours (1 year)".to_string(),
+            ));
+        }
+
+        let db = cudgel::database::Database::new(&config).await?;
+        db.create_scheduled_task(repo_id, interval_hours).await?;
+
+        println!(
+            "\n{}",
+            format!(
+                "Scheduled automatic re-indexing every {} hour{}",
+                interval_hours,
+                if interval_hours == 1 { "" } else { "s" }
+            )
+            .bright_green()
+            .bold()
+        );
+        println!(
+            "{}",
+            "Start the orchestrator with 'cudgel orchestrator start' to enable scheduled indexing"
+                .bright_cyan()
+        );
     }
 
     Ok(())
