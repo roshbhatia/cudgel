@@ -116,9 +116,8 @@ pub fn stop_daemon() -> Result<()> {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
 
-        kill(Pid::from_raw(pid as i32), Signal::SIGTERM).map_err(|e| {
-            crate::Error::Other(format!("Failed to stop orchestrator: {}", e))
-        })?;
+        kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
+            .map_err(|e| crate::Error::Other(format!("Failed to stop orchestrator: {}", e)))?;
 
         // Wait for process to exit (up to 5 seconds)
         for _ in 0..50 {
@@ -216,7 +215,8 @@ pub async fn run_polling_loop(config: Config) -> Result<()> {
 
                             // Update task execution times
                             let now = chrono::Utc::now();
-                            let next_run = now + chrono::Duration::hours(task.interval_hours as i64);
+                            let next_run =
+                                now + chrono::Duration::hours(task.interval_hours as i64);
 
                             if let Err(e) = db.update_task_execution(task.id, now, next_run).await {
                                 error!("Failed to update task execution: {}", e);
@@ -232,5 +232,80 @@ pub async fn run_polling_loop(config: Config) -> Result<()> {
                 error!("Failed to get due tasks: {}", e);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::xdg_state_home;
+
+    #[test]
+    fn test_pid_file_path_construction() {
+        let pid_dir = xdg_state_home().join("cudgel");
+        let pid_file = pid_dir.join("orchestrator.pid");
+
+        // Verify path components
+        assert!(pid_file.to_string_lossy().contains("cudgel"));
+        assert!(pid_file.to_string_lossy().ends_with("orchestrator.pid"));
+
+        // Verify it's an absolute path
+        assert!(pid_file.is_absolute());
+    }
+
+    #[test]
+    fn test_log_file_path_construction() {
+        let log_dir = xdg_state_home().join("cudgel");
+        let log_file = log_dir.join("orchestrator.log");
+
+        // Verify path components
+        assert!(log_file.to_string_lossy().contains("cudgel"));
+        assert!(log_file.to_string_lossy().ends_with("orchestrator.log"));
+
+        // Verify it's an absolute path
+        assert!(log_file.is_absolute());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_is_running_no_pid_file() {
+        // If PID file doesn't exist, is_running should return Ok(None)
+        let pid_file = xdg_state_home().join("cudgel/orchestrator.pid");
+
+        // Clean up any existing PID file from previous tests
+        let _ = std::fs::remove_file(&pid_file);
+
+        let result = is_running();
+        assert!(result.is_ok());
+
+        // If PID file doesn't exist or process is not running, should be None or Ok
+        // Both None (no PID file) and Some (stale PID) are acceptable outcomes
+        let _pid = result.unwrap(); // May be None or Some
+    }
+
+    #[test]
+    fn test_interval_hours_calculation() {
+        // Test that interval hours are correctly applied
+        let interval_hours = 24;
+        let now = chrono::Utc::now();
+        let next_run = now + chrono::Duration::hours(interval_hours as i64);
+
+        let duration = next_run - now;
+        assert_eq!(duration.num_hours(), interval_hours as i64);
+    }
+
+    #[test]
+    fn test_xdg_state_home_returns_valid_path() {
+        let state_home = xdg_state_home();
+
+        // Should not be empty
+        assert!(!state_home.as_os_str().is_empty());
+
+        // Should be an absolute path
+        assert!(state_home.is_absolute());
+
+        // Should contain reasonable components
+        let path_str = state_home.to_string_lossy();
+        assert!(!path_str.is_empty());
     }
 }

@@ -822,11 +822,7 @@ impl Database {
     // Scheduled Tasks Operations
 
     /// Create a new scheduled task for a repository
-    pub async fn create_scheduled_task(
-        &self,
-        repo_id: i32,
-        interval_hours: i32,
-    ) -> Result<i32> {
+    pub async fn create_scheduled_task(&self, repo_id: i32, interval_hours: i32) -> Result<i32> {
         let client = self.pool.get().await?;
 
         // Calculate next_run_at based on interval
@@ -955,5 +951,104 @@ impl Database {
             last_updated: r.get("last_updated"),
             metadata: r.get("metadata"),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{DatabaseConfig, EmbeddingConfig, IndexingConfig};
+
+    #[test]
+    fn test_database_url_formatting() {
+        let config = Config {
+            database: DatabaseConfig {
+                host: "localhost".to_string(),
+                port: 54321,
+                database: "cudgel".to_string(),
+                user: "testuser".to_string(),
+                password: "testpass".to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: std::path::PathBuf::from("/tmp/models"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        };
+
+        let url = config.database_url();
+        assert_eq!(
+            url,
+            "host=localhost port=54321 dbname=cudgel user=testuser password=testpass"
+        );
+    }
+
+    #[test]
+    fn test_database_url_special_characters() {
+        let config = Config {
+            database: DatabaseConfig {
+                host: "db.example.com".to_string(),
+                port: 5432,
+                database: "my-database".to_string(),
+                user: "user@domain".to_string(),
+                password: "p@ssw0rd!".to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: std::path::PathBuf::from("/tmp/models"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        };
+
+        let url = config.database_url();
+        assert_eq!(
+            url,
+            "host=db.example.com port=5432 dbname=my-database user=user@domain password=p@ssw0rd!"
+        );
+    }
+
+    #[test]
+    fn test_scheduled_task_struct_creation() {
+        let now = chrono::Utc::now();
+        let task = ScheduledTask {
+            id: 1,
+            repo_id: 10,
+            interval_hours: 24,
+            last_run_at: Some(now),
+            next_run_at: now + chrono::Duration::hours(24),
+            status: "active".to_string(),
+            created_at: now,
+        };
+
+        assert_eq!(task.id, 1);
+        assert_eq!(task.repo_id, 10);
+        assert_eq!(task.interval_hours, 24);
+        assert_eq!(task.status, "active");
+        assert!(task.last_run_at.is_some());
+    }
+
+    #[test]
+    fn test_repository_struct_creation() {
+        let now = chrono::Utc::now().naive_utc();
+        let repo = Repository {
+            id: 1,
+            path: "/test/path".to_string(),
+            name: "test_repo".to_string(),
+            indexed_at: now,
+            last_updated: now,
+            metadata: serde_json::json!({}),
+        };
+
+        assert_eq!(repo.id, 1);
+        assert_eq!(repo.path, "/test/path");
+        assert_eq!(repo.name, "test_repo");
+        assert_eq!(repo.indexed_at, now);
+        assert_eq!(repo.last_updated, now);
     }
 }

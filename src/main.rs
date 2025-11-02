@@ -223,15 +223,7 @@ async fn main() -> cudgel::Result<()> {
             unschedule,
         } => {
             cmd_index(
-                config,
-                paths,
-                name,
-                include,
-                exclude,
-                languages,
-                dry_run,
-                schedule,
-                unschedule,
+                config, paths, name, include, exclude, languages, dry_run, schedule, unschedule,
             )
             .await
         }
@@ -277,6 +269,7 @@ async fn main() -> cudgel::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn cmd_index(
     config: Arc<Config>,
     paths: Vec<String>,
@@ -412,8 +405,7 @@ async fn cmd_index(
         } else {
             println!(
                 "\n{}",
-                "No scheduled indexing found for this repository"
-                    .bright_yellow()
+                "No scheduled indexing found for this repository".bright_yellow()
             );
         }
     } else if let Some(schedule_str) = schedule {
@@ -836,10 +828,7 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
     Ok(())
 }
 
-async fn cmd_orchestrator(
-    config: Arc<Config>,
-    cmd: OrchestratorCommand,
-) -> cudgel::Result<()> {
+async fn cmd_orchestrator(config: Arc<Config>, cmd: OrchestratorCommand) -> cudgel::Result<()> {
     use cudgel::orchestrator;
 
     match cmd {
@@ -848,16 +837,25 @@ async fn cmd_orchestrator(
             orchestrator::start_daemon(&config)?;
             println!(
                 "{}",
-                "Orchestrator daemon started successfully".bright_green().bold()
+                "Orchestrator daemon started successfully"
+                    .bright_green()
+                    .bold()
             );
-            println!("Logs: {}", cudgel::config::xdg_state_home().join("cudgel/orchestrator.log").display());
+            println!(
+                "Logs: {}",
+                cudgel::config::xdg_state_home()
+                    .join("cudgel/orchestrator.log")
+                    .display()
+            );
         }
         OrchestratorCommand::Stop => {
             println!("{}", "Stopping orchestrator daemon...".bright_blue().bold());
             orchestrator::stop_daemon()?;
             println!(
                 "{}",
-                "Orchestrator daemon stopped successfully".bright_green().bold()
+                "Orchestrator daemon stopped successfully"
+                    .bright_green()
+                    .bold()
             );
         }
         OrchestratorCommand::Status => {
@@ -880,7 +878,9 @@ async fn cmd_orchestrator(
                         println!("\n{}", "Scheduled Tasks:".bright_cyan().bold());
                         for task in tasks {
                             let repo = db.get_repository(task.repo_id).await?;
-                            let repo_name = repo.map(|r| r.name).unwrap_or_else(|| format!("Unknown (ID: {})", task.repo_id));
+                            let repo_name = repo
+                                .map(|r| r.name)
+                                .unwrap_or_else(|| format!("Unknown (ID: {})", task.repo_id));
                             println!(
                                 "  • {} - every {} hour{}, next run: {}",
                                 repo_name,
@@ -892,15 +892,15 @@ async fn cmd_orchestrator(
                     }
                 }
                 None => {
-                    println!(
-                        "{}",
-                        "Orchestrator is not running".bright_yellow().bold()
-                    );
+                    println!("{}", "Orchestrator is not running".bright_yellow().bold());
                 }
             }
         }
         OrchestratorCommand::Restart => {
-            println!("{}", "Restarting orchestrator daemon...".bright_blue().bold());
+            println!(
+                "{}",
+                "Restarting orchestrator daemon...".bright_blue().bold()
+            );
             orchestrator::restart_daemon(&config)?;
             println!(
                 "{}",
@@ -922,8 +922,7 @@ async fn cmd_orchestrator(
 
             let _ = tracing_subscriber::fmt()
                 .with_env_filter(
-                    EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| EnvFilter::new("info")),
+                    EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
                 )
                 .with_writer(log_file)
                 .try_init();
