@@ -76,19 +76,19 @@ tasks:
       - cargo build --release
       - echo "Installing cudgel..."
       - cargo install --path .
-      - echo "Starting PostgreSQL on port 54321..."
+      - echo "Starting PostgreSQL..."
       - ./scripts/start-postgres.sh
       - echo "Initializing database schema..."
       - cudgel init-db
       - echo "Setup complete!"
       - echo ""
-      - echo "PostgreSQL is running on localhost:54321"
+      - echo "PostgreSQL is running on localhost:${CUDGEL_POSTGRES_PORT:-45678}"
       - echo "Data directory:" $HOME/.local/share/cudgel/postgres
       - echo "Logs:" $HOME/.local/share/cudgel/postgres.log
 
   # Database (native PostgreSQL)
   db-start:
-    desc: Start native PostgreSQL on port 54321
+    desc: Start native PostgreSQL
     cmds:
       - ./scripts/start-postgres.sh
 
@@ -101,12 +101,54 @@ tasks:
     desc: Check PostgreSQL status
     cmds:
       - |
-        if [ -d "/opt/homebrew/opt/postgresql@17/bin" ]; then
-          /opt/homebrew/opt/postgresql@17/bin/pg_isready -p 54321 -h localhost && echo "PostgreSQL is running" || echo "PostgreSQL is not running"
-        elif [ -d "/opt/homebrew/opt/postgresql@16/bin" ]; then
-          /opt/homebrew/opt/postgresql@16/bin/pg_isready -p 54321 -h localhost && echo "PostgreSQL is running" || echo "PostgreSQL is not running"
+        PGPORT=${CUDGEL_POSTGRES_PORT:-45678}
+        pg_isready -p $PGPORT -h localhost && echo "PostgreSQL is running on port $PGPORT" || echo "PostgreSQL is not running"
+
+  health:
+    desc: Check development environment health
+    cmds:
+      - |
+        echo "Checking development environment..."
+        echo ""
+        PASS="\033[0;32m✓\033[0m"
+        FAIL="\033[0;31m✗\033[0m"
+        WARN="\033[0;33m⚠\033[0m"
+
+        # PostgreSQL
+        PGPORT=${CUDGEL_POSTGRES_PORT:-45678}
+        if pg_isready -p $PGPORT -h localhost > /dev/null 2>&1; then
+          echo -e "$PASS PostgreSQL (port $PGPORT)"
         else
-          pg_isready -p 54321 -h localhost && echo "PostgreSQL is running" || echo "PostgreSQL is not running"
+          echo -e "$FAIL PostgreSQL (port $PGPORT) - not running"
+        fi
+
+        # ONNX model
+        MODEL_FILE="$HOME/.local/share/cudgel/models/all-MiniLM-L6-v2/model.onnx"
+        if [ -f "$MODEL_FILE" ]; then
+          echo -e "$PASS ONNX embedding model"
+        else
+          echo -e "$WARN ONNX model - not found (will download on first use)"
+        fi
+
+        # Rust toolchain
+        if command -v rustc > /dev/null 2>&1; then
+          echo -e "$PASS Rust toolchain ($(rustc --version | cut -d' ' -f2))"
+        else
+          echo -e "$FAIL Rust toolchain - not found"
+        fi
+
+        # Cudgel binary
+        if command -v cudgel > /dev/null 2>&1; then
+          echo -e "$PASS cudgel binary installed"
+        else
+          echo -e "$WARN cudgel binary - not installed (run 'task install')"
+        fi
+
+        # Ollama (optional, for US3)
+        if command -v ollama > /dev/null 2>&1; then
+          echo -e "$PASS ollama (optional, for knowledge generation)"
+        else
+          echo -e "$WARN ollama - not installed (optional)"
         fi
 
   db-clean:

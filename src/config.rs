@@ -22,19 +22,30 @@ pub struct Config {
 
 /// PostgreSQL database configuration
 ///
-/// Uses non-standard port 54321 to avoid conflicts with system PostgreSQL.
+/// Uses non-standard port to avoid conflicts with system PostgreSQL.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
-    /// Database server hostname (default: localhost)
+    /// Database server hostname (default: [`DatabaseConfig::DEFAULT_HOST`])
     pub host: String,
-    /// Database server port (default: 54321)
+    /// Database server port (default: [`DatabaseConfig::DEFAULT_PORT`])
     pub port: u16,
-    /// Database name (default: cudgel)
+    /// Database name (default: [`DatabaseConfig::DEFAULT_DATABASE`])
     pub database: String,
     /// Database user (default: current system user)
     pub user: String,
-    /// Database password (default: cudgel)
+    /// Database password (default: [`DatabaseConfig::DEFAULT_PASSWORD`])
     pub password: String,
+}
+
+impl DatabaseConfig {
+    /// Default PostgreSQL host
+    pub const DEFAULT_HOST: &'static str = "localhost";
+    /// Default PostgreSQL port (non-standard to avoid conflicts)
+    pub const DEFAULT_PORT: u16 = 45678;
+    /// Default database name
+    pub const DEFAULT_DATABASE: &'static str = "cudgel";
+    /// Default database password
+    pub const DEFAULT_PASSWORD: &'static str = "cudgel";
 }
 
 /// Embedding model configuration for semantic code search
@@ -61,21 +72,27 @@ pub struct IndexingConfig {
 
 impl Config {
     /// Create a new config with XDG-compliant defaults
-    /// Checks environment variables first, then falls back to XDG defaults
-    /// Uses non-standard port to avoid conflicts (PostgreSQL: 54321)
-    pub fn local() -> Self {
-        Config {
+    ///
+    /// Checks CUDGEL_* environment variables, then falls back to hardcoded defaults.
+    ///
+    /// # Errors
+    /// Returns error if configuration validation fails
+    pub fn local() -> crate::Result<Self> {
+        let config = Config {
             database: DatabaseConfig {
-                host: std::env::var("PGHOST").unwrap_or_else(|_| "localhost".to_string()),
-                port: std::env::var("PGPORT")
+                host: std::env::var("CUDGEL_POSTGRES_HOST")
+                    .unwrap_or_else(|_| DatabaseConfig::DEFAULT_HOST.to_string()),
+                port: std::env::var("CUDGEL_POSTGRES_PORT")
                     .ok()
                     .and_then(|p| p.parse().ok())
-                    .unwrap_or(54321),
-                database: std::env::var("PGDATABASE").unwrap_or_else(|_| "cudgel".to_string()),
-                user: std::env::var("PGUSER")
+                    .unwrap_or(DatabaseConfig::DEFAULT_PORT),
+                database: std::env::var("CUDGEL_POSTGRES_DATABASE")
+                    .unwrap_or_else(|_| DatabaseConfig::DEFAULT_DATABASE.to_string()),
+                user: std::env::var("CUDGEL_POSTGRES_USER")
                     .or_else(|_| std::env::var("USER"))
                     .unwrap_or_else(|_| "cudgel".to_string()),
-                password: std::env::var("PGPASSWORD").unwrap_or_else(|_| "cudgel".to_string()),
+                password: std::env::var("CUDGEL_POSTGRES_PASSWORD")
+                    .unwrap_or_else(|_| DatabaseConfig::DEFAULT_PASSWORD.to_string()),
             },
             embedding: EmbeddingConfig {
                 model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
@@ -85,7 +102,69 @@ impl Config {
                 batch_size: 100,
                 max_file_size: 1024 * 1024,
             },
-        }
+        };
+
+        // Validate configuration before returning
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Create test configuration (ephemeral, isolated)
+    ///
+    /// Uses different port and database name to avoid conflicts with dev instance.
+    /// Suitable for integration tests.
+    pub fn test() -> crate::Result<Self> {
+        let config = Config {
+            database: DatabaseConfig {
+                host: DatabaseConfig::DEFAULT_HOST.to_string(),
+                port: DatabaseConfig::DEFAULT_PORT + 1, // 45679 for tests
+                database: "cudgel_test".to_string(),
+                user: std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string()),
+                password: DatabaseConfig::DEFAULT_PASSWORD.to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        };
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Create CI configuration
+    ///
+    /// Optimized for GitHub Actions and CI environments.
+    pub fn ci() -> crate::Result<Self> {
+        let config = Config {
+            database: DatabaseConfig {
+                host: std::env::var("CUDGEL_POSTGRES_HOST")
+                    .unwrap_or_else(|_| DatabaseConfig::DEFAULT_HOST.to_string()),
+                port: std::env::var("CUDGEL_POSTGRES_PORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(DatabaseConfig::DEFAULT_PORT),
+                database: "cudgel_ci".to_string(),
+                user: std::env::var("CUDGEL_POSTGRES_USER")
+                    .or_else(|_| std::env::var("USER"))
+                    .unwrap_or_else(|_| "cudgel".to_string()),
+                password: std::env::var("CUDGEL_POSTGRES_PASSWORD")
+                    .unwrap_or_else(|_| DatabaseConfig::DEFAULT_PASSWORD.to_string()),
+            },
+            embedding: EmbeddingConfig {
+                model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 50,            // Smaller batches for CI
+                max_file_size: 512 * 1024, // Smaller files in CI
+            },
+        };
+        config.validate()?;
+        Ok(config)
     }
 
     /// Validate configuration values
@@ -187,7 +266,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::local()
+        Self::local().expect("Default configuration must be valid")
     }
 }
 
@@ -272,7 +351,7 @@ mod tests {
         Config {
             database: DatabaseConfig {
                 host: "localhost".to_string(),
-                port: 54321,
+                port: 45678,
                 database: "cudgel".to_string(),
                 user: "testuser".to_string(),
                 password: "password".to_string(),
@@ -394,7 +473,7 @@ mod tests {
 
     #[test]
     fn test_config_local_creates_valid_config() {
-        let config = Config::local();
+        let config = Config::local().expect("Config::local() should succeed");
         assert!(config.validate().is_ok());
     }
 
@@ -451,7 +530,7 @@ mod tests {
         let url = config.database_url();
 
         assert!(url.contains("host=localhost"));
-        assert!(url.contains("port=54321"));
+        assert!(url.contains("port=45678"));
         assert!(url.contains("dbname=cudgel"));
         assert!(url.contains("user=testuser"));
         assert!(url.contains("password=password"));

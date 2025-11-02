@@ -4,26 +4,15 @@ set -e
 # XDG support
 XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 PGDATA="${XDG_DATA_HOME}/cudgel/postgres"
-PGPORT=54321
+PGPORT="${CUDGEL_POSTGRES_PORT:-45678}"
 PGLOG="${XDG_DATA_HOME}/cudgel/postgres.log"
 
-# Find PostgreSQL binaries (try 17, then 16, then PATH)
-if [ -d "/opt/homebrew/opt/postgresql@17/bin" ]; then
-    export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
-elif [ -d "/usr/local/opt/postgresql@17/bin" ]; then
-    export PATH="/usr/local/opt/postgresql@17/bin:$PATH"
-elif [ -d "/opt/homebrew/opt/postgresql@16/bin" ]; then
-    export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-elif [ -d "/usr/local/opt/postgresql@16/bin" ]; then
-    export PATH="/usr/local/opt/postgresql@16/bin:$PATH"
-fi
-
-# Verify commands exist
+# Verify PostgreSQL is available (use system PATH, including Nix)
 if ! command -v initdb &> /dev/null; then
-    echo "Error: PostgreSQL not found. Please install PostgreSQL:"
-    echo "  brew install postgresql@17  # Recommended (has pgvector support)"
-    echo "  brew install postgresql@16"
-    echo "Or enter nix-shell to use the Nix-provided PostgreSQL"
+    echo "Error: PostgreSQL not found. Please install PostgreSQL 17+ with pgvector:"
+    echo "  nix-shell          # Use Nix development environment (recommended)"
+    echo "  brew install postgresql@17  # macOS Homebrew"
+    echo "  apt install postgresql-17 postgresql-17-pgvector  # Debian/Ubuntu"
     exit 1
 fi
 

@@ -75,7 +75,8 @@
       "Bash(while read file)",
       "Bash(do echo '=== $file ===')",
       "Bash(done)",
-      "Bash(for file in src/*.rs)"
+      "Bash(for file in src/*.rs)",
+      "Bash(task health)"
     ],
     "deny": [],
     "ask": []

@@ -9,7 +9,7 @@ use tempfile::TempDir;
 
 /// Helper to check if PostgreSQL is available for testing
 async fn is_postgres_available() -> bool {
-    let config = Config::local();
+    let config = Config::local().expect("Config should be valid");
     match Database::new(&config).await {
         Ok(db) => db.health_check().await.unwrap_or(false),
         Err(_) => false,
@@ -23,7 +23,7 @@ async fn setup_test_db() -> Option<Arc<Database>> {
         return None;
     }
 
-    let config = Config::local();
+    let config = Config::local().expect("Config should be valid");
     let db = Database::new(&config).await.ok()?;
 
     // Initialize schema
@@ -249,15 +249,14 @@ struct Point {
 
 #[tokio::test]
 async fn test_config_validation() {
-    // Test valid config
+    // Test valid config - Config::local() now validates internally
     let config = Config::local();
-    assert!(config.validate().is_ok());
+    assert!(config.is_ok());
+
+    let config = config.unwrap();
 
     // Config should have default values
-    assert_eq!(
-        config.database.host,
-        std::env::var("PGHOST").unwrap_or_else(|_| "localhost".to_string())
-    );
+    assert_eq!(config.database.host, "localhost");
 }
 
 #[test]
@@ -409,7 +408,7 @@ fn test_parser_syntax_error_handling() {
 
 #[test]
 fn test_embedding_generation() {
-    let config = Arc::new(Config::local());
+    let config = Arc::new(Config::local().expect("Config should be valid"));
     let embedder = EmbeddingGenerator::new(config).expect("Failed to create embedder");
 
     let embedding = embedder.encode("test text");
@@ -437,7 +436,7 @@ async fn test_repository_indexing() {
         None => return,
     };
 
-    let config = Arc::new(Config::local());
+    let config = Arc::new(Config::local().expect("Config should be valid"));
     let temp_repo = create_test_repo();
 
     let mut indexer = Indexer::new(config.clone(), db.clone()).unwrap();
@@ -461,7 +460,7 @@ async fn test_symbol_query() {
         None => return,
     };
 
-    let config = Arc::new(Config::local());
+    let config = Arc::new(Config::local().expect("Config should be valid"));
     let temp_repo = create_test_repo();
 
     // Index the repository
@@ -509,7 +508,7 @@ async fn test_graph_query() {
         None => return,
     };
 
-    let config = Arc::new(Config::local());
+    let config = Arc::new(Config::local().expect("Config should be valid"));
     let temp_repo = create_test_repo();
 
     // Index the repository

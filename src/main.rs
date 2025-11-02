@@ -204,8 +204,7 @@ async fn main() -> cudgel::Result<()> {
     let cli = Cli::parse();
 
     // Load and validate configuration
-    let config = Config::local();
-    config.validate().inspect_err(|e| {
+    let config = Config::local().inspect_err(|e| {
         eprintln!("{}", "Configuration Error:".bright_red().bold());
         eprintln!("{}", e);
     })?;
