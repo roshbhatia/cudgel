@@ -78,11 +78,7 @@ impl Config {
                 password: std::env::var("PGPASSWORD").unwrap_or_else(|_| "cudgel".to_string()),
             },
             embedding: EmbeddingConfig {
-                // Check XDG_DATA_HOME for model path
-                model_path: xdg_data_home()
-                    .join("cudgel/models/all-MiniLM-L6-v2")
-                    .canonicalize()
-                    .unwrap_or_else(|_| PathBuf::from("./models/all-MiniLM-L6-v2")),
+                model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
                 dimension: 384,
             },
             indexing: IndexingConfig {
