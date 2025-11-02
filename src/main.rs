@@ -204,10 +204,12 @@ async fn main() -> cudgel::Result<()> {
     let cli = Cli::parse();
 
     // Load and validate configuration
-    let config = Arc::new(Config::from_env().inspect_err(|e| {
+    let config = Config::local();
+    config.validate().inspect_err(|e| {
         eprintln!("{}", "Configuration Error:".bright_red().bold());
         eprintln!("{}", e);
-    })?);
+    })?;
+    let config = Arc::new(config);
 
     let result = match cli.command {
         Commands::Index {
