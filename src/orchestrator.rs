@@ -215,9 +215,8 @@ pub async fn run_polling_loop(config: Config) -> Result<()> {
                             info!("Successfully indexed repository: {}", repo.name);
 
                             // Update task execution times
-                            let now = chrono::Utc::now().naive_utc();
-                            let next_run =
-                                now + chrono::Duration::hours(task.interval_hours as i64);
+                            let now = chrono::Utc::now();
+                            let next_run = now + chrono::Duration::hours(task.interval_hours as i64);
 
                             if let Err(e) = db.update_task_execution(task.id, now, next_run).await {
                                 error!("Failed to update task execution: {}", e);
