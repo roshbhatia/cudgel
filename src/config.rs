@@ -263,3 +263,197 @@ pub fn cudgel_state_dir() -> PathBuf {
 pub fn cudgel_cache_dir() -> PathBuf {
     xdg_cache_home().join("cudgel")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_valid_config() -> Config {
+        Config {
+            database: DatabaseConfig {
+                host: "localhost".to_string(),
+                port: 54321,
+                database: "cudgel".to_string(),
+                user: "testuser".to_string(),
+                password: "password".to_string(),
+            },
+            embedding: EmbeddingConfig {
+                model_path: PathBuf::from("/tmp/models"),
+                dimension: 384,
+            },
+            indexing: IndexingConfig {
+                batch_size: 100,
+                max_file_size: 1024 * 1024,
+            },
+        }
+    }
+
+    #[test]
+    fn test_valid_config() {
+        let config = create_valid_config();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_database_port_zero() {
+        let mut config = create_valid_config();
+        config.database.port = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_database_empty_host() {
+        let mut config = create_valid_config();
+        config.database.host = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_database_whitespace_host() {
+        let mut config = create_valid_config();
+        config.database.host = "   ".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_database_empty_name() {
+        let mut config = create_valid_config();
+        config.database.database = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_database_empty_user() {
+        let mut config = create_valid_config();
+        config.database.user = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_embedding_dimension_zero() {
+        let mut config = create_valid_config();
+        config.embedding.dimension = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_embedding_dimension_too_large() {
+        let mut config = create_valid_config();
+        config.embedding.dimension = 5000;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_embedding_dimension_max_valid() {
+        let mut config = create_valid_config();
+        config.embedding.dimension = 4096;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_batch_size_zero() {
+        let mut config = create_valid_config();
+        config.indexing.batch_size = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_batch_size_too_large() {
+        let mut config = create_valid_config();
+        config.indexing.batch_size = 20000;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_batch_size_max_valid() {
+        let mut config = create_valid_config();
+        config.indexing.batch_size = 10000;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_max_file_size_zero() {
+        let mut config = create_valid_config();
+        config.indexing.max_file_size = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_max_file_size_too_large() {
+        let mut config = create_valid_config();
+        config.indexing.max_file_size = 200 * 1024 * 1024; // 200MB
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_max_file_size_max_valid() {
+        let mut config = create_valid_config();
+        config.indexing.max_file_size = 100 * 1024 * 1024; // 100MB
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_local_creates_valid_config() {
+        let config = Config::local();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_default_is_valid() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_xdg_data_home_returns_absolute_path() {
+        let data_home = xdg_data_home();
+        assert!(data_home.is_absolute());
+        assert!(!data_home.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_xdg_config_home_returns_absolute_path() {
+        let config_home = xdg_config_home();
+        assert!(config_home.is_absolute());
+        assert!(!config_home.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_xdg_state_home_returns_absolute_path() {
+        let state_home = xdg_state_home();
+        assert!(state_home.is_absolute());
+        assert!(!state_home.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_xdg_cache_home_returns_absolute_path() {
+        let cache_home = xdg_cache_home();
+        assert!(cache_home.is_absolute());
+        assert!(!cache_home.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_cudgel_directories_contain_cudgel() {
+        let data_dir = cudgel_data_dir();
+        let config_dir = cudgel_config_dir();
+        let state_dir = cudgel_state_dir();
+        let cache_dir = cudgel_cache_dir();
+
+        assert!(data_dir.to_string_lossy().contains("cudgel"));
+        assert!(config_dir.to_string_lossy().contains("cudgel"));
+        assert!(state_dir.to_string_lossy().contains("cudgel"));
+        assert!(cache_dir.to_string_lossy().contains("cudgel"));
+    }
+
+    #[test]
+    fn test_database_url_format() {
+        let config = create_valid_config();
+        let url = config.database_url();
+
+        assert!(url.contains("host=localhost"));
+        assert!(url.contains("port=54321"));
+        assert!(url.contains("dbname=cudgel"));
+        assert!(url.contains("user=testuser"));
+        assert!(url.contains("password=password"));
+    }
+}

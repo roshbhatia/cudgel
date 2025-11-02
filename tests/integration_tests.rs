@@ -865,7 +865,10 @@ async fn test_scheduled_task_upsert() {
         .await
         .expect("Failed to update task");
 
-    assert_eq!(task_id1, task_id2, "Task ID should remain the same on upsert");
+    assert_eq!(
+        task_id1, task_id2,
+        "Task ID should remain the same on upsert"
+    );
 
     // Verify the interval was updated
     let tasks = db.get_scheduled_tasks().await.unwrap();

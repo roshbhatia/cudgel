@@ -59,9 +59,15 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      # Commented out as there's only integration tests now which require the model to be downloaded. Once we have unit tests, we'll uncomment this. Integration tests can just be run locally.
-      # - name: Run tests
-      #   run: cargo test --verbose
+      - name: Run unit tests
+        run: cargo test --lib --verbose
+
+      - name: Run doc tests
+        run: cargo test --doc --verbose
+
+      # Integration tests require ONNX models to be downloaded, run them locally
+      # - name: Run integration tests
+      #   run: cargo test --test integration_tests --verbose
       #   env:
       #     PGHOST: localhost
       #     PGPORT: "54321"
