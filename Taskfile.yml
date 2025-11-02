@@ -41,6 +41,35 @@ tasks:
     cmds:
       - cargo install --path .
 
+  install-models:
+    desc: Download and install ONNX embedding models
+    cmds:
+      - |
+        MODEL_DIR="$HOME/.local/share/cudgel/models/all-MiniLM-L6-v2"
+        MODEL_FILE="$MODEL_DIR/model.onnx"
+
+        if [ -f "$MODEL_FILE" ]; then
+          echo "✓ ONNX models already installed"
+          exit 0
+        fi
+
+        echo "Downloading ONNX embedding model (sentence-transformers/all-MiniLM-L6-v2)..."
+        echo "This may take a few minutes on first run..."
+        mkdir -p "$(dirname "$MODEL_DIR")"
+
+        # Create venv and install tools
+        uv venv .venv > /dev/null 2>&1
+        source .venv/bin/activate
+        uv pip install -q 'optimum[onnxruntime]'
+
+        # Export model with minimal output
+        optimum-cli export onnx \
+          --model sentence-transformers/all-MiniLM-L6-v2 \
+          "$MODEL_DIR" 2>&1 | grep -v "TracerWarning" | grep -v "Weight deduplication"
+
+        deactivate
+        echo "✓ Models installed to $MODEL_DIR"
+
   teardown:
     desc: Complete teardown (opposite of setup - removes everything)
     prompt: This will stop PostgreSQL, remove all data, and uninstall cudgel. Continue?
