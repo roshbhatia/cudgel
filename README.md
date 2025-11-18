@@ -31,6 +31,38 @@ It's built with tools like `Rust`, `Postgres`, `TreeSitter`, `uv`, `ONYX`, `llam
 
 `cudgel` stores all it's data in a local Postgres database. It's designed to be local-first and self-contained.
 
+```mermaid
+flowchart TD
+    User([Developer]) -->|Run commands| CLI[Cudgel CLI]
+    
+    CLI -->|Index code| Indexer[Indexer]
+    CLI -->|Search code| Query[Query Engine]
+    CLI -->|Generate docs| Knowledge[Knowledge Graph]
+    CLI -->|Manage scheduling| Orch[Orchestrator Daemon]
+    
+    Indexer -->|Parse files| TreeSitter[TreeSitter AST Parser]
+    Indexer -->|Generate vectors| Embeddings[ONNX Embeddings]
+    
+    TreeSitter -->|Extract symbols| DB[(PostgreSQL + pgvector)]
+    Embeddings -->|Store vectors| DB
+    
+    Query -->|Semantic search| DB
+    Knowledge -->|Analyze patterns| LLM[Local LLM via Ollama]
+    LLM -->|Generate insights| DB
+    
+    Orch -->|Auto re-index| Indexer
+    Orch -->|Check schedule| DB
+    
+    DB -->|Return results| Query
+    Query -->|Display| User
+    
+    style User fill:#e1f5ff
+    style CLI fill:#fff4e6
+    style DB fill:#f3e5f5
+    style LLM fill:#e8f5e9
+    style Orch fill:#fce4ec
+```
+
 ### Indexing
 
 'Indexing' is very much an overloaded term in this context.
