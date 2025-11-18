@@ -63,6 +63,8 @@ flowchart TD
     style Orch fill:#fce4ec
 ```
 
+<img src="./docs/cudgeldemo.jpeg" width="800">
+
 ### Indexing
 
 'Indexing' is very much an overloaded term in this context.
