@@ -51,6 +51,12 @@ pub enum Error {
     #[error("Dependency missing: {0}")]
     DependencyMissing(String),
 
+    #[error("Missing dependency: {0}")]
+    MissingDependency(String),
+
+    #[error("Database connection failed: {0}")]
+    DatabaseConnectionFailed(String),
+
     #[error("Model download failed: {0}")]
     ModelDownloadFailed(String),
 
