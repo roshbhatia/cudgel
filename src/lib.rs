@@ -7,6 +7,8 @@ pub mod embeddings;
 pub mod error;
 pub mod graph;
 pub mod indexer;
+pub mod kg;
+pub mod llm;
 pub mod orchestrator;
 pub mod parser;
 pub mod query;
