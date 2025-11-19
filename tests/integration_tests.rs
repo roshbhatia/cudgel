@@ -1,7 +1,7 @@
 use cudgel::{
     config::Config,
     database::Database,
-    embeddings::{EmbeddingGenerator, TokenizerStrategy},
+    embeddings::EmbedderBackend,
     graph::GraphQuery,
     indexer::Indexer,
     parser::CodeParser,
@@ -418,8 +418,8 @@ fn test_parser_syntax_error_handling() {
 
 #[test]
 fn test_embedding_generation() {
-    let config = Arc::new(Config::local().expect("Config should be valid"));
-    let embedder = EmbeddingGenerator::new(config).expect("Failed to create embedder");
+    let config = Config::local().expect("Config should be valid");
+    let embedder = EmbedderBackend::from_config(&config).expect("Failed to create embedder");
 
     let embedding = embedder.encode("test text");
     if let Err(e) = &embedding {

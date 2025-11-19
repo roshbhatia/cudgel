@@ -53,13 +53,37 @@ pub enum EmbedderBackend {
 impl EmbedderBackend {
     /// Factory method to create backend from configuration
     ///
+    /// Automatically falls back to FallbackTokenizer if ONNX models are unavailable.
+    /// Emits a warning when fallback occurs.
+    ///
     /// # Errors
     /// - InvalidTokenizerStrategy if strategy name not recognized
-    /// - Strategy initialization errors (missing models, etc.)
+    /// - FallbackTokenizer initialization errors (should be rare)
     pub fn from_config(config: &Config) -> Result<Self> {
         match config.embedding.strategy.as_str() {
-            "onnx" => Ok(Self::Onnx(OnnxTokenizer::initialize(config)?)),
-            "fallback" => Ok(Self::Fallback(FallbackTokenizer::initialize(config)?)),
+            "onnx" => {
+                // Try ONNX first, but gracefully fallback if models missing
+                match OnnxTokenizer::initialize(config) {
+                    Ok(tokenizer) => {
+                        tracing::info!("Using ONNX tokenizer for embeddings");
+                        Ok(Self::Onnx(tokenizer))
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "ONNX tokenizer initialization failed ({}), falling back to feature hashing tokenizer. \
+                             Expect 30-50% degradation in semantic quality. \
+                             To use ONNX models, ensure they are downloaded to: {:?}",
+                            e,
+                            config.embedding.model_path
+                        );
+                        Ok(Self::Fallback(FallbackTokenizer::initialize(config)?))
+                    }
+                }
+            }
+            "fallback" => {
+                tracing::info!("Using fallback tokenizer (feature hashing) for embeddings");
+                Ok(Self::Fallback(FallbackTokenizer::initialize(config)?))
+            }
             s => Err(crate::Error::InvalidTokenizerStrategy(s.to_string())),
         }
     }
