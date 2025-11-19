@@ -28,10 +28,10 @@ Single Rust project at repository root:
 
 **Purpose**: Project initialization and dependency updates
 
-- [ ] T001 Update Cargo.toml to add hf-hub = { version = "0.4", features = ["tokio"] }
-- [ ] T002 Update Cargo.toml to upgrade indicatif = { version = "0.18", features = ["tokio"] }
-- [ ] T003 [P] Run cargo build to verify new dependencies compile
-- [ ] T004 [P] Run cargo clippy to ensure zero warnings with new dependencies
+- [X] T001 Update Cargo.toml to add hf-hub = { version = "0.4", features = ["tokio"] }
+- [X] T002 Update Cargo.toml to upgrade indicatif = { version = "0.18", features = ["tokio"] }
+- [X] T003 [P] Run cargo build to verify new dependencies compile
+- [X] T004 [P] Run cargo clippy to ensure zero warnings with new dependencies
 
 ---
 
@@ -41,11 +41,11 @@ Single Rust project at repository root:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Add DependencyError variants to src/error.rs (DependencyMissing, ModelDownloadFailed, DatabaseStartFailed, SchemaInitFailed, InsufficientDiskSpace, CorruptedModel)
-- [ ] T006 Implement Error::to_user_message() for all new DependencyError variants with troubleshooting steps
-- [ ] T007 Create src/deps/ module directory structure (mod.rs, model.rs, database.rs, schema.rs, checker.rs)
-- [ ] T008 Export deps module in src/lib.rs
-- [ ] T009 Create tests/unit/ directory for deps unit tests
+- [X] T005 Add DependencyError variants to src/error.rs (DependencyMissing, ModelDownloadFailed, DatabaseStartFailed, SchemaInitFailed, InsufficientDiskSpace, CorruptedModel)
+- [X] T006 Implement Error::to_user_message() for all new DependencyError variants with troubleshooting steps
+- [X] T007 Create src/deps/ module directory structure (mod.rs, model.rs, database.rs, schema.rs, checker.rs)
+- [X] T008 Export deps module in src/lib.rs
+- [X] T009 Create tests/unit/ directory for deps unit tests
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

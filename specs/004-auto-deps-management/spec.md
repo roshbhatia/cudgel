@@ -71,8 +71,6 @@ A developer wants to remove all downloaded dependencies to free up disk space or
   - Must respect XDG_DATA_HOME, XDG_STATE_HOME, etc. environment variables
 - How does system handle missing PostgreSQL installation?
   - Should detect missing PostgreSQL and provide installation instructions for user's platform
-- What happens when Python/uv is not available for model download?
-  - Should check prerequisites and provide clear installation instructions
 
 ## Requirements *(mandatory)*
 
@@ -116,7 +114,7 @@ A developer wants to remove all downloaded dependencies to free up disk space or
 ## Assumptions
 
 1. Users have internet connectivity for initial model download (approximately 100MB)
-2. Users have Python 3.8+ and uv available for model conversion (or will be guided to install)
+2. Users have internet connectivity for downloading models via hf-hub Rust crate (no Python required)
 3. Users have PostgreSQL 15+ available (or will be guided to install)
 4. Users have sufficient disk space (~500MB) for models and database
 5. Model download from HuggingFace Hub is reliable and supports resumable downloads

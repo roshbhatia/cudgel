@@ -12,7 +12,7 @@ Replace manual setup instructions throughout cudgel codebase with automated `cud
 ## Technical Context
 
 **Language/Version**: Rust 2021 edition (cargo 1.75+)  
-**Primary Dependencies**: clap (CLI), tokio (async), postgres + pgvector, ort (ONNX), optimum-cli (Python for model export), uv (Python package manager)  
+**Primary Dependencies**: clap (CLI), tokio (async), postgres + pgvector, ort (ONNX), hf-hub (model download)  
 **Storage**: PostgreSQL 15+ (port 45678), XDG-compliant directories (~/.local/share/cudgel, ~/.local/state/cudgel)  
 **Testing**: cargo test (unit + integration), setup_test_db() helper for DB tests  
 **Target Platform**: macOS, Linux (x86_64, ARM64)  
@@ -194,7 +194,7 @@ scripts/
 2. **contracts/cli-interface.md**
    - CLI contract for `cudgel deps` command
    - Flags: --check (validate only), --clean (remove models), --clean --all (remove everything), --verbose
-   - Exit codes: 0 (success), 1 (dependency missing), 2 (validation error), 3 (installation failed)
+   - Exit codes: 0 (success), 1 (dependency missing), 2 (validation error), 3 (installation failed), 4 (invalid usage)
    - Output format: Human-readable table with checkmarks/X marks for each dependency
 
 3. **quickstart.md**

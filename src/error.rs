@@ -41,11 +41,36 @@ pub enum Error {
     #[error("Database schema not initialized")]
     SchemaNotInitialized,
 
-    #[error("PostgreSQL not running on port 54321. Please start PostgreSQL using: task db-start")]
+    #[error("PostgreSQL not running on port 45678. Run: cudgel deps")]
     PostgresNotRunning,
 
-    #[error("pgvector extension not installed. Please install with: CREATE EXTENSION vector;")]
+    #[error("pgvector extension not installed. Run: cudgel deps")]
     PgvectorNotInstalled,
+
+    // Dependency management errors
+    #[error("Dependency missing: {0}")]
+    DependencyMissing(String),
+
+    #[error("Model download failed: {0}")]
+    ModelDownloadFailed(String),
+
+    #[error("Database start failed: {0}")]
+    DatabaseStartFailed(String),
+
+    #[error("Database stop failed: {0}")]
+    DatabaseStopFailed(String),
+
+    #[error("Schema initialization failed: {0}")]
+    SchemaInitFailed(String),
+
+    #[error("Insufficient disk space: required {required} MB, available {available} MB")]
+    InsufficientDiskSpace { required: u64, available: u64 },
+
+    #[error("Corrupted model: {0}")]
+    CorruptedModel(String),
+
+    #[error("Invalid dependency state: {0}")]
+    InvalidDependencyState(String),
 
     #[error("Orchestrator already running with PID {0}")]
     OrchestratorAlreadyRunning(i32),
@@ -129,21 +154,68 @@ impl Error {
         match self {
             Error::PostgresNotRunning => {
                 format!(
-                    "{}\n\nTroubleshooting steps:\n  1. Start PostgreSQL: task db-start\n  2. Check PostgreSQL status: task db-status\n  3. Verify port 54321 is not in use: lsof -i :54321",
+                    "{}\n\nRun: cudgel deps\n\nThis will automatically start PostgreSQL and initialize the database.",
                     self
                 )
             }
             Error::PgvectorNotInstalled => {
                 format!(
-                    "{}\n\nTo install:\n  1. Connect to PostgreSQL: psql -h localhost -p 54321 -U {} cudgel\n  2. Run: CREATE EXTENSION vector;",
-                    self,
-                    std::env::var("USER").unwrap_or_else(|_| "cudgel".to_string())
+                    "{}\n\nRun: cudgel deps\n\nThis will install the pgvector extension automatically.",
+                    self
                 )
             }
             Error::SchemaNotInitialized => {
                 format!(
-                    "{}\n\nInitialize database schema:\n  cudgel init-db\n\nThis will create all required tables and indexes.",
+                    "{}\n\nRun: cudgel deps\n\nThis will initialize the database schema with all required tables and indexes.",
                     self
+                )
+            }
+            Error::DependencyMissing(dep) => {
+                format!(
+                    "Dependency missing: {}\n\nRun: cudgel deps\n\nThis will install all required dependencies automatically.",
+                    dep
+                )
+            }
+            Error::ModelDownloadFailed(msg) => {
+                format!(
+                    "Model download failed: {}\n\nTroubleshooting:\n  1. Check internet connection\n  2. Verify disk space (need ~500MB free)\n  3. Retry: cudgel deps",
+                    msg
+                )
+            }
+            Error::DatabaseStartFailed(msg) => {
+                format!(
+                    "Database start failed: {}\n\nTroubleshooting:\n  1. Check if port 45678 is available: lsof -i :45678\n  2. Check PostgreSQL logs: tail ~/.local/state/cudgel/postgres.log\n  3. Retry: cudgel deps",
+                    msg
+                )
+            }
+            Error::DatabaseStopFailed(msg) => {
+                format!(
+                    "Database stop failed: {}\n\nTroubleshooting:\n  1. Check process: ps aux | grep postgres\n  2. Force stop if needed: pkill -9 postgres",
+                    msg
+                )
+            }
+            Error::SchemaInitFailed(msg) => {
+                format!(
+                    "Schema initialization failed: {}\n\nTroubleshooting:\n  1. Ensure database is running: cudgel deps --check\n  2. Check PostgreSQL version (need 15+): postgres --version\n  3. Retry: cudgel deps",
+                    msg
+                )
+            }
+            Error::InsufficientDiskSpace { required, available } => {
+                format!(
+                    "Insufficient disk space\n\nRequired: {} MB\nAvailable: {} MB\n\nFree up space and retry: cudgel deps",
+                    required, available
+                )
+            }
+            Error::CorruptedModel(msg) => {
+                format!(
+                    "Corrupted model: {}\n\nTo fix:\n  1. Remove corrupted files: cudgel deps --clean\n  2. Re-download: cudgel deps",
+                    msg
+                )
+            }
+            Error::InvalidDependencyState(msg) => {
+                format!(
+                    "Invalid dependency state: {}\n\nTry:\n  cudgel deps --check --verbose\n\nFor full diagnostics.",
+                    msg
                 )
             }
             Error::RepositoryNotFound(path) => {

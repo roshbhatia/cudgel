@@ -15,7 +15,7 @@ path = "src/main.rs"
 # CLI
 clap = { version = "4.5", features = ["derive", "cargo"] }
 colored = "2.1"
-indicatif = "0.17"
+indicatif = { version = "0.18", features = ["tokio"] }
 
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
@@ -41,6 +41,9 @@ tree-sitter-java = "0.21"
 ort = { version = "2.0.0-rc.10", features = ["download-binaries"] }
 tokenizers = "0.19"
 ndarray = "0.15"
+
+# HuggingFace Hub for model downloads
+hf-hub = { version = "0.4", features = ["tokio"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
