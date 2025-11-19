@@ -82,7 +82,9 @@ impl ModelDownloader {
         let api = ApiBuilder::new()
             .with_cache_dir(self.cache_dir.clone())
             .build()
-            .map_err(|e| Error::ModelDownloadFailed(format!("Failed to initialize hf-hub: {}", e)))?;
+            .map_err(|e| {
+                Error::ModelDownloadFailed(format!("Failed to initialize hf-hub: {}", e))
+            })?;
 
         // Parse model_id to get repo
         let repo = hf_hub::Repo::model(artifact.model_id.clone());
@@ -121,21 +123,18 @@ impl ModelDownloader {
     /// Verify model integrity (3-layer verification)
     pub fn verify_model_integrity(&self, model_dir: &Path) -> Result<()> {
         // Layer 1: HTTP ETag validation - handled automatically by hf-hub
-        
+
         // Layer 2: File size sanity check
         let files = [
-            ("model.onnx", 90_000_000..110_000_000),      // ~100MB
-            ("tokenizer.json", 2_000_000..8_000_000),     // ~5MB
-            ("config.json", 500..2_000),                  // ~1KB
+            ("model.onnx", 90_000_000..110_000_000),  // ~100MB
+            ("tokenizer.json", 2_000_000..8_000_000), // ~5MB
+            ("config.json", 500..2_000),              // ~1KB
         ];
 
         for (filename, expected_range) in &files {
             let path = model_dir.join(filename);
             if !path.exists() {
-                return Err(Error::CorruptedModel(format!(
-                    "Missing file: {}",
-                    filename
-                )));
+                return Err(Error::CorruptedModel(format!("Missing file: {}", filename)));
             }
 
             let size = std::fs::metadata(&path)?.len();
@@ -184,11 +183,7 @@ impl ModelDownloader {
         // Get filesystem stats for the cache directory
         let _metadata = fs::metadata(&self.cache_dir).or_else(|_| {
             // If cache_dir doesn't exist, check parent or root
-            fs::metadata(
-                self.cache_dir
-                    .parent()
-                    .unwrap_or_else(|| Path::new("/")),
-            )
+            fs::metadata(self.cache_dir.parent().unwrap_or_else(|| Path::new("/")))
         })?;
 
         // On Unix systems, we can use statfs to get available space

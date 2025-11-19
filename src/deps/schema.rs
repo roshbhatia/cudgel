@@ -110,7 +110,9 @@ impl SchemaInitializer {
         client
             .execute("CREATE EXTENSION IF NOT EXISTS vector", &[])
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create vector extension: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create vector extension: {}", e))
+            })?;
 
         // Repositories table
         client
@@ -126,7 +128,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create repositories table: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create repositories table: {}", e))
+            })?;
 
         // Files table
         client
@@ -165,7 +169,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create ast_nodes table: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create ast_nodes table: {}", e))
+            })?;
 
         client
             .execute(
@@ -173,7 +179,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create ast_nodes parent index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create ast_nodes parent index: {}", e))
+            })?;
 
         client
             .execute(
@@ -181,7 +189,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create ast_nodes file index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create ast_nodes file index: {}", e))
+            })?;
 
         // Symbols table
         let dimension = 384; // MiniLM embedding dimension
@@ -206,7 +216,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create symbols table: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create symbols table: {}", e))
+            })?;
 
         // Vector index for symbols
         client
@@ -216,7 +228,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create symbols embedding index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create symbols embedding index: {}", e))
+            })?;
 
         // References table
         client
@@ -235,7 +249,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create references table: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create references table: {}", e))
+            })?;
 
         client
             .execute(
@@ -243,7 +259,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create references from index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create references from index: {}", e))
+            })?;
 
         client
             .execute(
@@ -251,7 +269,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create references to index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create references to index: {}", e))
+            })?;
 
         // Code chunks table
         client
@@ -272,7 +292,9 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create code_chunks table: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!("Failed to create code_chunks table: {}", e))
+            })?;
 
         client
             .execute(
@@ -281,7 +303,12 @@ impl SchemaInitializer {
                 &[],
             )
             .await
-            .map_err(|e| Error::SchemaInitFailed(format!("Failed to create code_chunks embedding index: {}", e)))?;
+            .map_err(|e| {
+                Error::SchemaInitFailed(format!(
+                    "Failed to create code_chunks embedding index: {}",
+                    e
+                ))
+            })?;
 
         // Scheduled tasks table
         client

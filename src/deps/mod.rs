@@ -68,11 +68,10 @@ impl Dependency {
 
 /// Get XDG-compliant directory paths
 fn get_xdg_paths() -> (PathBuf, PathBuf) {
-    let xdg_data = std::env::var("XDG_DATA_HOME")
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            format!("{}/.local/share", home)
-        });
+    let xdg_data = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        format!("{}/.local/share", home)
+    });
 
     let models_dir = Path::new(&xdg_data).join("cudgel/models");
     let scripts_dir = PathBuf::from("scripts");
@@ -114,9 +113,15 @@ pub async fn install_all() -> Result<()> {
 
     // Step 2: Validate current state
     let deps = checker.validate_all().await?;
-    let needs_model = deps.iter().any(|d| d.name == "ONNX Embedding Model" && !d.is_satisfied());
-    let needs_database = deps.iter().any(|d| d.name == "PostgreSQL Database" && !d.is_satisfied());
-    let needs_schema = deps.iter().any(|d| d.name == "Database Schema" && !d.is_satisfied());
+    let needs_model = deps
+        .iter()
+        .any(|d| d.name == "ONNX Embedding Model" && !d.is_satisfied());
+    let needs_database = deps
+        .iter()
+        .any(|d| d.name == "PostgreSQL Database" && !d.is_satisfied());
+    let needs_schema = deps
+        .iter()
+        .any(|d| d.name == "Database Schema" && !d.is_satisfied());
 
     // Step 3: Download model if needed
     if needs_model {
@@ -224,12 +229,8 @@ async fn start_database(scripts_dir: &Path, port: u16) -> Result<()> {
 /// Initialize database schema
 async fn initialize_schema(port: u16) -> Result<()> {
     let user = std::env::var("USER").unwrap_or_else(|_| "postgres".to_string());
-    let initializer = schema::SchemaInitializer::new(
-        "localhost".to_string(),
-        port,
-        "cudgel".to_string(),
-        user,
-    );
+    let initializer =
+        schema::SchemaInitializer::new("localhost".to_string(), port, "cudgel".to_string(), user);
 
     // Check if already initialized (idempotency)
     if initializer.check_initialized().await? {
@@ -287,11 +288,10 @@ pub async fn clean_all() -> Result<()> {
     }
 
     // Remove PostgreSQL data directory
-    let xdg_data = std::env::var("XDG_DATA_HOME")
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            format!("{}/.local/share", home)
-        });
+    let xdg_data = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        format!("{}/.local/share", home)
+    });
     let pg_data_dir = Path::new(&xdg_data).join("cudgel/postgres");
     if pg_data_dir.exists() {
         std::fs::remove_dir_all(&pg_data_dir)?;

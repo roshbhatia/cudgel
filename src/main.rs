@@ -960,7 +960,12 @@ async fn cmd_orchestrator(config: Arc<Config>, cmd: OrchestratorCommand) -> cudg
     Ok(())
 }
 
-async fn cmd_deps(check: bool, clean_models: bool, clean_all: bool, verbose: bool) -> cudgel::Result<()> {
+async fn cmd_deps(
+    check: bool,
+    clean_models: bool,
+    clean_all: bool,
+    verbose: bool,
+) -> cudgel::Result<()> {
     use cudgel::deps;
 
     if clean_all {

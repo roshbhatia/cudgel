@@ -51,9 +51,8 @@ impl DependencyChecker {
         let mut schema_dep = Dependency::new("Database Schema", ComponentType::Schema, true);
         schema_dep.status = self.check_schema_initialized().await?;
         if schema_dep.status != DependencyStatus::Satisfied {
-            schema_dep.error_message = Some(
-                "Database schema not initialized. Run: cudgel deps".to_string(),
-            );
+            schema_dep.error_message =
+                Some("Database schema not initialized. Run: cudgel deps".to_string());
         }
         dependencies.push(schema_dep);
 
@@ -77,8 +76,15 @@ impl DependencyChecker {
         dependencies.push(pg_dep);
 
         // Check disk space (simplified check - just verify models_dir is writable)
-        let mut disk_dep = Dependency::new("Sufficient Disk Space", ComponentType::ExternalTool, true);
-        disk_dep.status = if self.models_dir.parent().map(|p| p.exists()).unwrap_or(false) || self.models_dir.exists() {
+        let mut disk_dep =
+            Dependency::new("Sufficient Disk Space", ComponentType::ExternalTool, true);
+        disk_dep.status = if self
+            .models_dir
+            .parent()
+            .map(|p| p.exists())
+            .unwrap_or(false)
+            || self.models_dir.exists()
+        {
             DependencyStatus::Satisfied
         } else {
             disk_dep.error_message = Some(format!(
@@ -94,7 +100,9 @@ impl DependencyChecker {
 
     /// Check if model exists
     fn check_model_exists(&self) -> Result<DependencyStatus> {
-        let model_path = self.models_dir.join("sentence-transformers/all-MiniLM-L6-v2/model.onnx");
+        let model_path = self
+            .models_dir
+            .join("sentence-transformers/all-MiniLM-L6-v2/model.onnx");
         if model_path.exists() {
             let metadata = std::fs::metadata(&model_path)?;
             // Basic sanity check: model should be > 10MB
@@ -190,7 +198,10 @@ impl DependencyChecker {
                 DependencyStatus::Unknown => "UNKNOWN",
             };
 
-            output.push_str(&format!("{} {:<30} {}\n", status_icon, dep.name, status_text));
+            output.push_str(&format!(
+                "{} {:<30} {}\n",
+                status_icon, dep.name, status_text
+            ));
 
             if let Some(ref error_msg) = dep.error_message {
                 output.push_str(&format!("  └─ {}\n", error_msg));
@@ -210,11 +221,17 @@ impl DependencyChecker {
         // PostgreSQL version
         if let Ok(output) = Command::new("pg_ctl").arg("--version").output() {
             diagnostics.push_str("PostgreSQL Version:\n");
-            diagnostics.push_str(&format!("  {}\n\n", String::from_utf8_lossy(&output.stdout)));
+            diagnostics.push_str(&format!(
+                "  {}\n\n",
+                String::from_utf8_lossy(&output.stdout)
+            ));
         }
 
         // Models directory
-        diagnostics.push_str(&format!("Models Directory: {}\n", self.models_dir.display()));
+        diagnostics.push_str(&format!(
+            "Models Directory: {}\n",
+            self.models_dir.display()
+        ));
         diagnostics.push_str(&format!("  Exists: {}\n\n", self.models_dir.exists()));
 
         // Database port
@@ -237,11 +254,10 @@ impl DependencyChecker {
 
 impl Default for DependencyChecker {
     fn default() -> Self {
-        let xdg_data = std::env::var("XDG_DATA_HOME")
-            .unwrap_or_else(|_| {
-                let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-                format!("{}/.local/share", home)
-            });
+        let xdg_data = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            format!("{}/.local/share", home)
+        });
         let models_dir = Path::new(&xdg_data).join("cudgel/models");
 
         Self::new(models_dir, 45678)
