@@ -41,51 +41,22 @@ tasks:
     cmds:
       - cargo install --path .
 
-  install-models:
-    desc: Download and install ONNX embedding models
+  deps:
+    desc: Install all dependencies (models, database, schema) via cudgel deps
     cmds:
-      - |
-        MODEL_DIR="$HOME/.local/share/cudgel/models/all-MiniLM-L6-v2"
-        MODEL_FILE="$MODEL_DIR/model.onnx"
+      - cargo run --release -- deps
 
-        if [ -f "$MODEL_FILE" ]; then
-          echo "✓ ONNX models already installed"
-          exit 0
-        fi
-
-        echo "Downloading ONNX embedding model (sentence-transformers/all-MiniLM-L6-v2)..."
-        echo "This may take a few minutes on first run..."
-        mkdir -p "$(dirname "$MODEL_DIR")"
-
-        # Create venv and install tools
-        uv venv .venv > /dev/null 2>&1
-        source .venv/bin/activate
-        uv pip install -q 'optimum[onnxruntime]'
-
-        # Export model with minimal output
-        optimum-cli export onnx \
-          --model sentence-transformers/all-MiniLM-L6-v2 \
-          "$MODEL_DIR" 2>&1 | grep -v "TracerWarning" | grep -v "Weight deduplication"
-
-        deactivate
-        echo "✓ Models installed to $MODEL_DIR"
+  deps-check:
+    desc: Check dependency status without installing
+    cmds:
+      - cargo run --release -- deps --check
 
   teardown:
-    desc: Complete teardown (opposite of setup - removes everything)
+    desc: Complete teardown - removes all data and uninstalls cudgel
     prompt: This will stop PostgreSQL, remove all data, and uninstall cudgel. Continue?
     cmds:
-      - echo "Stopping PostgreSQL..."
-      - task db-stop || true
-      - echo "Removing data directories (respecting XDG env vars)..."
-      - |
-        # Respect XDG environment variables
-        XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-        XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-        XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-        rm -rf "$XDG_DATA_HOME/cudgel" || true
-        rm -rf "$XDG_STATE_HOME/cudgel" || true
-        rm -rf "$XDG_CACHE_HOME/cudgel" || true
-        echo "✓ Removed XDG directories"
+      - echo "Cleaning all dependencies..."
+      - cargo run --release -- deps --clean-all || true
       - echo "Uninstalling cudgel binary..."
       - rm ~/.cargo/bin/cudgel 2>/dev/null || true
       - echo "Cleaning build artifacts..."
@@ -99,21 +70,19 @@ tasks:
 
   # Setup
   setup:
-    desc: Build, install, start database, and initialize schema
+    desc: Build, install, and setup all dependencies via cudgel deps
     cmds:
       - echo "Building cudgel..."
       - cargo build --release
       - echo "Installing cudgel..."
       - cargo install --path .
-      - echo "Starting PostgreSQL..."
-      - ./scripts/start-postgres.sh
-      - echo "Initializing database schema..."
-      - cudgel init-db
-      - echo "Setup complete!"
+      - echo "Setting up dependencies..."
+      - cudgel deps
+      - echo "✓ Setup complete!"
       - echo ""
-      - echo "PostgreSQL is running on localhost:${CUDGEL_POSTGRES_PORT:-45678}"
+      - echo "PostgreSQL is running on localhost:45678"
       - echo "Data directory:" $HOME/.local/share/cudgel/postgres
-      - echo "Logs:" $HOME/.local/share/cudgel/postgres.log
+      - echo "Models directory:" $HOME/.local/share/cudgel/models
 
   # Database (native PostgreSQL)
   db-start:
@@ -139,25 +108,12 @@ tasks:
       - |
         echo "Checking development environment..."
         echo ""
+        echo "Use 'cudgel deps --check' for detailed dependency status"
+        echo "Use 'cudgel deps --check --verbose' for diagnostic information"
+        echo ""
         PASS="\033[0;32m✓\033[0m"
         FAIL="\033[0;31m✗\033[0m"
         WARN="\033[0;33m⚠\033[0m"
-
-        # PostgreSQL
-        PGPORT=${CUDGEL_POSTGRES_PORT:-45678}
-        if pg_isready -p $PGPORT -h localhost > /dev/null 2>&1; then
-          echo -e "$PASS PostgreSQL (port $PGPORT)"
-        else
-          echo -e "$FAIL PostgreSQL (port $PGPORT) - not running"
-        fi
-
-        # ONNX model
-        MODEL_FILE="$HOME/.local/share/cudgel/models/all-MiniLM-L6-v2/model.onnx"
-        if [ -f "$MODEL_FILE" ]; then
-          echo -e "$PASS ONNX embedding model"
-        else
-          echo -e "$WARN ONNX model - not found (will download on first use)"
-        fi
 
         # Rust toolchain
         if command -v rustc > /dev/null 2>&1; then
@@ -181,13 +137,13 @@ tasks:
         fi
 
   db-clean:
-    desc: Remove PostgreSQL data directory
+    desc: Remove PostgreSQL data directory (prefer 'cudgel deps --clean-all')
     cmds:
       - ./scripts/stop-postgres.sh
-      - rm -rf ~/.cudgel/postgres
+      - rm -rf $HOME/.local/share/cudgel/postgres
       - echo "PostgreSQL data removed"
 
   init-db:
-    desc: Initialize database schema
+    desc: Initialize database schema (prefer 'cudgel deps')
     cmds:
       - cudgel init-db

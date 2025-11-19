@@ -2,6 +2,7 @@
 
 pub mod config;
 pub mod database;
+pub mod deps;
 pub mod embeddings;
 pub mod error;
 pub mod graph;

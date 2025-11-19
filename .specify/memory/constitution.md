@@ -65,7 +65,7 @@ File changes MUST be detected via SHA256 content hashing. Re-indexing MUST skip 
 **Core Dependencies**:
 - `tree-sitter` family for multi-language AST parsing
 - `tokio` for async runtime
-- `postgres` + `pgvector` for vector storage (port 54321)
+- `postgres` + `pgvector` for vector storage (port 45678)
 - `ort` (ONNX Runtime) for embedding generation
 - `clap` for CLI interface
 - `thiserror` + `anyhow` for error handling
