@@ -74,55 +74,55 @@ Single Rust project at repository root:
 
 #### Core Entities (from data-model.md)
 
-- [ ] T018 [P] [US1] Define Dependency struct in src/deps/mod.rs with fields: name, component_type, status, required, validator, installer, error_message
-- [ ] T019 [P] [US1] Define ModelArtifact struct in src/deps/model.rs with fields: model_id, filename, source_url, target_path, expected_size_bytes, download_progress_bytes, download_state
-- [ ] T020 [P] [US1] Define DatabaseInstance struct in src/deps/database.rs with fields: host, port, data_dir, scripts_dir, status
-- [ ] T021 [P] [US1] Define SchemaVersion struct in src/deps/schema.rs with fields: version, tables, indexes, extensions, initialized_at
+- [X] T018 [P] [US1] Define Dependency struct in src/deps/mod.rs with fields: name, component_type, status, required, validator, installer, error_message
+- [X] T019 [P] [US1] Define ModelArtifact struct in src/deps/model.rs with fields: model_id, filename, source_url, target_path, expected_size_bytes, download_progress_bytes, download_state
+- [X] T020 [P] [US1] Define DatabaseInstance struct in src/deps/database.rs with fields: host, port, data_dir, scripts_dir, status
+- [X] T021 [P] [US1] Define SchemaVersion struct in src/deps/schema.rs with fields: version, tables, indexes, extensions, initialized_at
 
 #### Model Download Implementation
 
-- [ ] T022 [US1] Implement ModelDownloader in src/deps/model.rs using hf-hub Api::new()
-- [ ] T023 [US1] Add download_model_artifact() async fn in src/deps/model.rs with progress bar using indicatif
-- [ ] T024 [US1] Add verify_model_integrity() fn in src/deps/model.rs (3-layer: ETag, size, functional)
-- [ ] T025 [US1] Add cleanup_partial_downloads() fn in src/deps/model.rs for failed downloads
-- [ ] T026 [US1] Add disk_space_check() fn in src/deps/model.rs to verify sufficient space before download
+- [X] T022 [US1] Implement ModelDownloader in src/deps/model.rs using hf-hub Api::new()
+- [X] T023 [US1] Add download_model_artifact() async fn in src/deps/model.rs with progress bar using indicatif
+- [X] T024 [US1] Add verify_model_integrity() fn in src/deps/model.rs (3-layer: ETag, size, functional)
+- [X] T025 [US1] Add cleanup_partial_downloads() fn in src/deps/model.rs for failed downloads
+- [X] T026 [US1] Add disk_space_check() fn in src/deps/model.rs to verify sufficient space before download
 
 #### Database Management Implementation
 
-- [ ] T027 [US1] Implement PostgresManager in src/deps/database.rs with is_running() using pg_isready
-- [ ] T028 [US1] Add start() fn in src/deps/database.rs that shells out to scripts/start-postgres.sh
-- [ ] T029 [US1] Add detect_port_conflict() fn in src/deps/database.rs using lsof check
-- [ ] T030 [US1] Add wait_for_startup() fn in src/deps/database.rs with 30-second timeout
+- [X] T027 [US1] Implement PostgresManager in src/deps/database.rs with is_running() using pg_isready
+- [X] T028 [US1] Add start() fn in src/deps/database.rs that shells out to scripts/start-postgres.sh
+- [X] T029 [US1] Add detect_port_conflict() fn in src/deps/database.rs using lsof check
+- [X] T030 [US1] Add wait_for_startup() fn in src/deps/database.rs with 30-second timeout
 
 #### Schema Initialization Implementation
 
-- [ ] T031 [US1] Implement SchemaInitializer in src/deps/schema.rs with check_initialized() fn
-- [ ] T032 [US1] Add initialize_schema() fn in src/deps/schema.rs using CREATE TABLE IF NOT EXISTS
-- [ ] T033 [US1] Add verify_extensions() fn in src/deps/schema.rs to check pgvector is installed
-- [ ] T034 [US1] Add spinner progress indicator for schema initialization using indicatif
+- [X] T031 [US1] Implement SchemaInitializer in src/deps/schema.rs with check_initialized() fn
+- [X] T032 [US1] Add initialize_schema() fn in src/deps/schema.rs using CREATE TABLE IF NOT EXISTS
+- [X] T033 [US1] Add verify_extensions() fn in src/deps/schema.rs to check pgvector is installed
+- [X] T034 [US1] Add spinner progress indicator for schema initialization using indicatif
 
 #### Dependency Validation & Orchestration
 
-- [ ] T035 [US1] Implement DependencyChecker in src/deps/checker.rs with validate_all() fn
-- [ ] T036 [US1] Add check_prerequisites() fn in src/deps/checker.rs (PostgreSQL, disk space)
-- [ ] T037 [US1] Implement install_all() fn in src/deps/mod.rs that orchestrates model download, DB start, schema init
-- [ ] T038 [US1] Add dependency ordering logic in src/deps/mod.rs (DB before schema, etc.)
-- [ ] T039 [US1] Add idempotency checks in src/deps/mod.rs (skip satisfied dependencies)
+- [X] T035 [US1] Implement DependencyChecker in src/deps/checker.rs with validate_all() fn
+- [X] T036 [US1] Add check_prerequisites() fn in src/deps/checker.rs (PostgreSQL, disk space)
+- [X] T037 [US1] Implement install_all() fn in src/deps/mod.rs that orchestrates model download, DB start, schema init
+- [X] T038 [US1] Add dependency ordering logic in src/deps/mod.rs (DB before schema, etc.)
+- [X] T039 [US1] Add idempotency checks in src/deps/mod.rs (skip satisfied dependencies)
 
 #### CLI Integration
 
-- [ ] T040 [US1] Add Deps subcommand to src/main.rs with clap derive
-- [ ] T041 [US1] Implement execute_deps_command() fn in src/main.rs that calls deps::install_all()
-- [ ] T042 [US1] Add success/failure output formatting in src/main.rs with checkmarks/X marks
-- [ ] T043 [US1] Add --verbose flag parsing to Deps subcommand in src/main.rs
+- [X] T040 [US1] Add Deps subcommand to src/main.rs with clap derive
+- [X] T041 [US1] Implement execute_deps_command() fn in src/main.rs that calls deps::install_all()
+- [X] T042 [US1] Add success/failure output formatting in src/main.rs with checkmarks/X marks
+- [X] T043 [US1] Add --verbose flag parsing to Deps subcommand in src/main.rs
 
 #### Error Message Cleanup (FR-009)
 
-- [ ] T044 [US1] Update src/embeddings.rs to replace manual setup instructions (lines 266-296) with "Run: cudgel deps"
-- [ ] T045 [US1] Search codebase for other manual setup instructions and replace with "Run: cudgel deps"
-- [ ] T046 [US1] Add lightweight dependency validation to src/indexer.rs startup (check models exist)
-- [ ] T047 [US1] Add lightweight dependency validation to src/query.rs startup (check models + DB)
-- [ ] T048 [US1] Add lightweight dependency validation to src/orchestrator.rs startup (check models + DB)
+- [X] T044 [US1] Update src/embeddings.rs to replace manual setup instructions (lines 266-296) with "Run: cudgel deps"
+- [X] T045 [US1] Search codebase for other manual setup instructions and replace with "Run: cudgel deps"
+- [X] T046 [US1] Add lightweight dependency validation to src/indexer.rs startup (check models exist)
+- [X] T047 [US1] Add lightweight dependency validation to src/query.rs startup (check models + DB)
+- [X] T048 [US1] Add lightweight dependency validation to src/orchestrator.rs startup (check models + DB)
 
 **Checkpoint**: At this point, `cudgel deps` should work end-to-end for first-time setup
 
