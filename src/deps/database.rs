@@ -1,7 +1,7 @@
 // src/deps/database.rs
 //! PostgreSQL database lifecycle management
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use std::path::PathBuf;
 
 /// Database instance status
@@ -43,6 +43,7 @@ impl DatabaseInstance {
 }
 
 /// PostgreSQL manager for lifecycle operations
+#[allow(dead_code)]
 pub struct PostgresManager {
     scripts_dir: PathBuf,
     port: u16,

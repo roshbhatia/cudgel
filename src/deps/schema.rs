@@ -1,7 +1,7 @@
 // src/deps/schema.rs
 //! Database schema initialization and validation
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use chrono::{DateTime, Utc};
 
 /// Schema initialization state

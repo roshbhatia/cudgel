@@ -1,8 +1,8 @@
 // src/deps/checker.rs
 //! Dependency validation and checking
 
-use super::{Dependency, DependencyStatus};
-use crate::error::{Error, Result};
+use super::Dependency;
+use crate::error::Result;
 
 /// Dependency checker for validation
 pub struct DependencyChecker {

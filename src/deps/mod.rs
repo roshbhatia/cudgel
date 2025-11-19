@@ -12,7 +12,7 @@ pub mod database;
 pub mod model;
 pub mod schema;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 /// Dependency status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
