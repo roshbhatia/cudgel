@@ -1092,6 +1092,24 @@ impl Database {
             metadata: r.get("metadata"),
         }))
     }
+
+    /// Initialize knowledge graph schema in PostgreSQL
+    ///
+    /// Creates additional tables for the knowledge graph feature.
+    /// This function is idempotent - safe to call multiple times.
+    pub async fn init_kg_schema(&self) -> Result<()> {
+        let client = self.pool.get().await?;
+        crate::kg::schema::initialize_schema(&*client).await
+            .map_err(|e| crate::Error::Other(format!("KG schema init failed: {}", e)))?;
+        Ok(())
+    }
+
+    /// Check if knowledge graph schema is initialized
+    pub async fn is_kg_schema_initialized(&self) -> Result<bool> {
+        let client = self.pool.get().await?;
+        crate::kg::schema::is_schema_initialized(&*client).await
+            .map_err(|e| crate::Error::Other(format!("KG schema check failed: {}", e)))
+    }
 }
 
 #[cfg(test)]

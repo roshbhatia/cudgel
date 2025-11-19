@@ -74,9 +74,6 @@ git2 = "0.18"
 # LLM for knowledge generation (User Story 3)
 ollama-rs = "0.2"
 
-# Knowledge graph database
-surrealdb = "1.0"
-
 # Fuzzy matching and pattern matching
 strsim = "0.11"
 regex = "1.10"

@@ -1,7 +1,7 @@
 // src/llm/client.rs
 //! LLM client implementation using Ollama.
 
-use super::{LlmError, Result};
+use super::Result;
 use async_trait::async_trait;
 use std::time::Duration;
 
@@ -105,4 +105,125 @@ pub trait LlmClient: Send + Sync {
     fn set_temperature(&mut self, temperature: f32);
     fn set_timeout(&mut self, timeout: Duration);
     fn set_model(&mut self, model: String);
+}
+
+/// Concrete Ollama implementation of the LLM client
+pub struct OllamaClient {
+    client: ollama_rs::Ollama,
+    model: String,
+    temperature: f32,
+    timeout: Duration,
+}
+
+impl OllamaClient {
+    /// Create a new Ollama client
+    ///
+    /// # Arguments
+    /// * `url` - Ollama API endpoint (e.g., "http://localhost:11434")
+    /// * `model` - Model to use (e.g., "llama3.2:3b")
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use cudgel::llm::client::OllamaClient;
+    ///
+    /// let client = OllamaClient::new("http://localhost:11434", "llama3.2:3b");
+    /// ```
+    pub fn new(url: &str, model: &str) -> Self {
+        Self {
+            client: ollama_rs::Ollama::new(url.to_string(), 11434),
+            model: model.to_string(),
+            temperature: 0.7,
+            timeout: Duration::from_secs(120),
+        }
+    }
+
+    /// Create a new Ollama client with default settings
+    ///
+    /// Uses:
+    /// - URL: http://localhost:11434
+    /// - Model: llama3.2:3b
+    pub fn default() -> Self {
+        Self::new("http://localhost", "llama3.2:3b")
+    }
+}
+
+#[async_trait]
+impl LlmClient for OllamaClient {
+    async fn generate_repository_summary(&self, _context: &RepositoryContext) -> Result<String> {
+        todo!("T052: Implement generate_repository_summary")
+    }
+
+    async fn generate_component_summary(&self, _context: &ComponentContext) -> Result<String> {
+        todo!("T052: Implement generate_component_summary")
+    }
+
+    async fn generate_entity_summary(&self, _context: &EntityContext) -> Result<String> {
+        todo!("T068: Implement generate_entity_summary")
+    }
+
+    async fn analyze_pattern(&self, _pattern: &str, _entities: &[String]) -> Result<String> {
+        todo!("T124: Implement analyze_pattern")
+    }
+
+    async fn generate_summaries_batch(
+        &self,
+        _requests: Vec<SummaryRequest>,
+        _concurrency: usize,
+    ) -> Result<Vec<SummaryResult>> {
+        todo!("T069: Implement generate_summaries_batch")
+    }
+
+    async fn health_check(&self) -> Result<ServiceHealth> {
+        let start = std::time::Instant::now();
+        let api_endpoint = self.client.uri().to_string();
+        
+        // Try to list models as a health check
+        match self.client.list_local_models().await {
+            Ok(models) => {
+                let model_names: Vec<String> = models
+                    .into_iter()
+                    .map(|m| m.name)
+                    .collect();
+
+                Ok(ServiceHealth {
+                    is_available: true,
+                    ollama_version: Some("unknown".to_string()), // Ollama API doesn't expose version easily
+                    loaded_models: model_names,
+                    api_endpoint,
+                    response_time: start.elapsed(),
+                })
+            }
+            Err(_e) => {
+                Ok(ServiceHealth {
+                    is_available: false,
+                    ollama_version: None,
+                    loaded_models: vec![],
+                    api_endpoint,
+                    response_time: start.elapsed(),
+                })
+            }
+        }
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>> {
+        let models = self
+            .client
+            .list_local_models()
+            .await
+            .map_err(|e| super::LlmError::Connection(format!("Failed to list models: {}", e)))?;
+
+        Ok(models.into_iter().map(|m| m.name).collect())
+    }
+
+    fn set_temperature(&mut self, temperature: f32) {
+        self.temperature = temperature.clamp(0.0, 2.0);
+    }
+
+    fn set_timeout(&mut self, timeout: Duration) {
+        self.timeout = timeout;
+    }
+
+    fn set_model(&mut self, model: String) {
+        self.model = model;
+    }
 }

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// Represents a code repository in the knowledge graph
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Repository {
-    pub id: String,
+    pub id: i32,
     pub path: String,
     pub name: String,
     pub summary: Option<String>,
@@ -18,8 +18,8 @@ pub struct Repository {
 /// Represents a logical component (module/package) in the codebase
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Component {
-    pub id: String,
-    pub repository_id: String,
+    pub id: i32,
+    pub repository_id: i32,
     pub name: String,
     pub path: String,
     pub component_type: ComponentType,
@@ -40,8 +40,8 @@ pub enum ComponentType {
 /// Represents a code entity (class, function, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeEntity {
-    pub id: String,
-    pub component_id: String,
+    pub id: i32,
+    pub component_id: i32,
     pub name: String,
     pub entity_type: EntityType,
     pub file_path: String,

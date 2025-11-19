@@ -6,8 +6,9 @@
 
 pub mod client;
 pub mod model;
+pub mod schema;
 
-pub use client::{KgClient, RecordId};
+pub use client::{KgClient, PostgresKgClient, RecordId};
 pub use model::{
     CodeEntity, Component, ComponentType, DependencyType, EntityMatch, EntityMetadata,
     EntityRelationships, EntityType, RelatedEntity, Repository, RepositoryStats, Visibility,

@@ -5,10 +5,11 @@
 //! of code entities using local LLM models via Ollama.
 
 pub mod client;
+pub mod prompts;
 
 pub use client::{
-    ComponentContext, EntityContext, LlmClient, RepositoryContext, ServiceHealth, SummaryRequest,
-    SummaryResult,
+    ComponentContext, EntityContext, LlmClient, OllamaClient, RepositoryContext, ServiceHealth,
+    SummaryRequest, SummaryResult,
 };
 
 use thiserror::Error;
