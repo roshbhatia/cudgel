@@ -84,7 +84,6 @@ tasks:
       - echo "Data directory:" $HOME/.local/share/cudgel/postgres
       - echo "Models directory:" $HOME/.local/share/cudgel/models
 
-  # Database (native PostgreSQL)
   db-start:
     desc: Start native PostgreSQL
     cmds:
@@ -135,15 +134,3 @@ tasks:
         else
           echo -e "$WARN ollama - not installed (optional)"
         fi
-
-  db-clean:
-    desc: Remove PostgreSQL data directory (prefer 'cudgel deps --clean-all')
-    cmds:
-      - ./scripts/stop-postgres.sh
-      - rm -rf $HOME/.local/share/cudgel/postgres
-      - echo "PostgreSQL data removed"
-
-  init-db:
-    desc: Initialize database schema (prefer 'cudgel deps')
-    cmds:
-      - cudgel init-db
