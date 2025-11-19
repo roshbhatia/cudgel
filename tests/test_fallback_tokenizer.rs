@@ -30,18 +30,12 @@ fn test_fallback_encodes_empty_string() {
     let tokenizer =
         FallbackTokenizer::initialize(&config).expect("Failed to initialize fallback tokenizer");
 
-    let embedding = tokenizer
-        .encode("")
-        .expect("Should handle empty string");
+    let embedding = tokenizer.encode("").expect("Should handle empty string");
 
     assert_eq!(embedding.len(), 384);
     // Empty string should still produce normalized vector
     let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-    assert!(
-        (norm - 1.0).abs() < 0.01 || norm == 0.0,
-        "Norm: {}",
-        norm
-    );
+    assert!((norm - 1.0).abs() < 0.01 || norm == 0.0, "Norm: {}", norm);
 }
 
 #[test]
@@ -119,9 +113,7 @@ fn test_fallback_handles_camelcase() {
     let code1 = "getUserName";
     let code2 = "get_user_name";
 
-    let emb1 = tokenizer
-        .encode(code1)
-        .expect("Failed to encode camelCase");
+    let emb1 = tokenizer.encode(code1).expect("Failed to encode camelCase");
     let emb2 = tokenizer
         .encode(code2)
         .expect("Failed to encode snake_case");

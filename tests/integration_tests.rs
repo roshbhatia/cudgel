@@ -1,11 +1,6 @@
 use cudgel::{
-    config::Config,
-    database::Database,
-    embeddings::EmbedderBackend,
-    graph::GraphQuery,
-    indexer::Indexer,
-    parser::CodeParser,
-    query::QueryEngine,
+    config::Config, database::Database, embeddings::EmbedderBackend, graph::GraphQuery,
+    indexer::Indexer, parser::CodeParser, query::QueryEngine,
 };
 use std::fs;
 use std::path::Path;
