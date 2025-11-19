@@ -265,35 +265,16 @@ impl EmbeddingGenerator {
         if !missing_files.is_empty() {
             let error_msg = format!(
                 "Missing required model files in {:?}:\n{}\n\n\
-                 To download the model, run:\n\
+                 To automatically download and configure all dependencies, run:\n\
                  \n\
-                 # Create a Python virtual environment\n\
-                 uv venv .venv\n\
-                 source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate\n\
+                 cudgel deps\n\
                  \n\
-                 # Install optimum with ONNX Runtime support\n\
-                 uv pip install 'optimum[onnxruntime]'\n\
+                 This will:\n\
+                 • Download the ONNX embedding model (~90MB)\n\
+                 • Start the PostgreSQL database\n\
+                 • Initialize the database schema\n\
                  \n\
-                 # Export the model to ONNX format\n\
-                 python3 << 'EOF'\n\
-                 from optimum.onnxruntime import ORTModelForFeatureExtraction\n\
-                 from transformers import AutoTokenizer\n\
-                 \n\
-                 model_id = \"sentence-transformers/all-MiniLM-L6-v2\"\n\
-                 output_dir = \"./models/all-MiniLM-L6-v2\"\n\
-                 \n\
-                 print(f\"Loading model from {{model_id}}...\")\n\
-                 model = ORTModelForFeatureExtraction.from_pretrained(model_id, export=True)\n\
-                 tokenizer = AutoTokenizer.from_pretrained(model_id)\n\
-                 \n\
-                 print(f\"Saving ONNX model to {{output_dir}}...\")\n\
-                 model.save_pretrained(output_dir)\n\
-                 tokenizer.save_pretrained(output_dir)\n\
-                 \n\
-                 print(\"Model exported successfully!\")\n\
-                 EOF\n\
-                 \n\
-                 Or use the provided setup script if available.",
+                 Use 'cudgel deps --check' to verify dependency status without installing.",
                 model_path,
                 missing_files.join("\n")
             );
