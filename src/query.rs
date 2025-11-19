@@ -1,6 +1,6 @@
 //! Natural language query functionality
 
-use crate::{database::Database, embeddings::EmbeddingGenerator, Config, Result};
+use crate::{database::Database, embeddings::EmbedderBackend, Config, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -40,7 +40,7 @@ pub struct SymbolResult {
 /// Performs semantic search over indexed code using embeddings.
 pub struct QueryEngine {
     db: Arc<Database>,
-    embedder: Arc<EmbeddingGenerator>,
+    embedder: Arc<EmbedderBackend>,
 }
 
 impl QueryEngine {
@@ -53,7 +53,7 @@ impl QueryEngine {
     /// # Returns
     /// Query engine ready to process searches
     pub fn new(config: Arc<Config>, db: Arc<Database>) -> Result<Self> {
-        let embedder = Arc::new(EmbeddingGenerator::new(config)?);
+        let embedder = Arc::new(EmbedderBackend::from_config(&config)?);
 
         Ok(QueryEngine { db, embedder })
     }
@@ -75,7 +75,7 @@ impl QueryEngine {
         limit: i64,
         repository_path: Option<&str>,
     ) -> Result<Vec<SymbolResult>> {
-        let query_embedding = self.embedder.encode_query(query)?;
+        let query_embedding = self.embedder.encode(query)?;
 
         // Debug: Check if embedding is valid
         if std::env::var("CUDGEL_DEBUG").is_ok() {

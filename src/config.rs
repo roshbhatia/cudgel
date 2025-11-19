@@ -57,6 +57,8 @@ pub struct EmbeddingConfig {
     pub model_path: PathBuf,
     /// Embedding vector dimension (default: 384)
     pub dimension: usize,
+    /// Tokenization strategy: "onnx" or "fallback" (default: "onnx")
+    pub strategy: String,
 }
 
 /// Code indexing behavior configuration
@@ -97,6 +99,8 @@ impl Config {
             embedding: EmbeddingConfig {
                 model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
                 dimension: 384,
+                strategy: std::env::var("CUDGEL_TOKENIZER_STRATEGY")
+                    .unwrap_or_else(|_| "onnx".to_string()),
             },
             indexing: IndexingConfig {
                 batch_size: 100,
@@ -125,6 +129,8 @@ impl Config {
             embedding: EmbeddingConfig {
                 model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
                 dimension: 384,
+                strategy: std::env::var("CUDGEL_TOKENIZER_STRATEGY")
+                    .unwrap_or_else(|_| "onnx".to_string()),
             },
             indexing: IndexingConfig {
                 batch_size: 100,
@@ -157,6 +163,8 @@ impl Config {
             embedding: EmbeddingConfig {
                 model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
                 dimension: 384,
+                strategy: std::env::var("CUDGEL_TOKENIZER_STRATEGY")
+                    .unwrap_or_else(|_| "onnx".to_string()),
             },
             indexing: IndexingConfig {
                 batch_size: 50,            // Smaller batches for CI
@@ -357,8 +365,10 @@ mod tests {
                 password: "password".to_string(),
             },
             embedding: EmbeddingConfig {
-                model_path: PathBuf::from("/tmp/models"),
+                model_path: xdg_data_home().join("cudgel/models/all-MiniLM-L6-v2"),
                 dimension: 384,
+                strategy: std::env::var("CUDGEL_TOKENIZER_STRATEGY")
+                    .unwrap_or_else(|_| "onnx".to_string()),
             },
             indexing: IndexingConfig {
                 batch_size: 100,

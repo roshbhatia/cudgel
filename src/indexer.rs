@@ -24,7 +24,7 @@
 
 use crate::{
     database::Database,
-    embeddings::EmbeddingGenerator,
+    embeddings::EmbedderBackend,
     parser::{CodeParser, Symbol},
     Config, Result,
 };
@@ -260,7 +260,7 @@ pub struct Indexer {
     config: Arc<Config>,
     db: Arc<Database>,
     parser: CodeParser,
-    embedder: Arc<EmbeddingGenerator>,
+    embedder: Arc<EmbedderBackend>,
 }
 
 impl Indexer {
@@ -275,7 +275,7 @@ impl Indexer {
     ///
     /// Returns an error if the embedding generator cannot be initialized.
     pub fn new(config: Arc<Config>, db: Arc<Database>) -> Result<Self> {
-        let embedder = Arc::new(EmbeddingGenerator::new(config.clone())?);
+        let embedder = Arc::new(EmbedderBackend::from_config(&config)?);
 
         Ok(Indexer {
             config,
@@ -792,9 +792,15 @@ impl Indexer {
             }
         });
 
-        let embedding = self
-            .embedder
-            .encode_symbol(&symbol.name, signature, docstring)?;
+        // Build text for embedding: name + signature + docstring
+        let text = format!(
+            "{}{}{}",
+            symbol.name,
+            signature.map(|s| format!(" {}", s)).unwrap_or_default(),
+            docstring.map(|d| format!(" {}", d)).unwrap_or_default()
+        );
+
+        let embedding = self.embedder.encode(&text)?;
 
         let symbol_id = self
             .db

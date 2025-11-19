@@ -1,5 +1,5 @@
 use cudgel::{
-    config::Config, database::Database, embeddings::EmbeddingGenerator, graph::GraphQuery,
+    config::Config, database::Database, embeddings::EmbedderBackend, graph::GraphQuery,
     indexer::Indexer, parser::CodeParser, query::QueryEngine,
 };
 use std::fs;
@@ -276,6 +276,7 @@ fn test_config_validation_invalid_port() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -302,6 +303,7 @@ fn test_config_validation_empty_host() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -328,6 +330,7 @@ fn test_config_validation_invalid_dimension() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 0, // Invalid - must be positive
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -354,6 +357,7 @@ fn test_config_validation_invalid_batch_size() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 0, // Invalid - must be positive
@@ -375,6 +379,7 @@ fn test_config_validation_invalid_batch_size() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 20000, // Too large
@@ -408,8 +413,8 @@ fn test_parser_syntax_error_handling() {
 
 #[test]
 fn test_embedding_generation() {
-    let config = Arc::new(Config::local().expect("Config should be valid"));
-    let embedder = EmbeddingGenerator::new(config).expect("Failed to create embedder");
+    let config = Config::local().expect("Config should be valid");
+    let embedder = EmbedderBackend::from_config(&config).expect("Failed to create embedder");
 
     let embedding = embedder.encode("test text");
     if let Err(e) = &embedding {
