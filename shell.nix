@@ -6,19 +6,19 @@ pkgs.mkShell {
   name = "cudgel-dev-shell";
 
   buildInputs = with pkgs; [
-    rustc
     cargo
-    rustfmt
     clippy
-    rust-analyzer
-    postgresql_17
-    postgresql17Packages.pgvector
-    pkg-config
-    openssl
     git
     go-task
+    # ollama
+    openssl
+    pkg-config
+    postgresql17Packages.pgvector
+    postgresql_17
+    rust-analyzer
+    rustc
+    rustfmt
     uv
-    ollama
   ];
 
   shellHook = ''
