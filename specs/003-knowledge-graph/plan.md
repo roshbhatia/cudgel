@@ -12,8 +12,8 @@ Add knowledge graph capabilities to cudgel's indexing pipeline to generate LLM-p
 ## Technical Context
 
 **Language/Version**: Rust 2021 edition (cargo 1.75+)  
-**Primary Dependencies**: tokio (async), postgres + pgvector, ort (ONNX), tree-sitter parsers, ollama-rs (Ollama client), NEEDS CLARIFICATION: graph database Rust client  
-**Storage**: PostgreSQL 15+ (port 45678) for existing data + NEEDS CLARIFICATION: graph database selection (Neo4j, MemGraph, or embedded option like SurrealDB)  
+**Primary Dependencies**: tokio (async), postgres + pgvector, ort (ONNX), tree-sitter parsers, ollama-rs (Ollama client), surrealdb (graph database), strsim (fuzzy matching), regex (query parsing)  
+**Storage**: PostgreSQL 15+ (port 45678) for existing data + SurrealDB embedded (file-based) for graph data  
 **Testing**: cargo test (existing setup with setup_test_db() helper)  
 **Target Platform**: macOS, Linux (x86_64, ARM64)  
 **Project Type**: Single CLI application  
@@ -37,15 +37,23 @@ Add knowledge graph capabilities to cudgel's indexing pipeline to generate LLM-p
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
+### ✅ Phase 0 Check (Pre-Research) - PASSED
+
+All unknowns resolved in research.md. Ready for Phase 1.
+
+### ✅ Phase 1 Check (Post-Design) - PASSED
+
+All design decisions documented. Ready for implementation.
+
 ### Principle Compliance
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| **I. Local-First Architecture** | ⚠️ NEEDS JUSTIFICATION | Ollama is external service (local but separate process). Graph database selection must support local deployment. |
-| **II. Test-Driven Development** | ✅ COMPLIANT | Will follow Red-Green-Refactor for all components. Integration tests will verify LLM integration and graph operations. |
-| **III. Performance & Efficiency** | ✅ COMPLIANT | Success criteria align: 30min for 50k files, <3s queries. Incremental re-indexing required. |
-| **IV. Semantic Intelligence** | ✅ COMPLIANT | Extends existing semantic search with graph relationships. Leverages existing tree-sitter and embeddings infrastructure. |
-| **V. Incremental Processing** | ✅ COMPLIANT | Must update graph incrementally based on file changes using existing SHA256 content hashing. |
+| **I. Local-First Architecture** | ✅ COMPLIANT (JUSTIFIED) | Ollama runs locally. SurrealDB embedded mode (file-based, no server). See justification below. |
+| **II. Test-Driven Development** | ✅ COMPLIANT | Test pyramid defined in quickstart.md. Red-Green-Refactor approach documented. |
+| **III. Performance & Efficiency** | ✅ COMPLIANT | Success criteria meet constitution: 30min for 50k files, <3s queries, <2min incremental updates. |
+| **IV. Semantic Intelligence** | ✅ COMPLIANT | Extends existing semantic search with graph relationships. Uses existing tree-sitter + embeddings. |
+| **V. Incremental Processing** | ✅ COMPLIANT | Incremental graph updates via SHA256 change detection. Cascade updates documented in data-model.md. |
 
 ### Technology Stack Compliance
 
@@ -61,16 +69,21 @@ Add knowledge graph capabilities to cudgel's indexing pipeline to generate LLM-p
 ### Local-First Architecture Justification
 
 **Ollama Dependency**: Ollama runs as a local service and is required for knowledge graph feature (FR-001). This is acceptable because:
-1. Feature is explicitly optional (can index without knowledge graph)
-2. Ollama runs locally, no cloud API calls
+1. Feature is explicitly optional (can index without knowledge graph via `--enable-graph` flag)
+2. Ollama runs locally, no cloud API calls, no data leaves machine
 3. Aligns with constitution's "except optional Ollama for knowledge graph features"
 4. Users maintain full control over their code and data
+5. Graceful degradation: indexing continues without summaries if Ollama unavailable
 
-**Graph Database Selection**: Must choose a database that:
-1. Runs locally without external services
-2. Supports offline operation after initial setup
-3. Provides Rust client library
-4. Handles 100k nodes / 500k edges efficiently
+**Graph Database Selection**: SurrealDB embedded mode selected because:
+1. ✅ Runs in-process (no separate server)
+2. ✅ File-based storage (offline-capable)
+3. ✅ Native Rust client with async support
+4. ✅ Handles target scale (100k nodes, 500k edges)
+5. ✅ No network ports required
+6. ✅ Single binary deployment
+
+**Verdict**: Feature maintains local-first architecture. All data remains on user's machine.
 
 ### Development Workflow Compliance
 
@@ -141,3 +154,42 @@ tests/
 | Graph database addition | Queryable relationship traversal requires graph semantics not available in PostgreSQL | PostgreSQL recursive CTEs are significantly slower for multi-hop relationship queries and don't provide graph-specific query languages. Graph databases optimize for traversal patterns. |
 
 **Justification**: Both additions are explicitly called out in the constitution as acceptable: "except optional Ollama for knowledge graph features". Feature is opt-in and maintains local-first architecture.
+
+---
+
+## Phase Completion Status
+
+### ✅ Phase 0: Research (Complete)
+
+**Deliverable**: [research.md](./research.md)
+
+**Key Decisions**:
+- Graph Database: SurrealDB (embedded mode)
+- LLM Integration: ollama-rs crate with llama3.2:3b model
+- Query Parsing: Hybrid rule-based + fuzzy matching (strsim)
+
+**All NEEDS CLARIFICATION items resolved.**
+
+---
+
+### ✅ Phase 1: Design & Contracts (Complete)
+
+**Deliverables**:
+- [data-model.md](./data-model.md) - Graph schema with nodes and relationships
+- [contracts/graph-client-interface.md](./contracts/graph-client-interface.md) - GraphClient trait definition
+- [contracts/llm-client-interface.md](./contracts/llm-client-interface.md) - LlmClient trait definition
+- [quickstart.md](./quickstart.md) - Development roadmap and guide
+- AGENTS.md - Updated with new technologies
+
+**Constitution Check**: ✅ PASSED (post-design)
+
+**Ready for Phase 2**: `/speckit.tasks` to generate implementation tasks.
+
+---
+
+## Next Steps
+
+1. Run `/speckit.tasks` to break down implementation into concrete tasks
+2. Begin Phase 1 implementation (Graph Database Foundation)
+3. Follow TDD approach: write tests first, then implement
+4. Track progress using generated tasks.md checklist
