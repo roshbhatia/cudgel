@@ -5,11 +5,13 @@
 // This provides offline embedding generation without external model dependencies.
 // Algorithm: Code tokenization → xxhash feature hashing → random projection → L2 normalization
 
-use crate::{Config, Result, Error};
 use super::TokenizerStrategy;
+use crate::{Config, Error, Result};
 use ndarray::Array2;
-use rand_chacha::{ChaCha8Rng, rand_core::{SeedableRng, RngCore}};
-
+use rand_chacha::{
+    rand_core::{RngCore, SeedableRng},
+    ChaCha8Rng,
+};
 
 /// Fallback tokenization using feature hashing and random projection
 ///

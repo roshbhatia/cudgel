@@ -3,7 +3,7 @@
 // Unit tests for FallbackTokenizer implementation
 // These tests verify the internal workings of the fallback strategy
 
-use cudgel::{Config, Result};
+use cudgel::Config;
 
 // NOTE: These tests will fail until FallbackTokenizer is implemented in Phase 3
 
@@ -11,12 +11,12 @@ use cudgel::{Config, Result};
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_initialization() {
     // This test verifies initialization creates projection matrix with correct shape
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // // Initialization should complete quickly (<2 seconds target)
     // tokenizer.validate().expect("Tokenizer should be valid after initialization");
 }
@@ -25,15 +25,15 @@ fn test_fallback_initialization() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_encodes_empty_string() {
     // This test verifies edge case: empty input
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // let embedding = tokenizer.encode("")
     //     .expect("Should handle empty string");
-    
+
     // assert_eq!(embedding.len(), 384);
     // // Empty string should still produce normalized vector
     // let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -44,18 +44,18 @@ fn test_fallback_encodes_empty_string() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_encodes_simple_code() {
     // This test verifies basic code encoding
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // let code = "fn add(a: i32, b: i32) -> i32 { a + b }";
     // let embedding = tokenizer.encode(code)
     //     .expect("Failed to encode code");
-    
+
     // assert_eq!(embedding.len(), 384);
-    
+
     // // Check normalized
     // let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
     // assert!((norm - 1.0).abs() < 0.01, "Norm: {}", norm);
@@ -65,19 +65,19 @@ fn test_fallback_encodes_simple_code() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_similar_code_has_high_similarity() {
     // This test verifies SC-005: Fallback produces semantically meaningful results
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // // Syntactically similar code should have high similarity
     // let code1 = "fn add(a: i32, b: i32) -> i32 { a + b }";
     // let code2 = "fn add(x: i32, y: i32) -> i32 { x + y }";
-    
+
     // let emb1 = tokenizer.encode(code1).expect("Failed to encode code1");
     // let emb2 = tokenizer.encode(code2).expect("Failed to encode code2");
-    
+
     // let similarity = cosine_similarity(&emb1, &emb2);
     // assert!(
     //     similarity > 0.7,
@@ -90,19 +90,19 @@ fn test_fallback_similar_code_has_high_similarity() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_different_code_has_low_similarity() {
     // This test verifies semantic differentiation
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // // Completely different code should have low similarity
     // let code1 = "fn add(a: i32, b: i32) -> i32 { a + b }";
     // let code2 = "fn connect_database(url: &str) -> Result<Connection>";
-    
+
     // let emb1 = tokenizer.encode(code1).expect("Failed to encode code1");
     // let emb2 = tokenizer.encode(code2).expect("Failed to encode code2");
-    
+
     // let similarity = cosine_similarity(&emb1, &emb2);
     // assert!(
     //     similarity < 0.5,
@@ -115,18 +115,18 @@ fn test_fallback_different_code_has_low_similarity() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_handles_camelcase() {
     // This test verifies tokenization handles camelCase identifiers
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // let code1 = "getUserName";
     // let code2 = "get_user_name";
-    
+
     // let emb1 = tokenizer.encode(code1).expect("Failed to encode camelCase");
     // let emb2 = tokenizer.encode(code2).expect("Failed to encode snake_case");
-    
+
     // let similarity = cosine_similarity(&emb1, &emb2);
     // assert!(
     //     similarity > 0.6,
@@ -139,16 +139,16 @@ fn test_fallback_handles_camelcase() {
 #[ignore] // Enable after FallbackTokenizer is implemented
 fn test_fallback_handles_special_characters() {
     // This test verifies handling of operators and punctuation
-    let config = Config::local().expect("Failed to create config");
-    
+    let _config = Config::local().expect("Failed to create config");
+
     // Will fail: FallbackTokenizer doesn't exist yet
     // let tokenizer = cudgel::embeddings::FallbackTokenizer::initialize(&config)
     //     .expect("Failed to initialize fallback tokenizer");
-    
+
     // let code = "fn test() -> Result<Vec<String>, Error> { Ok(vec![]) }";
     // let embedding = tokenizer.encode(code)
     //     .expect("Failed to encode code with special chars");
-    
+
     // assert_eq!(embedding.len(), 384);
 }
 
@@ -156,9 +156,9 @@ fn test_fallback_handles_special_characters() {
 #[allow(dead_code)]
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Vectors must have same length");
-    
+
     let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    
+
     // Since vectors are already normalized, dot product = cosine similarity
     dot
 }

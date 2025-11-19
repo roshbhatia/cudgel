@@ -90,8 +90,8 @@ impl EmbedderBackend {
 }
 
 // Module declarations (implementations in separate files)
-pub mod onnx;
 pub mod fallback;
+pub mod onnx;
 
 // Re-export strategy implementations for testing
 pub use self::fallback::FallbackTokenizer;
