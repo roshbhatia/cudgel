@@ -8,7 +8,10 @@ pub mod client;
 pub mod model;
 
 pub use client::KgClient;
-pub use model::{CodeEntity, Component, Repository};
+pub use model::{
+    CodeEntity, Component, ComponentType, DependencyType, EntityMatch, EntityMetadata,
+    EntityRelationships, EntityType, RelatedEntity, Repository, RepositoryStats, Visibility,
+};
 
 use thiserror::Error;
 
