@@ -73,6 +73,57 @@ flowchart TD
 
 Hierarchical Navigable Small Worlds (HNSW) is used as the indexing strategy. HNSW tends to work better for the sizes of codebases I tend to deal with day-to-day. https://www.pinecone.io/learn/series/faiss/hnsw/ provides a nice introdcution to how the approach works.
 
+### Automatic Re-indexing with Orchestrator
+
+The orchestrator is a background daemon that automatically re-indexes your repositories on a configurable schedule. This ensures your code index stays up-to-date as your codebase evolves.
+
+#### Scheduling Tasks
+
+Schedule a repository for automatic re-indexing:
+
+```bash
+# Schedule re-indexing every 24 hours
+cudgel --schedule /path/to/repo --interval 24
+
+# Schedule with different intervals (1-8760 hours / 1 year)
+cudgel --schedule /path/to/repo --interval 12   # Every 12 hours
+cudgel --schedule /path/to/repo --interval 168  # Once a week
+
+# Unschedule a repository
+cudgel --unschedule /path/to/repo
+
+# List all scheduled tasks
+cudgel --schedule --list
+```
+
+#### Managing the Orchestrator Daemon
+
+The orchestrator runs as a background daemon process:
+
+```bash
+# Start the orchestrator
+cudgel orchestrator start
+
+# Stop the orchestrator
+cudgel orchestrator stop
+
+# Restart the orchestrator
+cudgel orchestrator restart
+
+# Check orchestrator status
+cudgel orchestrator status
+```
+
+#### Orchestrator Features
+
+- **Optimistic Locking**: Tasks use version-based locking to prevent duplicate execution
+- **Automatic Retry**: Failed tasks retry with exponential backoff (1min, 2min, 4min, 8min, 16min)
+- **Graceful Shutdown**: Responds to SIGINT/SIGTERM with 30-second timeout for task completion
+- **Concurrent Execution**: Runs multiple re-indexing tasks in parallel
+- **Error Tracking**: Stores error messages for failed tasks for debugging
+
+Logs are stored at `~/.local/state/cudgel/orchestrator.log` (XDG_STATE_HOME compatible).
+
 ## Closing thoughts
 
 Disclaimer: a lot of this has been out of my depth. I'm an infrastructure engineer by trade who works on Kubernetes at scale. The primary motiviation behind this was to make a tool that works decently enough to define relationships accross various kinds of codebases -- repositories that house nested go templates, Kubernetes controllers, various microservices, CI workflow definitions, CLI tools, etc. 

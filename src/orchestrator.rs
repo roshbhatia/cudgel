@@ -21,6 +21,64 @@ fn log_file_path() -> PathBuf {
     crate::config::xdg_state_home().join("cudgel/orchestrator.log")
 }
 
+/// Wait for a shutdown signal (SIGINT or SIGTERM)
+async fn shutdown_signal() {
+    use tokio::signal;
+
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Received SIGINT (Ctrl-C)");
+        }
+        _ = terminate => {
+            info!("Received SIGTERM");
+        }
+    }
+}
+
+/// Shutdown coordination state
+struct Shutdown {
+    is_shutdown: bool,
+    notify: tokio::sync::broadcast::Receiver<()>,
+}
+
+impl Shutdown {
+    fn new(notify: tokio::sync::broadcast::Receiver<()>) -> Self {
+        Shutdown {
+            is_shutdown: false,
+            notify,
+        }
+    }
+
+    async fn recv(&mut self) {
+        if self.is_shutdown {
+            return;
+        }
+        let _ = self.notify.recv().await;
+        self.is_shutdown = true;
+    }
+
+    fn is_shutdown(&self) -> bool {
+        self.is_shutdown
+    }
+}
+
 /// Check if the orchestrator daemon is running
 pub fn is_running() -> Result<Option<u32>> {
     let pid_path = pid_file_path();
@@ -32,8 +90,8 @@ pub fn is_running() -> Result<Option<u32>> {
     let pid_str = fs::read_to_string(&pid_path)?;
     let pid: u32 = pid_str
         .trim()
-        .parse()
-        .map_err(|e| crate::Error::Other(format!("Invalid PID file: {}", e)))?;
+        .parse::<u32>()
+        .map_err(|e| crate::Error::InvalidPidFile(e.to_string()))?;
 
     // Check if process is actually running
     #[cfg(unix)]
@@ -63,10 +121,7 @@ pub fn is_running() -> Result<Option<u32>> {
 pub fn start_daemon(_config: &Config) -> Result<()> {
     // Check if already running
     if let Some(pid) = is_running()? {
-        return Err(crate::Error::Other(format!(
-            "Orchestrator is already running (PID: {})",
-            pid
-        )));
+        return Err(crate::Error::OrchestratorAlreadyRunning(pid as i32));
     }
 
     // Ensure directories exist
@@ -103,11 +158,7 @@ pub fn start_daemon(_config: &Config) -> Result<()> {
 pub fn stop_daemon() -> Result<()> {
     let pid = match is_running()? {
         Some(pid) => pid,
-        None => {
-            return Err(crate::Error::Other(
-                "Orchestrator is not running".to_string(),
-            ))
-        }
+        None => return Err(crate::Error::OrchestratorNotRunning),
     };
 
     // Send SIGTERM to daemon
@@ -117,7 +168,7 @@ pub fn stop_daemon() -> Result<()> {
         use nix::unistd::Pid;
 
         kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
-            .map_err(|e| crate::Error::Other(format!("Failed to stop orchestrator: {}", e)))?;
+            .map_err(|e| crate::Error::SignalHandler(format!("Failed to send SIGTERM: {}", e)))?;
 
         // Wait for process to exit (up to 5 seconds)
         for _ in 0..50 {
@@ -146,7 +197,7 @@ pub fn stop_daemon() -> Result<()> {
     {
         // TODO: Implement for Windows
         return Err(crate::Error::Other(
-            "Stop daemon not implemented for this platform".to_string(),
+            "Stop daemon not implemented for non-Unix platforms".to_string(),
         ));
     }
 
@@ -173,73 +224,148 @@ pub async fn run_polling_loop(config: Config) -> Result<()> {
     let config = Arc::new(config);
     let db = Arc::new(Database::new(&config).await?);
 
-    // Polling interval: 60 seconds
-    let mut interval = time::interval(Duration::from_secs(60));
+    // Setup shutdown coordination
+    let (notify_shutdown, _) = tokio::sync::broadcast::channel(1);
+    let (shutdown_complete_tx, mut shutdown_complete_rx) = tokio::sync::mpsc::channel::<()>(1);
 
-    loop {
-        interval.tick().await;
+    // Clone for the worker task
+    let worker_shutdown = notify_shutdown.subscribe();
+    let worker_db = db.clone();
+    let worker_config = config.clone();
+    let worker_shutdown_complete = shutdown_complete_tx.clone();
 
-        // Get due tasks
-        match db.get_due_tasks().await {
-            Ok(tasks) => {
-                if tasks.is_empty() {
-                    continue;
-                }
+    // Spawn worker task
+    let worker_handle = tokio::spawn(async move {
+        let mut shutdown = Shutdown::new(worker_shutdown);
+        let _shutdown_complete = worker_shutdown_complete;
 
-                info!("Found {} due tasks", tasks.len());
+        // Polling interval: 60 seconds
+        let mut interval = time::interval(Duration::from_secs(60));
 
-                for task in tasks {
-                    info!(
-                        "Executing scheduled task {} for repo {}",
-                        task.id, task.repo_id
-                    );
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // Check shutdown before starting work
+                    if shutdown.is_shutdown() {
+                        break;
+                    }
 
-                    // Get repository info
-                    let repo = match db.get_repository(task.repo_id).await? {
-                        Some(r) => r,
-                        None => {
-                            warn!(
-                                "Repository {} not found, skipping task {}",
-                                task.repo_id, task.id
-                            );
-                            continue;
-                        }
-                    };
+                    // Get due tasks
+                    match worker_db.get_due_tasks().await {
+                        Ok(tasks) => {
+                            if tasks.is_empty() {
+                                continue;
+                            }
 
-                    // Create indexer for this task
-                    let mut indexer = match Indexer::new(config.clone(), db.clone()) {
-                        Ok(i) => i,
-                        Err(e) => {
-                            error!("Failed to create indexer: {}", e);
-                            continue;
-                        }
-                    };
+                            info!("Found {} due tasks", tasks.len());
 
-                    // Execute indexing
-                    match indexer.index_repository(Path::new(&repo.path)).await {
-                        Ok((_repo_id, _stats)) => {
-                            info!("Successfully indexed repository: {}", repo.name);
+                            for task in tasks {
+                                let task_id = task.id;
+                                let task_version = task.version;
 
-                            // Update task execution times
-                            let now = chrono::Utc::now();
-                            let next_run =
-                                now + chrono::Duration::hours(task.interval_hours as i64);
+                                // Try to claim task with optimistic locking
+                                let claimed_task = match worker_db.claim_task(task_id, task_version).await {
+                                    Ok(Some(t)) => t,
+                                    Ok(None) => {
+                                        // Task already claimed by another worker
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to claim task {}: {}", task_id, e);
+                                        continue;
+                                    }
+                                };
 
-                            if let Err(e) = db.update_task_execution(task.id, now, next_run).await {
-                                error!("Failed to update task execution: {}", e);
+                                info!(
+                                    "Executing scheduled task {} for repo {}",
+                                    claimed_task.id, claimed_task.repo_id
+                                );
+
+                                // Get repository info
+                                let repo = match worker_db.get_repository(claimed_task.repo_id).await {
+                                    Ok(Some(r)) => r,
+                                    Ok(None) => {
+                                        warn!(
+                                            "Repository {} not found, marking task {} as failed",
+                                            claimed_task.repo_id, claimed_task.id
+                                        );
+                                        let _ = worker_db.fail_task(claimed_task.id, "Repository not found").await;
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to get repository: {}", e);
+                                        let _ = worker_db.fail_task(claimed_task.id, &format!("Database error: {}", e)).await;
+                                        continue;
+                                    }
+                                };
+
+                                // Create indexer for this task
+                                let mut indexer = match Indexer::new(worker_config.clone(), worker_db.clone()) {
+                                    Ok(i) => i,
+                                    Err(e) => {
+                                        error!("Failed to create indexer: {}", e);
+                                        let _ = worker_db.fail_task(claimed_task.id, &format!("Indexer creation failed: {}", e)).await;
+                                        continue;
+                                    }
+                                };
+
+                                // Execute indexing
+                                match indexer.index_repository(Path::new(&repo.path)).await {
+                                    Ok((_repo_id, _stats)) => {
+                                        info!("Successfully indexed repository: {}", repo.name);
+
+                                        // Mark task as complete
+                                        if let Err(e) = worker_db.complete_task(claimed_task.id, claimed_task.interval_hours).await {
+                                            error!("Failed to complete task: {}", e);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to index repository {}: {}", repo.name, e);
+                                        let _ = worker_db.fail_task(claimed_task.id, &format!("Indexing failed: {}", e)).await;
+                                    }
+                                }
                             }
                         }
                         Err(e) => {
-                            error!("Failed to index repository {}: {}", repo.name, e);
+                            error!("Failed to get due tasks: {}", e);
                         }
                     }
                 }
-            }
-            Err(e) => {
-                error!("Failed to get due tasks: {}", e);
+                _ = shutdown.recv() => {
+                    info!("Worker task received shutdown signal");
+                    break;
+                }
             }
         }
+
+        info!("Worker task shutdown complete");
+    });
+
+    // Wait for shutdown signal
+    tokio::select! {
+        _ = worker_handle => {
+            warn!("Worker task terminated unexpectedly");
+        }
+        _ = shutdown_signal() => {
+            info!("Shutdown signal received");
+        }
     }
+
+    // Initiate shutdown
+    drop(notify_shutdown);
+    drop(shutdown_complete_tx);
+
+    // Wait for graceful shutdown with timeout
+    match tokio::time::timeout(Duration::from_secs(30), shutdown_complete_rx.recv()).await {
+        Ok(_) => {
+            info!("Graceful shutdown complete");
+        }
+        Err(_) => {
+            warn!("Shutdown timeout after 30 seconds, forcing termination");
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -117,8 +117,14 @@ pub struct ScheduledTask {
     pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Next scheduled execution time
     pub next_run_at: chrono::DateTime<chrono::Utc>,
-    /// Task status ("active", "paused", "cancelled")
+    /// Task status ("idle", "running", "failed", "paused", "cancelled")
     pub status: String,
+    /// Version for optimistic locking
+    pub version: i32,
+    /// Number of retry attempts for failed tasks
+    pub retry_count: i32,
+    /// Error message if task failed
+    pub error_message: Option<String>,
     /// When task was created
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -426,7 +432,10 @@ impl Database {
                     interval_hours INTEGER NOT NULL CHECK (interval_hours > 0 AND interval_hours <= 8760),
                     next_run_at TIMESTAMPTZ NOT NULL,
                     last_run_at TIMESTAMPTZ,
-                    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')),
+                    status TEXT DEFAULT 'idle' CHECK (status IN ('idle', 'running', 'failed', 'paused', 'cancelled')),
+                    version INTEGER DEFAULT 1 CHECK (version > 0),
+                    retry_count INTEGER DEFAULT 0 CHECK (retry_count >= 0),
+                    error_message TEXT,
                     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 )",
                 &[],
@@ -442,7 +451,7 @@ impl Database {
 
         client
             .execute(
-                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next_run ON scheduled_tasks(next_run_at) WHERE status = 'active'",
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next_run ON scheduled_tasks(next_run_at) WHERE status = 'idle'",
                 &[],
             )
             .await?;
@@ -862,9 +871,9 @@ impl Database {
 
         let rows = client
             .query(
-                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, created_at
+                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, version, retry_count, error_message, created_at
                  FROM scheduled_tasks
-                 WHERE status = 'active'
+                 WHERE status IN ('idle', 'running')
                  ORDER BY next_run_at",
                 &[],
             )
@@ -879,6 +888,9 @@ impl Database {
                 last_run_at: row.get("last_run_at"),
                 next_run_at: row.get("next_run_at"),
                 status: row.get("status"),
+                version: row.get("version"),
+                retry_count: row.get("retry_count"),
+                error_message: row.get("error_message"),
                 created_at: row.get("created_at"),
             })
             .collect())
@@ -891,9 +903,9 @@ impl Database {
         let now = chrono::Utc::now();
         let rows = client
             .query(
-                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, created_at
+                "SELECT id, repo_id, interval_hours, last_run_at, next_run_at, status, version, retry_count, error_message, created_at
                  FROM scheduled_tasks
-                 WHERE next_run_at <= $1 AND status = 'active'
+                 WHERE next_run_at <= $1 AND status = 'idle'
                  ORDER BY next_run_at",
                 &[&now],
             )
@@ -908,6 +920,9 @@ impl Database {
                 last_run_at: row.get("last_run_at"),
                 next_run_at: row.get("next_run_at"),
                 status: row.get("status"),
+                version: row.get("version"),
+                retry_count: row.get("retry_count"),
+                error_message: row.get("error_message"),
                 created_at: row.get("created_at"),
             })
             .collect())
@@ -928,6 +943,131 @@ impl Database {
                 &[&last_run, &next_run, &task_id],
             )
             .await?;
+
+        Ok(())
+    }
+
+    /// Claim a task for execution using optimistic locking
+    ///
+    /// Atomically transitions task from 'idle' to 'running' status using version check.
+    /// Returns Some(task) if claim succeeded, None if task was already claimed by another worker.
+    pub async fn claim_task(
+        &self,
+        task_id: i32,
+        expected_version: i32,
+    ) -> Result<Option<ScheduledTask>> {
+        let client = self.pool.get().await?;
+
+        // Atomically update status to 'running' with version check
+        let rows = client
+            .query(
+                "UPDATE scheduled_tasks 
+                 SET status = 'running', version = version + 1
+                 WHERE id = $1 AND version = $2 AND status = 'idle'
+                 RETURNING id, repo_id, interval_hours, last_run_at, next_run_at, status, version, retry_count, error_message, created_at",
+                &[&task_id, &expected_version],
+            )
+            .await?;
+
+        if rows.is_empty() {
+            // Task was already claimed by another worker or version mismatch
+            return Ok(None);
+        }
+
+        let row = &rows[0];
+        Ok(Some(ScheduledTask {
+            id: row.get("id"),
+            repo_id: row.get("repo_id"),
+            interval_hours: row.get("interval_hours"),
+            last_run_at: row.get("last_run_at"),
+            next_run_at: row.get("next_run_at"),
+            status: row.get("status"),
+            version: row.get("version"),
+            retry_count: row.get("retry_count"),
+            error_message: row.get("error_message"),
+            created_at: row.get("created_at"),
+        }))
+    }
+
+    /// Complete a task successfully, resetting error state and scheduling next run
+    ///
+    /// Calculates next run time based on interval and resets retry_count/error_message.
+    pub async fn complete_task(&self, task_id: i32, interval_hours: i32) -> Result<()> {
+        let client = self.pool.get().await?;
+
+        let now = chrono::Utc::now();
+        let next_run = now + chrono::Duration::hours(interval_hours as i64);
+
+        client
+            .execute(
+                "UPDATE scheduled_tasks 
+                 SET last_run_at = $1, 
+                     next_run_at = $2, 
+                     status = 'idle',
+                     retry_count = 0,
+                     error_message = NULL,
+                     version = version + 1
+                 WHERE id = $3",
+                &[&now, &next_run, &task_id],
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Mark a task as failed with retry logic
+    ///
+    /// Implements exponential backoff: retries after 1min, 2min, 4min, 8min, 16min.
+    /// After 5 failures, sets status to 'failed' and stops retrying.
+    pub async fn fail_task(&self, task_id: i32, error_msg: &str) -> Result<()> {
+        let client = self.pool.get().await?;
+
+        // Get current retry count
+        let row = client
+            .query_one(
+                "SELECT retry_count, interval_hours FROM scheduled_tasks WHERE id = $1",
+                &[&task_id],
+            )
+            .await?;
+
+        let retry_count: i32 = row.get("retry_count");
+        let _interval_hours: i32 = row.get("interval_hours");
+        let new_retry_count = retry_count + 1;
+
+        const MAX_RETRIES: i32 = 5;
+
+        if new_retry_count >= MAX_RETRIES {
+            // Max retries reached, mark as permanently failed
+            client
+                .execute(
+                    "UPDATE scheduled_tasks 
+                     SET status = 'failed',
+                         retry_count = $1,
+                         error_message = $2,
+                         version = version + 1
+                     WHERE id = $3",
+                    &[&new_retry_count, &error_msg, &task_id],
+                )
+                .await?;
+        } else {
+            // Calculate exponential backoff: 2^retry_count minutes
+            let backoff_minutes = 2_i64.pow(retry_count as u32);
+            let now = chrono::Utc::now();
+            let next_retry = now + chrono::Duration::minutes(backoff_minutes);
+
+            client
+                .execute(
+                    "UPDATE scheduled_tasks 
+                     SET status = 'idle',
+                         retry_count = $1,
+                         error_message = $2,
+                         next_run_at = $3,
+                         version = version + 1
+                     WHERE id = $4",
+                    &[&new_retry_count, &error_msg, &next_retry, &task_id],
+                )
+                .await?;
+        }
 
         Ok(())
     }
@@ -1022,15 +1162,21 @@ mod tests {
             interval_hours: 24,
             last_run_at: Some(now),
             next_run_at: now + chrono::Duration::hours(24),
-            status: "active".to_string(),
+            status: "idle".to_string(),
+            version: 1,
+            retry_count: 0,
+            error_message: None,
             created_at: now,
         };
 
         assert_eq!(task.id, 1);
         assert_eq!(task.repo_id, 10);
         assert_eq!(task.interval_hours, 24);
-        assert_eq!(task.status, "active");
+        assert_eq!(task.status, "idle");
+        assert_eq!(task.version, 1);
+        assert_eq!(task.retry_count, 0);
         assert!(task.last_run_at.is_some());
+        assert!(task.error_message.is_none());
     }
 
     #[test]

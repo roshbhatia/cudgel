@@ -47,6 +47,27 @@ pub enum Error {
     #[error("pgvector extension not installed. Please install with: CREATE EXTENSION vector;")]
     PgvectorNotInstalled,
 
+    #[error("Orchestrator already running with PID {0}")]
+    OrchestratorAlreadyRunning(i32),
+
+    #[error("Orchestrator not running")]
+    OrchestratorNotRunning,
+
+    #[error("Invalid PID file: {0}")]
+    InvalidPidFile(String),
+
+    #[error("Failed to acquire task lock (retry {0})")]
+    TaskLockFailed(i32),
+
+    #[error("Task execution failed: {0}")]
+    TaskExecutionFailed(String),
+
+    #[error("Graceful shutdown timeout after {0} seconds")]
+    ShutdownTimeout(u64),
+
+    #[error("Signal handling error: {0}")]
+    SignalHandler(String),
+
     #[error("{0}")]
     Other(String),
 }
@@ -141,6 +162,27 @@ impl Error {
                 format!(
                     "Embedding generation failed: {}\n\nCheck that the ONNX model is properly installed:\n  ls -la ~/.local/share/cudgel/models/all-MiniLM-L6-v2/\n\nTo reinstall:\n  task setup",
                     msg
+                )
+            }
+            Error::OrchestratorAlreadyRunning(pid) => {
+                format!(
+                    "Orchestrator is already running (PID: {})\n\nTo stop it:\n  cudgel orchestrator stop\n\nTo restart:\n  cudgel orchestrator restart\n\nTo view status:\n  cudgel orchestrator status",
+                    pid
+                )
+            }
+            Error::OrchestratorNotRunning => {
+                "Orchestrator is not running\n\nTo start it:\n  cudgel orchestrator start\n\nTo view scheduled tasks:\n  cudgel schedule --list".to_string()
+            }
+            Error::InvalidPidFile(msg) => {
+                format!(
+                    "Invalid PID file: {}\n\nThe orchestrator may have crashed or been terminated improperly.\nTry removing the stale PID file:\n  rm ~/.local/state/cudgel/orchestrator.pid\n\nThen start the orchestrator:\n  cudgel orchestrator start",
+                    msg
+                )
+            }
+            Error::ShutdownTimeout(secs) => {
+                format!(
+                    "Graceful shutdown timeout after {} seconds\n\nThe orchestrator may have hung tasks.\nIf the problem persists, try force-stopping:\n  pkill -9 cudgel",
+                    secs
                 )
             }
             _ => self.to_string(),
