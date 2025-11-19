@@ -39,5 +39,4 @@ models/
 
 # Project-specific (preserve)
 !.specify/
-!.claude/
-.claude/settings.local.json
+!.AGENTS.md/
