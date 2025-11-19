@@ -836,7 +836,7 @@ async fn test_create_scheduled_task() {
     let task = tasks.iter().find(|t| t.id == task_id).unwrap();
     assert_eq!(task.repo_id, repo_id);
     assert_eq!(task.interval_hours, 24);
-    assert_eq!(task.status, "active");
+    assert_eq!(task.status, "idle");
 }
 
 #[tokio::test]

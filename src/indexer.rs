@@ -12,7 +12,7 @@
 //! use std::path::Path;
 //!
 //! # async fn example() -> cudgel::Result<()> {
-//! let config = Arc::new(Config::local());
+//! let config = Arc::new(Config::local()?);
 //! let db = Arc::new(Database::new(&config).await?);
 //! let mut indexer = Indexer::new(config, db)?;
 //!
