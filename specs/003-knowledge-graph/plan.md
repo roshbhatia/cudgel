@@ -1,98 +1,135 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Knowledge Graph for Code Understanding
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Branch**: `003-knowledge-graph` | **Date**: 2025-11-19 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/003-knowledge-graph/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Add knowledge graph capabilities to cudgel's indexing pipeline to generate LLM-powered architecture summaries and store queryable entity relationships in a graph database. This enables developers to understand unfamiliar codebases through natural language queries about architecture, component purposes, and entity relationships.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: Rust 2021 edition (cargo 1.75+)  
+**Primary Dependencies**: tokio (async), postgres + pgvector, ort (ONNX), tree-sitter parsers, ollama-rs (Ollama client), NEEDS CLARIFICATION: graph database Rust client  
+**Storage**: PostgreSQL 15+ (port 45678) for existing data + NEEDS CLARIFICATION: graph database selection (Neo4j, MemGraph, or embedded option like SurrealDB)  
+**Testing**: cargo test (existing setup with setup_test_db() helper)  
+**Target Platform**: macOS, Linux (x86_64, ARM64)  
+**Project Type**: Single CLI application  
+**Performance Goals**: 
+- Index 50k files in <30 minutes
+- Query response <3 seconds
+- Architecture summary generation <5 seconds
+- Incremental re-index <2 minutes for 10k files  
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Constraints**: 
+- Local-first: graph database must run locally
+- Memory: <500MB RSS during operations (may need streaming LLM interactions)
+- Ollama integration for LLM summaries (external service but local)  
+
+**Scale/Scope**: 
+- Support codebases up to 50k files
+- Graph with up to 100k nodes, 500k edges
+- Query performance acceptable at this scale
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Principle Compliance
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| **I. Local-First Architecture** | ⚠️ NEEDS JUSTIFICATION | Ollama is external service (local but separate process). Graph database selection must support local deployment. |
+| **II. Test-Driven Development** | ✅ COMPLIANT | Will follow Red-Green-Refactor for all components. Integration tests will verify LLM integration and graph operations. |
+| **III. Performance & Efficiency** | ✅ COMPLIANT | Success criteria align: 30min for 50k files, <3s queries. Incremental re-indexing required. |
+| **IV. Semantic Intelligence** | ✅ COMPLIANT | Extends existing semantic search with graph relationships. Leverages existing tree-sitter and embeddings infrastructure. |
+| **V. Incremental Processing** | ✅ COMPLIANT | Must update graph incrementally based on file changes using existing SHA256 content hashing. |
+
+### Technology Stack Compliance
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Rust 2021 + cargo 1.75+ | ✅ COMPLIANT | Existing project standard |
+| tokio async runtime | ✅ COMPLIANT | Already in use |
+| postgres + pgvector | ✅ COMPLIANT | Existing infrastructure at port 45678 |
+| tree-sitter parsers | ✅ COMPLIANT | Will leverage existing parser infrastructure |
+| thiserror + anyhow errors | ✅ COMPLIANT | Will follow existing error handling patterns |
+| Zero clippy warnings | ✅ COMPLIANT | CI gates already enforce this |
+
+### Local-First Architecture Justification
+
+**Ollama Dependency**: Ollama runs as a local service and is required for knowledge graph feature (FR-001). This is acceptable because:
+1. Feature is explicitly optional (can index without knowledge graph)
+2. Ollama runs locally, no cloud API calls
+3. Aligns with constitution's "except optional Ollama for knowledge graph features"
+4. Users maintain full control over their code and data
+
+**Graph Database Selection**: Must choose a database that:
+1. Runs locally without external services
+2. Supports offline operation after initial setup
+3. Provides Rust client library
+4. Handles 100k nodes / 500k edges efficiently
+
+### Development Workflow Compliance
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Error handling via thiserror | ✅ COMPLIANT | Will create GraphError enum with user-friendly messages |
+| Early validation | ✅ COMPLIANT | Validate queries, entity names, graph operations |
+| Test naming conventions | ✅ COMPLIANT | test_graph_*, test_llm_*, test_query_* |
+| Database test helpers | ✅ COMPLIANT | Will extend setup_test_db() for graph operations |
+| Unit + integration tests | ✅ COMPLIANT | Unit tests per component, integration for E2E flows |
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
+specs/003-knowledge-graph/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
 ├── quickstart.md        # Phase 1 output (/speckit.plan command)
 ├── contracts/           # Phase 1 output (/speckit.plan command)
+│   ├── graph-schema.md  # Graph node types, relationships, properties
+│   └── llm-interface.md # Ollama integration contract
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── graph/               # NEW: Knowledge graph module
+│   ├── mod.rs          # Module exports
+│   ├── client.rs       # Graph database client abstraction
+│   ├── model.rs        # Node and edge types
+│   ├── builder.rs      # Graph construction from parsed code
+│   ├── query.rs        # Query interface and NL parsing
+│   └── schema.rs       # Graph schema definitions
+├── llm/                # NEW: LLM integration module
+│   ├── mod.rs          # Module exports
+│   ├── client.rs       # Ollama client wrapper
+│   ├── prompts.rs      # Prompt templates for summaries
+│   └── summarizer.rs   # Summary generation logic
+├── orchestrator.rs     # MODIFY: Integrate graph + LLM into indexing
+├── indexer.rs          # MODIFY: Hook graph building into indexing pipeline
+├── parser.rs           # USE: Leverage existing tree-sitter parsing
+├── database.rs         # USE: Existing PostgreSQL operations
+└── main.rs             # MODIFY: Add graph query commands
 
 tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+├── test_graph_builder.rs      # NEW: Graph construction tests
+├── test_llm_integration.rs    # NEW: Ollama integration tests
+├── test_graph_queries.rs      # NEW: Query processing tests
+├── integration_tests.rs       # MODIFY: Add E2E graph workflows
+└── fixtures/                  # NEW: Sample code for testing
+    └── sample_repo/           # Small test repository
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Single project structure (Option 1) as cudgel is a CLI tool. New modules for graph and LLM functionality integrate with existing indexer/orchestrator. Existing parser and database infrastructure will be leveraged.
 
 ## Complexity Tracking
 
@@ -100,5 +137,7 @@ directories captured above]
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| Ollama external service | LLM summaries require inference capability beyond basic indexing | Local LLM inference in Rust would require massive model files (GBs) and complex inference code. Ollama provides standardized local LLM access with <100MB client overhead. |
+| Graph database addition | Queryable relationship traversal requires graph semantics not available in PostgreSQL | PostgreSQL recursive CTEs are significantly slower for multi-hop relationship queries and don't provide graph-specific query languages. Graph databases optimize for traversal patterns. |
+
+**Justification**: Both additions are explicitly called out in the constitution as acceptable: "except optional Ollama for knowledge graph features". Feature is opt-in and maintains local-first architecture.

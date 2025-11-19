@@ -9,7 +9,6 @@ tasks:
     cmds:
       - task --list
 
-  # Development
   build:
     desc: Build the project (release mode)
     cmds:
@@ -35,7 +34,6 @@ tasks:
     cmds:
       - cargo check
 
-  # Installation
   install:
     desc: Install cudgel globally
     cmds:
