@@ -276,6 +276,7 @@ fn test_config_validation_invalid_port() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -302,6 +303,7 @@ fn test_config_validation_empty_host() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -328,6 +330,7 @@ fn test_config_validation_invalid_dimension() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 0, // Invalid - must be positive
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 100,
@@ -354,6 +357,7 @@ fn test_config_validation_invalid_batch_size() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 0, // Invalid - must be positive
@@ -375,6 +379,7 @@ fn test_config_validation_invalid_batch_size() {
         embedding: EmbeddingConfig {
             model_path: PathBuf::from("./models"),
             dimension: 384,
+            strategy: "onnx".to_string(),
         },
         indexing: IndexingConfig {
             batch_size: 20000, // Too large

@@ -1112,6 +1112,7 @@ mod tests {
             embedding: EmbeddingConfig {
                 model_path: std::path::PathBuf::from("/tmp/models"),
                 dimension: 384,
+                strategy: "onnx".to_string(),
             },
             indexing: IndexingConfig {
                 batch_size: 100,
@@ -1139,6 +1140,7 @@ mod tests {
             embedding: EmbeddingConfig {
                 model_path: std::path::PathBuf::from("/tmp/models"),
                 dimension: 384,
+                strategy: "onnx".to_string(),
             },
             indexing: IndexingConfig {
                 batch_size: 100,

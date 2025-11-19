@@ -21,12 +21,12 @@
 
 **Purpose**: Initialize project structure and add required dependencies
 
-- [ ] T001 [P] Add dependencies to Cargo.toml (xxhash-rust, rand_chacha, unicode-segmentation, ndarray for projection)
-- [ ] T002 [P] Update src/lib.rs module exports to expose embeddings module publicly
-- [ ] T003 [P] Add InvalidTokenizerStrategy variant to src/error.rs Error enum
+- [X] T001 [P] Add dependencies to Cargo.toml (xxhash-rust, rand_chacha, unicode-segmentation, ndarray for projection)
+- [X] T002 [P] Update src/lib.rs module exports to expose embeddings module publicly
+- [X] T003 [P] Add InvalidTokenizerStrategy variant to src/error.rs Error enum
 
 **Time Estimate**: 15 minutes  
-**Checkpoint**: Dependencies added, project compiles
+**Checkpoint**: Dependencies added, project compiles ✅
 
 ---
 
@@ -40,32 +40,32 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T004 [P] [Foundation] Create tests/test_tokenizer_trait.rs with trait contract tests (384D, determinism, normalization)
-- [ ] T005 [P] [Foundation] Create tests/test_fallback_tokenizer.rs with FallbackTokenizer unit tests (encoding, hashing, projection)
+- [X] T004 [P] [Foundation] Create tests/test_tokenizer_trait.rs with trait contract tests (384D, determinism, normalization)
+- [X] T005 [P] [Foundation] Create tests/test_fallback_tokenizer.rs with FallbackTokenizer unit tests (encoding, hashing, projection)
 
 ### Implementation
 
-- [ ] T006 [Foundation] Create src/embeddings/mod.rs with TokenizerStrategy trait definition
+- [X] T006 [Foundation] Create src/embeddings/mod.rs with TokenizerStrategy trait definition
   - **Trait methods**: initialize, encode, validate, name
   - **Invariants**: 384D output, L2 normalized, deterministic, thread-safe
   - **File**: New file `src/embeddings/mod.rs`
   
-- [ ] T007 [Foundation] Define EmbedderBackend enum in src/embeddings/mod.rs
+- [X] T007 [Foundation] Define EmbedderBackend enum in src/embeddings/mod.rs
   - **Variants**: Onnx(OnnxTokenizer), Fallback(FallbackTokenizer)
   - **Methods**: name() for strategy identification, encode() dispatch
   - **File**: Same as T006
 
-- [ ] T008 [Foundation] Add module exports and re-exports to src/embeddings/mod.rs
+- [X] T008 [Foundation] Add module exports and re-exports to src/embeddings/mod.rs
   - **Exports**: TokenizerStrategy trait, EmbedderBackend enum
   - **Re-exports**: OnnxTokenizer, FallbackTokenizer (for tests)
   - **File**: Same as T006
 
 **Time Estimate**: 45 minutes  
 **Acceptance Criteria**: 
-- Tests compile but fail (trait/struct not implemented yet)
-- Links to FR-005, FR-006 (consistent API, 384D embeddings)
+- Tests compile but fail (trait/struct not implemented yet) ✅
+- Links to FR-005, FR-006 (consistent API, 384D embeddings) ✅
 
-**Checkpoint**: Foundation tests written and failing - user story implementation can now begin
+**Checkpoint**: Foundation tests written and failing - user story implementation can now begin ✅
 
 ---
 
@@ -79,66 +79,66 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Create src/embeddings/fallback.rs with FallbackTokenizer struct skeleton
+- [X] T009 [US1] Create src/embeddings/fallback.rs with FallbackTokenizer struct skeleton
   - **Struct fields**: projection_matrix (Array2<f32>), hash_dimension (usize)
   - **File**: New file `src/embeddings/fallback.rs`
   - **Dependencies**: Uses ndarray, rand_chacha, xxhash_rust
   - **Time**: 30 minutes
 
-- [ ] T010 [US1] Implement TokenizerStrategy::initialize() for FallbackTokenizer
+- [X] T010 [US1] Implement TokenizerStrategy::initialize() for FallbackTokenizer
   - **Logic**: Generate 384×8192 random projection matrix with ChaCha8Rng (seed=42)
   - **Validation**: Matrix shape check, scaling factor (1/sqrt(8192))
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009
   - **Time**: 20 minutes
 
-- [ ] T011 [US1] Implement tokenize_code() helper method for FallbackTokenizer
+- [X] T011 [US1] Implement tokenize_code() helper method for FallbackTokenizer
   - **Logic**: Split on whitespace, handle camelCase/snake_case, lowercase
   - **Uses**: unicode-segmentation for proper splitting
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009
   - **Time**: 25 minutes
 
-- [ ] T012 [US1] Implement create_feature_vector() helper method for FallbackTokenizer
+- [X] T012 [US1] Implement create_feature_vector() helper method for FallbackTokenizer
   - **Logic**: Hash tokens with xxh3_64, create 8192D sparse vector, signed hash values
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009, T011
   - **Time**: 20 minutes
 
-- [ ] T013 [US1] Implement project_to_embedding() helper method for FallbackTokenizer
+- [X] T013 [US1] Implement project_to_embedding() helper method for FallbackTokenizer
   - **Logic**: Matrix multiplication (projection_matrix × sparse_vector)
   - **Output**: 384D dense vector
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009, T010
   - **Time**: 15 minutes
 
-- [ ] T014 [US1] Implement normalize() helper method for FallbackTokenizer
+- [X] T014 [US1] Implement normalize() helper method for FallbackTokenizer
   - **Logic**: L2 normalization (divide by Euclidean norm)
   - **Invariant**: Output norm ≈ 1.0
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009
   - **Time**: 10 minutes
 
-- [ ] T015 [US1] Implement TokenizerStrategy::encode() for FallbackTokenizer
+- [X] T015 [US1] Implement TokenizerStrategy::encode() for FallbackTokenizer
   - **Logic**: Pipeline - tokenize → hash → project → normalize
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T011, T012, T013, T014
   - **Time**: 15 minutes
 
-- [ ] T016 [US1] Implement TokenizerStrategy::validate() and name() for FallbackTokenizer
+- [X] T016 [US1] Implement TokenizerStrategy::validate() and name() for FallbackTokenizer
   - **validate()**: Check projection matrix shape (384, 8192)
   - **name()**: Return "fallback"
   - **File**: `src/embeddings/fallback.rs`
   - **Depends on**: T009
   - **Time**: 10 minutes
 
-- [ ] T017 [US1] Run tests from Phase 2 - verify they now PASS
+- [X] T017 [US1] Run tests from Phase 2 - verify they now PASS
   - **Command**: `cargo test test_fallback`
   - **Expected**: GREEN (all trait contract tests pass)
   - **Time**: 5 minutes
 
 **Time Estimate**: 2.5 hours  
-**Checkpoint**: Fallback tokenizer fully functional and tested independently
+**Checkpoint**: Fallback tokenizer fully functional and tested independently ✅
 
 ---
 

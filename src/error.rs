@@ -99,6 +99,9 @@ pub enum Error {
     #[error("Signal handling error: {0}")]
     SignalHandler(String),
 
+    #[error("Invalid tokenization strategy '{0}'. Valid options: 'onnx', 'fallback'\n\nSet via environment variable:\n  export CUDGEL_TOKENIZER_STRATEGY=fallback\n\nStrategy details:\n  • 'onnx' (default): Best quality, requires model download (cudgel deps)\n  • 'fallback': Offline mode, no downloads required, reduced quality")]
+    InvalidTokenizerStrategy(String),
+
     #[error("{0}")]
     Other(String),
 }
