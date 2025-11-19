@@ -129,6 +129,25 @@ enum Commands {
     /// Manage the orchestrator daemon for scheduled indexing
     #[command(subcommand)]
     Orchestrator(OrchestratorCommand),
+
+    /// Manage dependencies (model, database, schema)
+    Deps {
+        /// Check dependency status without installing
+        #[arg(long)]
+        check: bool,
+
+        /// Clean downloaded models and temporary files
+        #[arg(long, conflicts_with = "check")]
+        clean_models: bool,
+
+        /// Clean all data including database (WARNING: deletes all data)
+        #[arg(long, conflicts_with_all = ["check", "clean_models"])]
+        clean_all: bool,
+
+        /// Show verbose diagnostic information
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -244,6 +263,12 @@ async fn main() -> cudgel::Result<()> {
         } => cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await,
         Commands::InitDb { reset } => cmd_init_db(config, reset).await,
         Commands::Orchestrator(cmd) => cmd_orchestrator(config, cmd).await,
+        Commands::Deps {
+            check,
+            clean_models,
+            clean_all,
+            verbose,
+        } => cmd_deps(check, clean_models, clean_all, verbose).await,
     };
 
     // Convert errors to user-friendly messages
@@ -930,6 +955,80 @@ async fn cmd_orchestrator(config: Arc<Config>, cmd: OrchestratorCommand) -> cudg
             let config_owned = Arc::try_unwrap(config).unwrap_or_else(|arc| (*arc).clone());
             orchestrator::run_polling_loop(config_owned).await?;
         }
+    }
+
+    Ok(())
+}
+
+async fn cmd_deps(check: bool, clean_models: bool, clean_all: bool, verbose: bool) -> cudgel::Result<()> {
+    use cudgel::deps;
+
+    if clean_all {
+        println!(
+            "{}",
+            "⚠️  WARNING: Cleaning all data - ALL DATA WILL BE DELETED!"
+                .bright_red()
+                .bold()
+        );
+        println!("\nThis will:");
+        println!("  • Stop the PostgreSQL database");
+        println!("  • Delete all downloaded models");
+        println!("  • Delete the PostgreSQL data directory");
+        println!("  • Remove all indexed code and embeddings");
+        println!("\nThis action cannot be undone!");
+
+        if !confirm("\nAre you sure you want to clean all data?") {
+            println!("{}", "Clean cancelled.".yellow());
+            return Ok(());
+        }
+
+        println!();
+        deps::clean_all().await?;
+        return Ok(());
+    }
+
+    if clean_models {
+        println!("{}", "Cleaning downloaded models...".bright_blue().bold());
+        deps::clean_models().await?;
+        return Ok(());
+    }
+
+    if check {
+        // Validation-only mode
+        println!("{}", "Checking dependencies...".bright_blue().bold());
+        let dependencies = deps::validate_only().await?;
+
+        let checker = deps::checker::DependencyChecker::default();
+        println!("{}", checker.format_validation_table(&dependencies));
+
+        if verbose {
+            let diagnostics = checker.collect_diagnostics()?;
+            println!("{}", diagnostics);
+        }
+
+        let all_satisfied = dependencies.iter().all(|d| d.is_satisfied());
+        if !all_satisfied {
+            println!(
+                "\n{}",
+                "Some dependencies are not satisfied. Run: cudgel deps"
+                    .bright_yellow()
+                    .bold()
+            );
+            std::process::exit(1);
+        } else {
+            println!("\n{}", "All dependencies satisfied!".bright_green().bold());
+        }
+
+        return Ok(());
+    }
+
+    // Install mode (default)
+    deps::install_all().await?;
+
+    if verbose {
+        let checker = deps::checker::DependencyChecker::default();
+        let diagnostics = checker.collect_diagnostics()?;
+        println!("{}", diagnostics);
     }
 
     Ok(())
