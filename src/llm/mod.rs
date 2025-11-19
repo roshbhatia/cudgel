@@ -6,7 +6,10 @@
 
 pub mod client;
 
-pub use client::LlmClient;
+pub use client::{
+    ComponentContext, EntityContext, LlmClient, RepositoryContext, ServiceHealth, SummaryRequest,
+    SummaryResult,
+};
 
 use thiserror::Error;
 
