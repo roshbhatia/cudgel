@@ -421,6 +421,7 @@ dependencies = [
  "comfy-table",
  "deadpool-postgres",
  "dotenv",
+ "futures",
  "git2",
  "glob",
  "hex",

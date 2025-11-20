@@ -15,7 +15,7 @@ pub use client::{
 use thiserror::Error;
 
 /// Errors that can occur during LLM operations
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum LlmError {
     #[error("Connection error: {0}")]
     Connection(String),

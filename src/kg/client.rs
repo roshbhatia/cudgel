@@ -366,22 +366,25 @@ impl KgClient for PostgresKgClient {
 
     /// T047: Create a new code entity node
     async fn create_entity(&self, entity: CodeEntity) -> Result<RecordId> {
-        let client = self.db.get_client().await.map_err(|e| {
-            KgError::Database(format!("Failed to get database client: {}", e))
-        })?;
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
 
         let entity_type_str = format!("{:?}", entity.entity_type).to_lowercase();
         let visibility_str = format!("{:?}", entity.visibility).to_lowercase();
+        let metadata_json = serde_json::to_value(&entity.metadata)
+            .map_err(|e| KgError::Database(format!("Failed to serialize metadata: {}", e)))?;
 
         let row = client
             .query_one(
                 "INSERT INTO kg_entities (
                     kg_component_id, name, entity_type, file_path, 
-                    line_start, line_end, visibility, signature, doc_comment, 
-                    language, summary
-                 ) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                 RETURNING id",
+                    line_start, line_end, visibility, signature, 
+                    doc_comment, language, summary, metadata
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                RETURNING id",
                 &[
                     &entity.component_id,
                     &entity.name,
@@ -394,6 +397,7 @@ impl KgClient for PostgresKgClient {
                     &entity.metadata.doc_comment,
                     &entity.metadata.language,
                     &entity.summary,
+                    &metadata_json,
                 ],
             )
             .await
@@ -404,30 +408,37 @@ impl KgClient for PostgresKgClient {
 
     /// T048: Batch create multiple entities with transaction batching
     async fn create_entities_batch(&self, entities: Vec<CodeEntity>) -> Result<Vec<RecordId>> {
-        let mut client = self.db.get_client().await.map_err(|e| {
-            KgError::Database(format!("Failed to get database client: {}", e))
-        })?;
+        if entities.is_empty() {
+            return Ok(vec![]);
+        }
 
-        // Use a transaction for batch insert
-        let transaction = client.transaction().await.map_err(|e| {
-            KgError::Database(format!("Failed to start transaction: {}", e))
-        })?;
+        let mut client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let transaction = client
+            .transaction()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to start transaction: {}", e)))?;
 
         let mut ids = Vec::with_capacity(entities.len());
 
         for entity in entities {
             let entity_type_str = format!("{:?}", entity.entity_type).to_lowercase();
             let visibility_str = format!("{:?}", entity.visibility).to_lowercase();
+            let metadata_json = serde_json::to_value(&entity.metadata)
+                .map_err(|e| KgError::Database(format!("Failed to serialize metadata: {}", e)))?;
 
             let row = transaction
                 .query_one(
                     "INSERT INTO kg_entities (
                         kg_component_id, name, entity_type, file_path, 
-                        line_start, line_end, visibility, signature, doc_comment, 
-                        language, summary
-                     ) 
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                     RETURNING id",
+                        line_start, line_end, visibility, signature, 
+                        doc_comment, language, summary, metadata
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    RETURNING id",
                     &[
                         &entity.component_id,
                         &entity.name,
@@ -440,60 +451,388 @@ impl KgClient for PostgresKgClient {
                         &entity.metadata.doc_comment,
                         &entity.metadata.language,
                         &entity.summary,
+                        &metadata_json,
                     ],
                 )
                 .await
-                .map_err(|e| KgError::Database(format!("Failed to insert entity: {}", e)))?;
+                .map_err(|e| KgError::Database(format!("Failed to create entity in batch: {}", e)))?;
 
             ids.push(row.get(0));
         }
 
-        transaction.commit().await.map_err(|e| {
-            KgError::Database(format!("Failed to commit transaction: {}", e))
-        })?;
+        transaction
+            .commit()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to commit batch transaction: {}", e)))?;
 
         Ok(ids)
     }
 
-    async fn get_entity(&self, _entity_id: &RecordId) -> Result<Option<CodeEntity>> {
-        todo!("T044: Implement get_entity")
+    async fn get_entity(&self, entity_id: &RecordId) -> Result<Option<CodeEntity>> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let row = client
+            .query_opt(
+                "SELECT id, kg_component_id, name, entity_type, file_path, 
+                       line_start, line_end, visibility, signature, 
+                       doc_comment, language, summary, metadata, created_at, updated_at
+                FROM kg_entities 
+                WHERE id = $1",
+                &[entity_id],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get entity: {}", e)))?;
+
+        Ok(row.map(|r| {
+            let entity_type_str: String = r.get(3);
+            let visibility_str: String = r.get(7);
+            let metadata_json: serde_json::Value = r.get(12);
+
+            let entity_type = match entity_type_str.as_str() {
+                "function" => super::EntityType::Function,
+                "class" => super::EntityType::Class,
+                "struct" => super::EntityType::Struct,
+                "enum" => super::EntityType::Enum,
+                "interface" => super::EntityType::Interface,
+                "trait" => super::EntityType::Trait,
+                "method" => super::EntityType::Method,
+                "constant" => super::EntityType::Constant,
+                "variable" => super::EntityType::Variable,
+                _ => super::EntityType::Function, // Default fallback
+            };
+
+            let visibility = match visibility_str.as_str() {
+                "public" => super::Visibility::Public,
+                "private" => super::Visibility::Private,
+                "protected" => super::Visibility::Protected,
+                "internal" => super::Visibility::Internal,
+                _ => super::Visibility::Private, // Default fallback
+            };
+
+            let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
+                .unwrap_or_default();
+
+            CodeEntity {
+                id: r.get(0),
+                component_id: r.get(1),
+                name: r.get(2),
+                entity_type,
+                file_path: r.get(4),
+                line_start: r.get::<_, i32>(5) as u32,
+                line_end: r.get::<_, i32>(6) as u32,
+                visibility,
+                metadata,
+                summary: r.get(11),
+                created_at: r.get(13),
+                updated_at: r.get(14),
+            }
+        }))
     }
 
     async fn find_entities_by_name(
         &self,
-        _repo_id: &RecordId,
-        _name: &str,
+        repo_id: &RecordId,
+        name: &str,
     ) -> Result<Vec<CodeEntity>> {
-        todo!("T044: Implement find_entities_by_name")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let rows = client
+            .query(
+                "SELECT e.id, e.kg_component_id, e.name, e.entity_type, e.file_path, 
+                       e.line_start, e.line_end, e.visibility, e.signature, 
+                       e.doc_comment, e.language, e.summary, e.metadata, e.created_at, e.updated_at
+                FROM kg_entities e
+                JOIN kg_components c ON e.kg_component_id = c.id
+                JOIN kg_repositories r ON c.kg_repository_id = r.id
+                WHERE r.repository_id = $1 AND e.name = $2
+                ORDER BY e.name",
+                &[repo_id, &name],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to find entities by name: {}", e)))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let entity_type_str: String = r.get(3);
+                let visibility_str: String = r.get(7);
+                let metadata_json: serde_json::Value = r.get(12);
+
+                let entity_type = match entity_type_str.as_str() {
+                    "function" => super::EntityType::Function,
+                    "class" => super::EntityType::Class,
+                    "struct" => super::EntityType::Struct,
+                    "enum" => super::EntityType::Enum,
+                    "interface" => super::EntityType::Interface,
+                    "trait" => super::EntityType::Trait,
+                    "method" => super::EntityType::Method,
+                    "constant" => super::EntityType::Constant,
+                    "variable" => super::EntityType::Variable,
+                    _ => super::EntityType::Function,
+                };
+
+                let visibility = match visibility_str.as_str() {
+                    "public" => super::Visibility::Public,
+                    "private" => super::Visibility::Private,
+                    "protected" => super::Visibility::Protected,
+                    "internal" => super::Visibility::Internal,
+                    _ => super::Visibility::Private,
+                };
+
+                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
+                    .unwrap_or_default();
+
+                CodeEntity {
+                    id: r.get(0),
+                    component_id: r.get(1),
+                    name: r.get(2),
+                    entity_type,
+                    file_path: r.get(4),
+                    line_start: r.get::<_, i32>(5) as u32,
+                    line_end: r.get::<_, i32>(6) as u32,
+                    visibility,
+                    metadata,
+                    summary: r.get(11),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
+                }
+            })
+            .collect())
     }
 
     async fn search_entities_by_name(
         &self,
-        _repo_id: &RecordId,
-        _pattern: &str,
-        _threshold: f64,
+        repo_id: &RecordId,
+        pattern: &str,
+        threshold: f64,
     ) -> Result<Vec<EntityMatch>> {
-        todo!("T050: Implement search_entities_by_name")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        // Use PostgreSQL's similarity search with pattern matching
+        let rows = client
+            .query(
+                "SELECT e.id, e.kg_component_id, e.name, e.entity_type, e.file_path, 
+                       e.line_start, e.line_end, e.visibility, e.signature, 
+                       e.doc_comment, e.language, e.summary, e.metadata, e.created_at, e.updated_at,
+                       CASE 
+                           WHEN e.name ILIKE $1 THEN 1.0
+                           WHEN e.name ILIKE CONCAT('%', $1, '%') THEN 0.8
+                           ELSE 0.5
+                       END as confidence
+                FROM kg_entities e
+                JOIN kg_components c ON e.kg_component_id = c.id
+                JOIN kg_repositories r ON c.kg_repository_id = r.id
+                WHERE r.repository_id = $2 
+                  AND (e.name ILIKE CONCAT('%', $1, '%') OR e.name % $1)
+                  AND CASE 
+                      WHEN e.name ILIKE $1 THEN 1.0
+                      WHEN e.name ILIKE CONCAT('%', $1, '%') THEN 0.8
+                      ELSE 0.5
+                  END >= $3
+                ORDER BY confidence DESC, e.name
+                LIMIT 50",
+                &[&pattern, repo_id, &threshold],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to search entities: {}", e)))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let entity_type_str: String = r.get(3);
+                let visibility_str: String = r.get(7);
+                let metadata_json: serde_json::Value = r.get(12);
+                let confidence: f64 = r.get(14);
+
+                let entity_type = match entity_type_str.as_str() {
+                    "function" => super::EntityType::Function,
+                    "class" => super::EntityType::Class,
+                    "struct" => super::EntityType::Struct,
+                    "enum" => super::EntityType::Enum,
+                    "interface" => super::EntityType::Interface,
+                    "trait" => super::EntityType::Trait,
+                    "method" => super::EntityType::Method,
+                    "constant" => super::EntityType::Constant,
+                    "variable" => super::EntityType::Variable,
+                    _ => super::EntityType::Function,
+                };
+
+                let visibility = match visibility_str.as_str() {
+                    "public" => super::Visibility::Public,
+                    "private" => super::Visibility::Private,
+                    "protected" => super::Visibility::Protected,
+                    "internal" => super::Visibility::Internal,
+                    _ => super::Visibility::Private,
+                };
+
+                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
+                    .unwrap_or_default();
+
+                let entity = CodeEntity {
+                    id: r.get(0),
+                    component_id: r.get(1),
+                    name: r.get(2),
+                    entity_type,
+                    file_path: r.get(4),
+                    line_start: r.get::<_, i32>(5) as u32,
+                    line_end: r.get::<_, i32>(6) as u32,
+                    visibility,
+                    metadata,
+                    summary: r.get(11),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
+                };
+
+                super::EntityMatch { entity, confidence }
+            })
+            .collect())
     }
 
     async fn get_entities_by_file(
         &self,
-        _repo_id: &RecordId,
-        _file_path: &str,
+        repo_id: &RecordId,
+        file_path: &str,
     ) -> Result<Vec<CodeEntity>> {
-        todo!("T044: Implement get_entities_by_file")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let rows = client
+            .query(
+                "SELECT e.id, e.kg_component_id, e.name, e.entity_type, e.file_path, 
+                       e.line_start, e.line_end, e.visibility, e.signature, 
+                       e.doc_comment, e.language, e.summary, e.metadata, e.created_at, e.updated_at
+                FROM kg_entities e
+                JOIN kg_components c ON e.kg_component_id = c.id
+                JOIN kg_repositories r ON c.kg_repository_id = r.id
+                WHERE r.repository_id = $1 AND e.file_path = $2
+                ORDER BY e.line_start",
+                &[repo_id, &file_path],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get entities by file: {}", e)))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let entity_type_str: String = r.get(3);
+                let visibility_str: String = r.get(7);
+                let metadata_json: serde_json::Value = r.get(12);
+
+                let entity_type = match entity_type_str.as_str() {
+                    "function" => super::EntityType::Function,
+                    "class" => super::EntityType::Class,
+                    "struct" => super::EntityType::Struct,
+                    "enum" => super::EntityType::Enum,
+                    "interface" => super::EntityType::Interface,
+                    "trait" => super::EntityType::Trait,
+                    "method" => super::EntityType::Method,
+                    "constant" => super::EntityType::Constant,
+                    "variable" => super::EntityType::Variable,
+                    _ => super::EntityType::Function,
+                };
+
+                let visibility = match visibility_str.as_str() {
+                    "public" => super::Visibility::Public,
+                    "private" => super::Visibility::Private,
+                    "protected" => super::Visibility::Protected,
+                    "internal" => super::Visibility::Internal,
+                    _ => super::Visibility::Private,
+                };
+
+                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
+                    .unwrap_or_default();
+
+                CodeEntity {
+                    id: r.get(0),
+                    component_id: r.get(1),
+                    name: r.get(2),
+                    entity_type,
+                    file_path: r.get(4),
+                    line_start: r.get::<_, i32>(5) as u32,
+                    line_end: r.get::<_, i32>(6) as u32,
+                    visibility,
+                    metadata,
+                    summary: r.get(11),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
+                }
+            })
+            .collect())
     }
 
-    async fn get_all_entity_names(&self, _repo_id: &RecordId) -> Result<Vec<String>> {
-        todo!("T050: Implement get_all_entity_names")
+    async fn get_all_entity_names(&self, repo_id: &RecordId) -> Result<Vec<String>> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let rows = client
+            .query(
+                "SELECT DISTINCT e.name
+                FROM kg_entities e
+                JOIN kg_components c ON e.kg_component_id = c.id
+                JOIN kg_repositories r ON c.kg_repository_id = r.id
+                WHERE r.repository_id = $1
+                ORDER BY e.name",
+                &[repo_id],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get entity names: {}", e)))?;
+
+        Ok(rows.into_iter().map(|r| r.get(0)).collect())
     }
 
-    async fn update_entity_summary(&self, _entity_id: &RecordId, _summary: String) -> Result<()> {
-        todo!("T068: Implement update_entity_summary")
+    async fn update_entity_summary(&self, entity_id: &RecordId, summary: String) -> Result<()> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        client
+            .execute(
+                "UPDATE kg_entities SET summary = $1, updated_at = NOW() WHERE id = $2",
+                &[&summary, entity_id],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to update entity summary: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn delete_entity_cascade(&self, _entity_id: &RecordId) -> Result<()> {
-        todo!("T163: Implement delete_entity_cascade")
+    async fn delete_entity_cascade(&self, entity_id: &RecordId) -> Result<()> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        // The foreign key constraints with ON DELETE CASCADE will handle cleanup
+        client
+            .execute(
+                "DELETE FROM kg_entities WHERE id = $1",
+                &[entity_id],
+            )
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to delete entity: {}", e)))?;
+
+        Ok(())
     }
 
     // === Relationship Operations ===
