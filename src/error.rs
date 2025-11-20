@@ -104,6 +104,9 @@ pub enum Error {
 
     #[error("{0}")]
     Other(String),
+
+    #[error("Knowledge graph error: {0}")]
+    Kg(#[from] crate::kg::KgError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

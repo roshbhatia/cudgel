@@ -5,10 +5,12 @@
 //! of code entities, their relationships, and summaries.
 
 pub mod client;
+pub mod entity_extractor;
 pub mod model;
 pub mod schema;
 
 pub use client::{KgClient, PostgresKgClient, RecordId};
+pub use entity_extractor::EntityExtractor;
 pub use model::{
     CodeEntity, Component, ComponentType, DependencyType, EntityMatch, EntityMetadata,
     EntityRelationships, EntityType, RelatedEntity, Repository, RepositoryStats, Visibility,

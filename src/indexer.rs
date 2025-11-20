@@ -25,6 +25,7 @@
 use crate::{
     database::Database,
     embeddings::EmbedderBackend,
+    kg::{EntityExtractor, KgClient, PostgresKgClient},
     parser::{CodeParser, Symbol},
     Config, Result,
 };
@@ -261,6 +262,8 @@ pub struct Indexer {
     db: Arc<Database>,
     parser: CodeParser,
     embedder: Arc<EmbedderBackend>,
+    kg_client: Option<PostgresKgClient>,
+    entity_extractor: Option<EntityExtractor>,
 }
 
 impl Indexer {
@@ -282,6 +285,40 @@ impl Indexer {
             db,
             parser: CodeParser::new(),
             embedder,
+            kg_client: None,
+            entity_extractor: None,
+        })
+    }
+
+    /// Create a new indexer instance with knowledge graph support.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Application configuration
+    /// * `db` - Database connection pool
+    /// * `enable_kg` - Whether to enable knowledge graph functionality
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if embedding generator or KG client cannot be initialized.
+    pub fn new_with_kg(config: Arc<Config>, db: Arc<Database>, enable_kg: bool) -> Result<Self> {
+        let embedder = Arc::new(EmbedderBackend::from_config(&config)?);
+
+        let (kg_client, entity_extractor) = if enable_kg {
+            let kg_client = PostgresKgClient::new(db.clone());
+            let entity_extractor = EntityExtractor::new(0); // Will be set when repository is created
+            (Some(kg_client), Some(entity_extractor))
+        } else {
+            (None, None)
+        };
+
+        Ok(Indexer {
+            config,
+            db,
+            parser: CodeParser::new(),
+            embedder,
+            kg_client,
+            entity_extractor,
         })
     }
 
@@ -723,6 +760,16 @@ impl Indexer {
 
             let symbols = self.parser.extract_symbols(&ast, lang);
             stats.total_symbols += symbols.len();
+
+            // Extract KG entities if KG client is available
+            if let (Some(kg_client), Some(ref mut entity_extractor)) = (&self.kg_client, &mut self.entity_extractor) {
+                let entities = entity_extractor.symbols_to_entities(symbols.clone(), &path_str, lang, kg_client).await?;
+                for entity in entities {
+                    if let Err(e) = kg_client.create_entity(entity).await {
+                        eprintln!("Warning: Failed to create KG entity: {}", e);
+                    }
+                }
+            }
 
             for symbol in symbols {
                 *stats
