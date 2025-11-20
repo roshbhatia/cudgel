@@ -97,52 +97,52 @@
 - [x] T036 [P] [US1] Unit test: test_generate_component_summary (mock) in tests/test_llm_integration.rs
 - [x] T037 [P] [US1] Unit test: test_llm_health_check in tests/test_llm_integration.rs
 - [x] T038 [P] [US1] Unit test: test_llm_graceful_degradation in tests/test_llm_integration.rs
-- [ ] T039 [US1] Integration test: test_graph_builder_extract_entities in tests/test_graph_builder.rs
-- [ ] T040 [US1] Integration test: test_full_indexing_with_summaries in tests/integration_tests.rs
+- [x] T039 [US1] Integration test: test_graph_builder_extract_entities in tests/test_graph_builder.rs
+- [x] T040 [US1] Integration test: test_full_indexing_with_summaries in tests/integration_tests.rs
 
 ### Implementation for User Story 1
 
 **Graph Client Operations**:
-- [ ] T041 [P] [US1] Implement create_repository() in src/graph/client.rs
-- [ ] T042 [P] [US1] Implement get_repository_by_path() in src/graph/client.rs
-- [ ] T043 [P] [US1] Implement update_repository_summary() in src/graph/client.rs
-- [ ] T044 [P] [US1] Implement create_component() in src/graph/client.rs
-- [ ] T045 [P] [US1] Implement get_components() in src/graph/client.rs
-- [ ] T046 [P] [US1] Implement update_component_summary() in src/graph/client.rs
-- [ ] T047 [P] [US1] Implement create_entity() in src/graph/client.rs
-- [ ] T048 [P] [US1] Implement create_entities_batch() with transaction batching in src/graph/client.rs
-- [ ] T049 [P] [US1] Implement get_entity() in src/graph/client.rs
-- [ ] T050 [P] [US1] Implement get_repository_stats() in src/graph/client.rs
+- [x] T041 [P] [US1] Implement create_repository() in src/graph/client.rs
+- [x] T042 [P] [US1] Implement get_repository_by_path() in src/graph/client.rs
+- [x] T043 [P] [US1] Implement update_repository_summary() in src/graph/client.rs
+- [x] T044 [P] [US1] Implement create_component() in src/graph/client.rs
+- [x] T045 [P] [US1] Implement get_components() in src/graph/client.rs
+- [x] T046 [P] [US1] Implement update_component_summary() in src/graph/client.rs
+- [x] T047 [P] [US1] Implement create_entity() in src/graph/client.rs
+- [x] T048 [P] [US1] Implement create_entities_batch() with transaction batching in src/graph/client.rs
+- [x] T049 [P] [US1] Implement get_entity() in src/graph/client.rs
+- [x] T050 [P] [US1] Implement get_repository_stats() in src/graph/client.rs
 
 **Entity Extraction**:
-- [ ] T051 [US1] Create GraphBuilder struct in src/graph/builder.rs
-- [ ] T052 [US1] Implement extract_entities_from_file() leveraging existing parser.rs in src/graph/builder.rs
-- [ ] T053 [US1] Implement map_ast_to_code_entity() to convert tree-sitter nodes to CodeEntity in src/graph/builder.rs
-- [ ] T054 [US1] Implement identify_component_from_path() to group entities into components in src/graph/builder.rs
-- [ ] T055 [US1] Implement build_from_index() orchestration method in src/graph/builder.rs
+- [x] T051 [US1] Create GraphBuilder struct in src/graph/builder.rs
+- [x] T052 [US1] Implement extract_entities_from_file() leveraging existing parser.rs in src/graph/builder.rs
+- [x] T053 [US1] Implement map_ast_to_code_entity() to convert tree-sitter nodes to CodeEntity in src/graph/builder.rs
+- [x] T054 [US1] Implement identify_component_from_path() to group entities into components in src/graph/builder.rs
+- [x] T055 [US1] Implement build_from_index() orchestration method in src/graph/builder.rs
 
 **LLM Summary Generation**:
-- [ ] T056 [P] [US1] Implement generate_repository_summary() in src/llm/client.rs
-- [ ] T057 [P] [US1] Implement generate_component_summary() in src/llm/client.rs
-- [ ] T058 [P] [US1] Implement generate_entity_summary() in src/llm/client.rs
-- [ ] T059 [P] [US1] Implement generate_summaries_batch() with rate limiting (semaphore, max 3 concurrent) in src/llm/client.rs
-- [ ] T060 [US1] Implement SummaryOrchestrator in src/llm/summarizer.rs
-- [ ] T061 [US1] Implement generate_summaries_parallel() with error handling and retries in src/llm/summarizer.rs
+- [x] T056 [P] [US1] Implement generate_repository_summary() in src/llm/client.rs
+- [x] T057 [P] [US1] Implement generate_component_summary() in src/llm/client.rs
+- [x] T058 [P] [US1] Implement generate_entity_summary() in src/llm/client.rs
+- [x] T059 [P] [US1] Implement generate_summaries_batch() with rate limiting (semaphore, max 3 concurrent) in src/llm/client.rs
+- [x] T060 [US1] Implement SummaryOrchestrator in src/llm/summarizer.rs
+- [x] T061 [US1] Implement generate_summaries_parallel() with error handling and retries in src/llm/summarizer.rs
 
 **Query Interface - Architecture Queries**:
-- [ ] T062 [US1] Create QueryParser struct in src/graph/query.rs
-- [ ] T063 [US1] Define QueryIntent enum (DescribeArchitecture, ListComponents, DescribeEntity, FindRelationships, AnalyzePattern) in src/graph/query.rs
-- [ ] T064 [US1] Implement parse() with architecture pattern regex in src/graph/query.rs
-- [ ] T065 [US1] Implement execute_architecture_query() to fetch repository summary in src/graph/query.rs
-- [ ] T066 [US1] Implement execute_list_components_query() to fetch all components in src/graph/query.rs
+- [x] T062 [US1] Create QueryParser struct in src/graph/query.rs
+- [x] T063 [US1] Define QueryIntent enum (DescribeArchitecture, ListComponents, DescribeEntity, FindRelationships, AnalyzePattern) in src/graph/query.rs
+- [x] T064 [US1] Implement parse() with architecture pattern regex in src/graph/query.rs
+- [x] T065 [US1] Implement execute_architecture_query() to fetch repository summary in src/graph/query.rs
+- [x] T066 [US1] Implement execute_list_components_query() to fetch all components in src/graph/query.rs
 
 **CLI Integration**:
-- [ ] T067 [US1] Add --enable-graph flag to index command in src/main.rs
-- [ ] T068 [US1] Add query subcommand definition to CLI in src/main.rs
-- [ ] T069 [US1] Integrate GraphBuilder into Orchestrator.run() in src/orchestrator.rs
-- [ ] T070 [US1] Add graph building hook in Indexer after file parsing in src/indexer.rs
-- [ ] T071 [US1] Implement query command handler to execute natural language queries in src/main.rs
-- [ ] T072 [US1] Add progress indicators for summary generation using existing patterns in src/orchestrator.rs
+- [x] T067 [US1] Add --enable-graph flag to index command in src/main.rs
+- [x] T068 [US1] Add query subcommand definition to CLI in src/main.rs
+- [x] T069 [US1] Integrate GraphBuilder into Orchestrator.run() in src/orchestrator.rs
+- [x] T070 [US1] Add graph building hook in Indexer after file parsing in src/indexer.rs
+- [x] T071 [US1] Implement query command handler to execute natural language queries in src/main.rs
+- [x] T072 [US1] Add progress indicators for summary generation using existing patterns in src/orchestrator.rs
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - can index repo, generate summaries, query architecture
 
