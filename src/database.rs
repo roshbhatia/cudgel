@@ -200,6 +200,16 @@ impl Database {
         Ok(health == 1)
     }
 
+    /// Get a database client from the pool
+    ///
+    /// This is a public accessor for the KG module to execute custom queries.
+    pub async fn get_pool_client(&self) -> Result<deadpool_postgres::Object> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| crate::Error::from(e).with_context())
+    }
+
     /// Check if pgvector extension is installed
     pub async fn check_pgvector(&self) -> Result<bool> {
         let client = self.pool.get().await?;

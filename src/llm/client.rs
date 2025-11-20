@@ -145,6 +145,33 @@ impl OllamaClient {
     pub fn default() -> Self {
         Self::new("http://localhost", "llama3.2:3b")
     }
+
+    /// Pull a model from Ollama registry if not already present
+    ///
+    /// # Arguments
+    /// * `model_name` - Model to pull (e.g., "llama3.2:3b", "qwen2.5-coder:3b")
+    ///
+    /// # Returns
+    /// * `Ok(true)` - Model was pulled successfully
+    /// * `Ok(false)` - Model was already present
+    /// * `Err` - Failed to pull model
+    pub async fn pull_model_if_missing(&self, model_name: &str) -> Result<bool> {
+        // Check if model already exists
+        let models = self.list_models().await?;
+        if models.iter().any(|m| m == model_name) {
+            return Ok(false);
+        }
+
+        // Pull the model
+        tracing::info!("Pulling model {}...", model_name);
+        self.client
+            .pull_model(model_name.to_string(), false)
+            .await
+            .map_err(|e| super::LlmError::Connection(format!("Failed to pull model: {}", e)))?;
+
+        tracing::info!("Model {} pulled successfully", model_name);
+        Ok(true)
+    }
 }
 
 #[async_trait]

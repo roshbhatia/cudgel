@@ -39,7 +39,4 @@ models/
 
 # Project-specific (preserve)
 !.specify/
-!.AGENTS.md/
-# SurrealDB data (local development)
-.surreal/
-*.db
+!.AGENTS.md
