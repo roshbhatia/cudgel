@@ -1,9 +1,9 @@
 // src/kg/entity_extractor.rs
 //! Bridge between parser symbols and knowledge graph entities.
 
-use crate::kg::model::{CodeEntity, ComponentType, EntityType, Visibility, EntityMetadata};
 use crate::kg::client::KgClient;
-use crate::parser::{Symbol, ASTNode};
+use crate::kg::model::{CodeEntity, ComponentType, EntityMetadata, EntityType, Visibility};
+use crate::parser::{ASTNode, Symbol};
 use crate::{Error, Result};
 use chrono;
 use std::collections::HashMap;
@@ -49,7 +49,9 @@ impl EntityExtractor {
         let component_id = self.get_or_create_component(file_path, kg_client).await?;
 
         for symbol in symbols {
-            if let Some(entity) = self.symbol_to_entity(symbol, component_id, file_path, language)? {
+            if let Some(entity) =
+                self.symbol_to_entity(symbol, component_id, file_path, language)?
+            {
                 entities.push(entity);
             }
         }
@@ -67,7 +69,7 @@ impl EntityExtractor {
     ) -> Result<Option<CodeEntity>> {
         // Map symbol kind to entity type
         let entity_type = self.map_symbol_kind_to_entity_type(&symbol.kind)?;
-        
+
         // Determine visibility (default to private for now)
         let visibility = self.determine_visibility(&symbol, language);
 
@@ -153,7 +155,7 @@ impl EntityExtractor {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
-        
+
         let component_id = kg_client.create_component(component).await?;
 
         self.component_cache
@@ -164,7 +166,7 @@ impl EntityExtractor {
     /// Extract component path and type from file path
     fn extract_component_info(&self, file_path: &str) -> Result<(String, ComponentType)> {
         let path = Path::new(file_path);
-        
+
         // Remove file extension to get component path
         let component_path = path
             .with_extension("")
@@ -173,9 +175,9 @@ impl EntityExtractor {
             .to_string();
 
         // Determine component type based on directory structure
-        let component_type = if path.parent().map_or(false, |p| {
+        let component_type = if path.parent().is_some_and(|p| {
             p.file_name()
-                .map_or(false, |name| name == "src" || name == "lib")
+                .is_some_and(|name| name == "src" || name == "lib")
         }) {
             ComponentType::Module
         } else if path.components().count() > 2 {
@@ -190,7 +192,7 @@ impl EntityExtractor {
     /// Extract component name from component path
     fn extract_component_name(&self, component_path: &str) -> String {
         let path = Path::new(component_path);
-        
+
         // Use the last directory or file name as component name
         if let Some(name) = path.file_name() {
             name.to_str().unwrap_or("unknown").to_string()
@@ -222,13 +224,14 @@ impl EntityExtractor {
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_map_symbol_kind_to_entity_type() {
         let extractor = EntityExtractor::new(1);
 
         assert_eq!(
-            extractor.map_symbol_kind_to_entity_type("function").unwrap(),
+            extractor
+                .map_symbol_kind_to_entity_type("function")
+                .unwrap(),
             EntityType::Function
         );
         assert_eq!(
@@ -252,9 +255,7 @@ mod tests {
             EntityType::Trait
         );
 
-        assert!(extractor
-            .map_symbol_kind_to_entity_type("unknown")
-            .is_err());
+        assert!(extractor.map_symbol_kind_to_entity_type("unknown").is_err());
     }
 
     #[test]
@@ -282,16 +283,12 @@ mod tests {
         let extractor = EntityExtractor::new(1);
 
         // Test src/ directory (should be Module)
-        let (path, comp_type) = extractor
-            .extract_component_info("src/main.rs")
-            .unwrap();
+        let (path, comp_type) = extractor.extract_component_info("src/main.rs").unwrap();
         assert_eq!(path, "src/main");
         assert_eq!(comp_type, ComponentType::Module);
 
         // Test lib/ directory (should be Module)
-        let (path, comp_type) = extractor
-            .extract_component_info("lib/utils.rs")
-            .unwrap();
+        let (path, comp_type) = extractor.extract_component_info("lib/utils.rs").unwrap();
         assert_eq!(path, "lib/utils");
         assert_eq!(comp_type, ComponentType::Module);
 

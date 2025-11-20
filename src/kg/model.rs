@@ -88,7 +88,6 @@ pub struct EntityMetadata {
 }
 
 /// Relationship types between entities
-
 /// Type of dependency relationship
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -109,14 +108,14 @@ pub struct EntityMatch {
 /// Aggregated relationships for an entity
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EntityRelationships {
-    pub dependencies: Vec<RelatedEntity>,     // Entities this depends on
-    pub dependents: Vec<RelatedEntity>,       // Entities that depend on this
-    pub uses: Vec<RelatedEntity>,             // Entities this uses
-    pub used_by: Vec<RelatedEntity>,          // Entities that use this
-    pub calls: Vec<RelatedEntity>,            // Functions this calls
-    pub called_by: Vec<RelatedEntity>,        // Functions that call this
-    pub implements: Vec<RelatedEntity>,       // Interfaces/traits this implements
-    pub implemented_by: Vec<RelatedEntity>,   // Entities that implement this
+    pub dependencies: Vec<RelatedEntity>, // Entities this depends on
+    pub dependents: Vec<RelatedEntity>,   // Entities that depend on this
+    pub uses: Vec<RelatedEntity>,         // Entities this uses
+    pub used_by: Vec<RelatedEntity>,      // Entities that use this
+    pub calls: Vec<RelatedEntity>,        // Functions this calls
+    pub called_by: Vec<RelatedEntity>,    // Functions that call this
+    pub implements: Vec<RelatedEntity>,   // Interfaces/traits this implements
+    pub implemented_by: Vec<RelatedEntity>, // Entities that implement this
 }
 
 /// A related entity with relationship metadata

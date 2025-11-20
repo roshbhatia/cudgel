@@ -762,8 +762,12 @@ impl Indexer {
             stats.total_symbols += symbols.len();
 
             // Extract KG entities if KG client is available
-            if let (Some(kg_client), Some(ref mut entity_extractor)) = (&self.kg_client, &mut self.entity_extractor) {
-                let entities = entity_extractor.symbols_to_entities(symbols.clone(), &path_str, lang, kg_client).await?;
+            if let (Some(kg_client), Some(ref mut entity_extractor)) =
+                (&self.kg_client, &mut self.entity_extractor)
+            {
+                let entities = entity_extractor
+                    .symbols_to_entities(symbols.clone(), &path_str, lang, kg_client)
+                    .await?;
                 for entity in entities {
                     if let Err(e) = kg_client.create_entity(entity).await {
                         eprintln!("Warning: Failed to create KG entity: {}", e);

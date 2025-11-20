@@ -4,7 +4,8 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use cudgel::{
-    config::Config, database::Database, graph::GraphQuery, indexer::Indexer, kg::KgClient, query::QueryEngine,
+    config::Config, database::Database, graph::GraphQuery, indexer::Indexer, kg::KgClient,
+    query::QueryEngine,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -269,7 +270,16 @@ async fn main() -> cudgel::Result<()> {
             knowledge_graph,
         } => {
             cmd_index(
-                config, paths, name, include, exclude, languages, dry_run, schedule, unschedule, knowledge_graph,
+                config,
+                paths,
+                name,
+                include,
+                exclude,
+                languages,
+                dry_run,
+                schedule,
+                unschedule,
+                knowledge_graph,
             )
             .await
         }
@@ -289,9 +299,13 @@ async fn main() -> cudgel::Result<()> {
             direction,
             json,
         } => cmd_graph(config, symbol, repo, depth, graph_type, direction, json).await,
-        Commands::Knowledge { repo_path, generate, query, stats, limit } => {
-            cmd_knowledge(config, repo_path, generate, query, stats, limit).await
-        }
+        Commands::Knowledge {
+            repo_path,
+            generate,
+            query,
+            stats,
+            limit,
+        } => cmd_knowledge(config, repo_path, generate, query, stats, limit).await,
         Commands::InitDb { reset } => cmd_init_db(config, reset).await,
         Commands::Orchestrator(cmd) => cmd_orchestrator(config, cmd).await,
         Commands::Deps {
@@ -849,10 +863,10 @@ async fn cmd_knowledge(
     generate: bool,
     query: Option<String>,
     stats: bool,
-    limit: i64,
+    _limit: i64,
 ) -> cudgel::Result<()> {
+    use cudgel::indexer::{IndexFilter, Indexer};
     use cudgel::kg::PostgresKgClient;
-    use cudgel::indexer::{Indexer, IndexFilter};
 
     // Validate repository path
     if !repo_path.exists() {
@@ -875,47 +889,57 @@ async fn cmd_knowledge(
 
     // Handle different operations
     if generate {
-        println!("{} Generating knowledge graph for repository...", "🔍".blue());
-        
+        println!(
+            "{} Generating knowledge graph for repository...",
+            "🔍".blue()
+        );
+
         // Create indexer with KG support
         let mut indexer = Indexer::new_with_kg(config.clone(), db.clone(), true)?;
-        
+
         // Index the repository with KG entities
         let filter = IndexFilter::new();
         let (_repo_id, stats) = indexer
             .index_repository_with_filter(&repo_path, &filter)
             .await?;
-        
+
         println!("✅ Knowledge graph generation completed!");
-        println!("   Indexed {} files with {} symbols", stats.indexed_files, stats.total_symbols);
+        println!(
+            "   Indexed {} files with {} symbols",
+            stats.indexed_files, stats.total_symbols
+        );
     }
 
     if let Some(ref query_str) = query {
         println!("{} Querying knowledge graph...", "🔍".blue());
-        
+
         let matches = kg_client
-            .search_entities_by_name(&1, &query_str, 0.5)
+            .search_entities_by_name(&1, query_str, 0.5)
             .await?;
-        
+
         if matches.is_empty() {
             println!("No entities found matching: {}", query_str);
         } else {
             println!("Found {} entities:", matches.len());
             for entity_match in matches {
-                println!("  • {} ({}) - confidence: {:.2}", 
+                println!(
+                    "  • {} ({}) - confidence: {:.2}",
                     entity_match.entity.name.bright_green(),
                     format!("{:?}", entity_match.entity.entity_type).bright_yellow(),
                     entity_match.confidence
                 );
                 println!("    File: {}", entity_match.entity.file_path);
-                println!("    Lines: {}-{}", entity_match.entity.line_start, entity_match.entity.line_end);
+                println!(
+                    "    Lines: {}-{}",
+                    entity_match.entity.line_start, entity_match.entity.line_end
+                );
             }
         }
     }
 
     if stats {
         println!("{} Getting repository statistics...", "📊".blue());
-        
+
         // Get repository by path
         let repo_path_str = repo_path.to_string_lossy();
         if let Some(repo) = kg_client.get_repository_by_path(&repo_path_str).await? {
@@ -926,13 +950,21 @@ async fn cmd_knowledge(
             if let Some(summary) = &repo.summary {
                 println!("  • Summary: {}", summary);
             }
-            println!("  • Created: {}", repo.created_at.format("%Y-%m-%d %H:%M:%S"));
-            println!("  • Updated: {}", repo.updated_at.format("%Y-%m-%d %H:%M:%S"));
-            
+            println!(
+                "  • Created: {}",
+                repo.created_at.format("%Y-%m-%d %H:%M:%S")
+            );
+            println!(
+                "  • Updated: {}",
+                repo.updated_at.format("%Y-%m-%d %H:%M:%S")
+            );
+
             // TODO: Implement detailed statistics when get_repository_stats is available
             println!("  • Detailed statistics not yet implemented");
         } else {
-            println!("Repository not found in knowledge graph. Try generating it first with --generate.");
+            println!(
+                "Repository not found in knowledge graph. Try generating it first with --generate."
+            );
         }
     }
 

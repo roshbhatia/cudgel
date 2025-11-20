@@ -1,23 +1,24 @@
 // tests/test_llm_integration.rs
 //! Integration tests for LLM client operations.
 
+use async_trait::async_trait;
+use cudgel::llm::Result;
 use cudgel::llm::{
     ComponentContext, EntityContext, LlmClient, OllamaClient, RepositoryContext, SummaryRequest,
     SummaryResult,
 };
-use cudgel::llm::Result;
-use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
 
 /// Mock LLM client for testing (doesn't require Ollama to be running)
+#[derive(Default)]
 pub struct MockLlmClient {
     should_fail: bool,
 }
 
 impl MockLlmClient {
     pub fn new() -> Self {
-        Self { should_fail: false }
+        Self::default()
     }
 
     pub fn with_failures() -> Self {
@@ -146,8 +147,8 @@ pub fn setup_failing_llm_client() -> Arc<dyn LlmClient> {
 ///
 /// Returns `Some(Arc<dyn LlmClient>)` if Ollama is available, `None` otherwise.
 pub async fn setup_real_ollama_client() -> Option<Arc<dyn LlmClient>> {
-    let client = OllamaClient::default();
-    
+    let client = OllamaClient::default_config();
+
     match client.health_check().await {
         Ok(health) if health.is_available => Some(Arc::new(client)),
         _ => {
@@ -160,7 +161,7 @@ pub async fn setup_real_ollama_client() -> Option<Arc<dyn LlmClient>> {
 #[tokio::test]
 async fn test_mock_llm_client() {
     let client = setup_test_llm_client();
-    
+
     let context = RepositoryContext {
         name: "test-repo".to_string(),
         languages: vec!["Rust".to_string()],
@@ -169,7 +170,7 @@ async fn test_mock_llm_client() {
         entity_count: 150,
         primary_patterns: vec!["async".to_string()],
     };
-    
+
     let summary = client.generate_repository_summary(&context).await;
     assert!(summary.is_ok());
     assert!(summary.unwrap().contains("test-repo"));
@@ -187,7 +188,11 @@ async fn test_generate_repository_summary() {
     let context = RepositoryContext {
         name: "cudgel".to_string(),
         languages: vec!["Rust".to_string()],
-        top_modules: vec!["parser".to_string(), "indexer".to_string(), "database".to_string()],
+        top_modules: vec![
+            "parser".to_string(),
+            "indexer".to_string(),
+            "database".to_string(),
+        ],
         file_count: 25,
         entity_count: 150,
         primary_patterns: vec!["async".to_string(), "tokio".to_string()],
@@ -244,7 +249,10 @@ async fn test_llm_health_check() {
         .expect("Should perform health check");
 
     assert!(health.is_available, "Mock client should be available");
-    assert!(!health.loaded_models.is_empty(), "Should have loaded models");
+    assert!(
+        !health.loaded_models.is_empty(),
+        "Should have loaded models"
+    );
     assert!(
         health.ollama_version.is_some(),
         "Should have Ollama version"
@@ -294,7 +302,7 @@ async fn test_llm_graceful_degradation() {
 // ============================================================================
 
 /// Test real Ollama integration
-/// 
+///
 /// This test requires:
 /// 1. Ollama to be running locally: `ollama serve`
 /// 2. Model to be pulled manually: `ollama pull qwen2.5-coder:1.5b`
@@ -303,18 +311,18 @@ async fn test_llm_graceful_degradation() {
 async fn test_real_ollama_integration() {
     // Use a small, fast model for testing
     let test_model = "qwen2.5-coder:1.5b";
-    
+
     let client = OllamaClient::new("http://localhost", test_model);
-    
+
     // Check health
     let health = client.health_check().await;
     if health.is_err() || !health.as_ref().unwrap().is_available {
         eprintln!("Ollama not available, skipping test. Start Ollama with: ollama serve");
         return;
     }
-    
+
     eprintln!("Ollama is available at {}", health.unwrap().api_endpoint);
-    
+
     // Check if model is available
     let models = client.list_models().await.unwrap();
     if !models.contains(&test_model.to_string()) {
@@ -326,60 +334,73 @@ async fn test_real_ollama_integration() {
         return;
     }
     eprintln!("Model {} is available", test_model);
-    
+
     // Test repository summary generation
     let repo_context = RepositoryContext {
         name: "cudgel".to_string(),
         languages: vec!["Rust".to_string()],
-        top_modules: vec!["parser".to_string(), "indexer".to_string(), "database".to_string()],
+        top_modules: vec![
+            "parser".to_string(),
+            "indexer".to_string(),
+            "database".to_string(),
+        ],
         file_count: 25,
         entity_count: 150,
         primary_patterns: vec!["async".to_string(), "PostgreSQL".to_string()],
     };
-    
+
     eprintln!("Generating repository summary with {}...", test_model);
     let summary = client.generate_repository_summary(&repo_context).await;
-    
+
     if let Ok(summary) = summary {
         eprintln!("Generated summary ({} chars):\n{}", summary.len(), summary);
         assert!(summary.len() > 50, "Summary should be substantial");
-        assert!(summary.to_lowercase().contains("cudgel") || summary.to_lowercase().contains("rust"), 
-                "Summary should reference the repository");
+        assert!(
+            summary.to_lowercase().contains("cudgel") || summary.to_lowercase().contains("rust"),
+            "Summary should reference the repository"
+        );
     } else {
         eprintln!("Summary generation not yet implemented, skipping validation");
     }
-    
+
     // Test component summary generation
     let component_context = ComponentContext {
         name: "parser".to_string(),
         component_type: "module".to_string(),
         file_count: 3,
         dependencies: vec!["tree-sitter".to_string()],
-        exported_entities: vec![
-            "parse_file".to_string(),
-            "CodeParser".to_string(),
-        ],
+        exported_entities: vec!["parse_file".to_string(), "CodeParser".to_string()],
         primary_patterns: vec!["AST parsing".to_string()],
     };
-    
+
     eprintln!("Generating component summary with {}...", test_model);
     let component_summary = client.generate_component_summary(&component_context).await;
-    
+
     if let Ok(summary) = component_summary {
-        eprintln!("Generated component summary ({} chars):\n{}", summary.len(), summary);
-        assert!(summary.len() > 30, "Component summary should be substantial");
+        eprintln!(
+            "Generated component summary ({} chars):\n{}",
+            summary.len(),
+            summary
+        );
+        assert!(
+            summary.len() > 30,
+            "Component summary should be substantial"
+        );
     } else {
         eprintln!("Component summary generation not yet implemented, skipping validation");
     }
-    
+
     // List available models
     let models = client.list_models().await.unwrap();
     eprintln!("Available models: {:?}", models);
-    assert!(models.contains(&test_model.to_string()), "Test model should be in list");
+    assert!(
+        models.contains(&test_model.to_string()),
+        "Test model should be in list"
+    );
 }
 
 /// Test model availability check
-/// 
+///
 /// This test requires:
 /// 1. Ollama to be running locally: `ollama serve`
 /// 2. At least one model pulled: `ollama pull qwen2.5-coder:1.5b`
@@ -388,28 +409,34 @@ async fn test_real_ollama_integration() {
 async fn test_ollama_model_check() {
     let test_model = "qwen2.5-coder:1.5b";
     let client = OllamaClient::new("http://localhost", test_model);
-    
+
     // Check health first
     let health = client.health_check().await;
     if health.is_err() || !health.as_ref().unwrap().is_available {
         eprintln!("Ollama not available, skipping test");
         return;
     }
-    
+
     // List models
     let models = client.list_models().await.unwrap();
     eprintln!("Available models: {:?}", models);
-    
+
     if models.is_empty() {
-        eprintln!("No models available. Pull one with: ollama pull {}", test_model);
+        eprintln!(
+            "No models available. Pull one with: ollama pull {}",
+            test_model
+        );
     } else {
         eprintln!("Found {} model(s)", models.len());
-        
+
         // Check if test model is available
         if models.contains(&test_model.to_string()) {
             eprintln!("Test model {} is ready!", test_model);
         } else {
-            eprintln!("Test model {} not found. Using {} instead.", test_model, models[0]);
+            eprintln!(
+                "Test model {} not found. Using {} instead.",
+                test_model, models[0]
+            );
         }
     }
 }

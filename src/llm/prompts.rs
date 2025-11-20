@@ -113,12 +113,12 @@ Output only the analysis text, no additional formatting or metadata."#;
 /// ```
 pub fn fill_template(template: &str, values: &std::collections::HashMap<String, String>) -> String {
     let mut result = template.to_string();
-    
+
     for (key, value) in values {
         let placeholder = format!("{{{}}}", key);
         result = result.replace(&placeholder, value);
     }
-    
+
     result
 }
 

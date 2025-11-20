@@ -35,8 +35,11 @@ pub trait KgClient: Send + Sync {
     async fn get_components(&self, repo_id: &RecordId) -> Result<Vec<Component>>;
 
     /// Update component summary
-    async fn update_component_summary(&self, component_id: &RecordId, summary: String)
-        -> Result<()>;
+    async fn update_component_summary(
+        &self,
+        component_id: &RecordId,
+        summary: String,
+    ) -> Result<()>;
 
     // === Entity Operations ===
 
@@ -91,8 +94,12 @@ pub trait KgClient: Send + Sync {
     ) -> Result<RecordId>;
 
     /// Create a USES relationship
-    async fn create_uses(&self, from: &RecordId, to: &RecordId, context: String)
-        -> Result<RecordId>;
+    async fn create_uses(
+        &self,
+        from: &RecordId,
+        to: &RecordId,
+        context: String,
+    ) -> Result<RecordId>;
 
     /// Create a CONTAINS relationship
     async fn create_contains(&self, from: &RecordId, to: &RecordId) -> Result<RecordId>;
@@ -101,20 +108,20 @@ pub trait KgClient: Send + Sync {
     async fn create_implements(&self, from: &RecordId, to: &RecordId) -> Result<RecordId>;
 
     /// Create a CALLS relationship
-    async fn create_calls(&self, from: &RecordId, to: &RecordId, call_count: usize)
-        -> Result<RecordId>;
+    async fn create_calls(
+        &self,
+        from: &RecordId,
+        to: &RecordId,
+        call_count: usize,
+    ) -> Result<RecordId>;
 
     /// Get outgoing relationships for an entity
-    async fn get_outgoing_relationships(
-        &self,
-        entity_id: &RecordId,
-    ) -> Result<EntityRelationships>;
+    async fn get_outgoing_relationships(&self, entity_id: &RecordId)
+        -> Result<EntityRelationships>;
 
     /// Get incoming relationships for an entity
-    async fn get_incoming_relationships(
-        &self,
-        entity_id: &RecordId,
-    ) -> Result<EntityRelationships>;
+    async fn get_incoming_relationships(&self, entity_id: &RecordId)
+        -> Result<EntityRelationships>;
 
     /// Get all relationships for an entity (both directions)
     async fn get_all_relationships(&self, entity_id: &RecordId) -> Result<EntityRelationships>;
@@ -266,7 +273,9 @@ impl KgClient for PostgresKgClient {
                 &[&summary, &repo_id],
             )
             .await
-            .map_err(|e| KgError::Database(format!("Failed to update repository summary: {}", e)))?;
+            .map_err(|e| {
+                KgError::Database(format!("Failed to update repository summary: {}", e))
+            })?;
 
         Ok(())
     }
@@ -346,7 +355,11 @@ impl KgClient for PostgresKgClient {
     }
 
     /// T046: Update component summary
-    async fn update_component_summary(&self, component_id: &RecordId, summary: String) -> Result<()> {
+    async fn update_component_summary(
+        &self,
+        component_id: &RecordId,
+        summary: String,
+    ) -> Result<()> {
         let client = self
             .db
             .get_pool_client()
@@ -457,7 +470,9 @@ impl KgClient for PostgresKgClient {
                     ],
                 )
                 .await
-                .map_err(|e| KgError::Database(format!("Failed to create entity in batch: {}", e)))?;
+                .map_err(|e| {
+                    KgError::Database(format!("Failed to create entity in batch: {}", e))
+                })?;
 
             ids.push(row.get(0));
         }
@@ -515,8 +530,8 @@ impl KgClient for PostgresKgClient {
                 _ => super::Visibility::Private, // Default fallback
             };
 
-            let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
-                .unwrap_or_default();
+            let metadata: super::EntityMetadata =
+                serde_json::from_value(metadata_json).unwrap_or_default();
 
             CodeEntity {
                 id: r.get(0),
@@ -589,8 +604,8 @@ impl KgClient for PostgresKgClient {
                     _ => super::Visibility::Private,
                 };
 
-                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
-                    .unwrap_or_default();
+                let metadata: super::EntityMetadata =
+                    serde_json::from_value(metadata_json).unwrap_or_default();
 
                 CodeEntity {
                     id: r.get(0),
@@ -679,8 +694,8 @@ impl KgClient for PostgresKgClient {
                     _ => super::Visibility::Private,
                 };
 
-                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
-                    .unwrap_or_default();
+                let metadata: super::EntityMetadata =
+                    serde_json::from_value(metadata_json).unwrap_or_default();
 
                 let entity = CodeEntity {
                     id: r.get(0),
@@ -756,8 +771,8 @@ impl KgClient for PostgresKgClient {
                     _ => super::Visibility::Private,
                 };
 
-                let metadata: super::EntityMetadata = serde_json::from_value(metadata_json)
-                    .unwrap_or_default();
+                let metadata: super::EntityMetadata =
+                    serde_json::from_value(metadata_json).unwrap_or_default();
 
                 CodeEntity {
                     id: r.get(0),
@@ -827,10 +842,7 @@ impl KgClient for PostgresKgClient {
 
         // The foreign key constraints with ON DELETE CASCADE will handle cleanup
         client
-            .execute(
-                "DELETE FROM kg_entities WHERE id = $1",
-                &[entity_id],
-            )
+            .execute("DELETE FROM kg_entities WHERE id = $1", &[entity_id])
             .await
             .map_err(|e| KgError::Database(format!("Failed to delete entity: {}", e)))?;
 

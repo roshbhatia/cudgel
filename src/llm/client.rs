@@ -3,8 +3,8 @@
 
 use super::Result;
 use async_trait::async_trait;
-use std::time::Duration;
 use ollama_rs::generation::completion::request::GenerationRequest;
+use std::time::Duration;
 
 /// Repository-level context for summary generation
 #[derive(Debug, Clone)]
@@ -34,9 +34,9 @@ pub struct EntityContext {
     pub name: String,
     pub entity_type: String,
     pub file_path: String,
-    pub code_snippet: String,       // Up to 50 lines
-    pub signature: Option<String>,  // For functions/methods
-    pub dependencies: Vec<String>,  // Direct dependencies
+    pub code_snippet: String,      // Up to 50 lines
+    pub signature: Option<String>, // For functions/methods
+    pub dependencies: Vec<String>, // Direct dependencies
     pub visibility: String,
 }
 
@@ -143,7 +143,7 @@ impl OllamaClient {
     /// Uses:
     /// - URL: http://localhost:11434
     /// - Model: llama3.2:3b
-    pub fn default() -> Self {
+    pub fn default_config() -> Self {
         Self::new("http://localhost", "llama3.2:3b")
     }
 
@@ -178,7 +178,7 @@ impl OllamaClient {
 #[async_trait]
 impl LlmClient for OllamaClient {
     async fn generate_repository_summary(&self, context: &RepositoryContext) -> Result<String> {
-        use super::prompts::{REPOSITORY_PROMPT, fill_template};
+        use super::prompts::{fill_template, REPOSITORY_PROMPT};
         use std::collections::HashMap;
 
         let mut values = HashMap::new();
@@ -191,25 +191,20 @@ impl LlmClient for OllamaClient {
 
         let prompt = fill_template(REPOSITORY_PROMPT, &values);
 
-        let request = GenerationRequest::new(
-            self.model.clone(),
-            prompt,
-        );
-        
+        let request = GenerationRequest::new(self.model.clone(), prompt);
+
         // Note: ollama-rs API may have different method names
         // This is a simplified version that should compile
 
-        let response = self
-            .client
-            .generate(request)
-            .await
-            .map_err(|e| super::LlmError::Generation(format!("Failed to generate repository summary: {}", e)))?;
+        let response = self.client.generate(request).await.map_err(|e| {
+            super::LlmError::Generation(format!("Failed to generate repository summary: {}", e))
+        })?;
 
         Ok(response.response)
     }
 
     async fn generate_component_summary(&self, context: &ComponentContext) -> Result<String> {
-        use super::prompts::{COMPONENT_PROMPT, fill_template};
+        use super::prompts::{fill_template, COMPONENT_PROMPT};
         use std::collections::HashMap;
 
         let mut values = HashMap::new();
@@ -217,62 +212,58 @@ impl LlmClient for OllamaClient {
         values.insert("type".to_string(), context.component_type.clone());
         values.insert("file_count".to_string(), context.file_count.to_string());
         values.insert("dependencies".to_string(), context.dependencies.join(", "));
-        values.insert("exported_entities".to_string(), context.exported_entities.join(", "));
+        values.insert(
+            "exported_entities".to_string(),
+            context.exported_entities.join(", "),
+        );
         values.insert("patterns".to_string(), context.primary_patterns.join(", "));
 
         let prompt = fill_template(COMPONENT_PROMPT, &values);
 
-        let request = GenerationRequest::new(
-            self.model.clone(),
-            prompt,
-        );
-        
+        let request = GenerationRequest::new(self.model.clone(), prompt);
+
         // Note: ollama-rs API may have different method names
         // This is a simplified version that should compile
 
-        let response = self
-            .client
-            .generate(request)
-            .await
-            .map_err(|e| super::LlmError::Generation(format!("Failed to generate component summary: {}", e)))?;
+        let response = self.client.generate(request).await.map_err(|e| {
+            super::LlmError::Generation(format!("Failed to generate component summary: {}", e))
+        })?;
 
         Ok(response.response)
     }
 
     async fn generate_entity_summary(&self, context: &EntityContext) -> Result<String> {
-        use super::prompts::{ENTITY_PROMPT, fill_template};
+        use super::prompts::{fill_template, ENTITY_PROMPT};
         use std::collections::HashMap;
 
         let mut values = HashMap::new();
         values.insert("name".to_string(), context.name.clone());
         values.insert("type".to_string(), context.entity_type.clone());
         values.insert("file_path".to_string(), context.file_path.clone());
-        values.insert("signature".to_string(), context.signature.clone().unwrap_or_default());
+        values.insert(
+            "signature".to_string(),
+            context.signature.clone().unwrap_or_default(),
+        );
         values.insert("dependencies".to_string(), context.dependencies.join(", "));
         values.insert("visibility".to_string(), context.visibility.clone());
         values.insert("code_snippet".to_string(), context.code_snippet.clone());
 
         let prompt = fill_template(ENTITY_PROMPT, &values);
 
-        let request = GenerationRequest::new(
-            self.model.clone(),
-            prompt,
-        );
-        
+        let request = GenerationRequest::new(self.model.clone(), prompt);
+
         // Note: ollama-rs API may have different method names
         // This is a simplified version that should compile
 
-        let response = self
-            .client
-            .generate(request)
-            .await
-            .map_err(|e| super::LlmError::Generation(format!("Failed to generate entity summary: {}", e)))?;
+        let response = self.client.generate(request).await.map_err(|e| {
+            super::LlmError::Generation(format!("Failed to generate entity summary: {}", e))
+        })?;
 
         Ok(response.response)
     }
 
     async fn analyze_pattern(&self, pattern: &str, entities: &[String]) -> Result<String> {
-        use super::prompts::{PATTERN_ANALYSIS_PROMPT, fill_template};
+        use super::prompts::{fill_template, PATTERN_ANALYSIS_PROMPT};
         use std::collections::HashMap;
 
         let mut values = HashMap::new();
@@ -281,19 +272,14 @@ impl LlmClient for OllamaClient {
 
         let prompt = fill_template(PATTERN_ANALYSIS_PROMPT, &values);
 
-        let request = GenerationRequest::new(
-            self.model.clone(),
-            prompt,
-        );
-        
+        let request = GenerationRequest::new(self.model.clone(), prompt);
+
         // Note: ollama-rs API may have different method names
         // This is a simplified version that should compile
 
-        let response = self
-            .client
-            .generate(request)
-            .await
-            .map_err(|e| super::LlmError::Generation(format!("Failed to analyze pattern: {}", e)))?;
+        let response = self.client.generate(request).await.map_err(|e| {
+            super::LlmError::Generation(format!("Failed to analyze pattern: {}", e))
+        })?;
 
         Ok(response.response)
     }
@@ -304,9 +290,9 @@ impl LlmClient for OllamaClient {
         concurrency: usize,
     ) -> Result<Vec<SummaryResult>> {
         use futures::stream::{self, StreamExt};
-        
+
         let semaphore = tokio::sync::Semaphore::new(concurrency);
-        
+
         let results = stream::iter(requests)
             .map(|request| {
                 let semaphore = &semaphore;
@@ -314,7 +300,7 @@ impl LlmClient for OllamaClient {
                 async move {
                     let _permit = semaphore.acquire().await.unwrap();
                     let start = std::time::Instant::now();
-                    
+
                     let result = match &request {
                         SummaryRequest::Repository(ctx) => {
                             client.generate_repository_summary(ctx).await
@@ -322,16 +308,14 @@ impl LlmClient for OllamaClient {
                         SummaryRequest::Component(ctx) => {
                             client.generate_component_summary(ctx).await
                         }
-                        SummaryRequest::Entity(ctx) => {
-                            client.generate_entity_summary(ctx).await
-                        }
+                        SummaryRequest::Entity(ctx) => client.generate_entity_summary(ctx).await,
                     };
-                    
+
                     let (summary, error) = match result {
                         Ok(s) => (Some(s), None),
                         Err(e) => (None, Some(e.to_string())),
                     };
-                    
+
                     SummaryResult {
                         request,
                         summary,
@@ -344,21 +328,18 @@ impl LlmClient for OllamaClient {
             .buffer_unordered(concurrency)
             .collect()
             .await;
-            
+
         Ok(results)
     }
 
     async fn health_check(&self) -> Result<ServiceHealth> {
         let start = std::time::Instant::now();
         let api_endpoint = self.client.uri().to_string();
-        
+
         // Try to list models as a health check
         match self.client.list_local_models().await {
             Ok(models) => {
-                let model_names: Vec<String> = models
-                    .into_iter()
-                    .map(|m| m.name)
-                    .collect();
+                let model_names: Vec<String> = models.into_iter().map(|m| m.name).collect();
 
                 Ok(ServiceHealth {
                     is_available: true,
@@ -368,24 +349,21 @@ impl LlmClient for OllamaClient {
                     response_time: start.elapsed(),
                 })
             }
-            Err(_e) => {
-                Ok(ServiceHealth {
-                    is_available: false,
-                    ollama_version: None,
-                    loaded_models: vec![],
-                    api_endpoint,
-                    response_time: start.elapsed(),
-                })
-            }
+            Err(_e) => Ok(ServiceHealth {
+                is_available: false,
+                ollama_version: None,
+                loaded_models: vec![],
+                api_endpoint,
+                response_time: start.elapsed(),
+            }),
         }
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
-        let models = self
-            .client
-            .list_local_models()
-            .await
-            .map_err(|e| super::LlmError::Connection(format!("Failed to list models: {}", e)))?;
+        let models =
+            self.client.list_local_models().await.map_err(|e| {
+                super::LlmError::Connection(format!("Failed to list models: {}", e))
+            })?;
 
         Ok(models.into_iter().map(|m| m.name).collect())
     }

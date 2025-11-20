@@ -545,8 +545,12 @@ async fn test_find_entities_by_name() {
         .await
         .expect("Failed to find entities by name");
 
-    assert_eq!(found_entities.len(), 2, "Should find 2 entities with same name");
-    
+    assert_eq!(
+        found_entities.len(),
+        2,
+        "Should find 2 entities with same name"
+    );
+
     for entity in &found_entities {
         assert_eq!(entity.name, "parse_file");
         assert_eq!(entity.component_id, component_id);
@@ -631,13 +635,16 @@ async fn test_search_entities_by_name() {
         .await
         .expect("Failed to search entities");
 
-    assert!(matches.len() >= 2, "Should find at least 2 matching entities");
-    
+    assert!(
+        matches.len() >= 2,
+        "Should find at least 2 matching entities"
+    );
+
     // Should find both "parse_file" and "parse_data"
     let names: Vec<String> = matches.iter().map(|m| m.entity.name.clone()).collect();
     assert!(names.contains(&"parse_file".to_string()));
     assert!(names.contains(&"parse_data".to_string()));
-    
+
     // All matches should have confidence >= threshold
     for m in &matches {
         assert!(m.confidence >= 0.5, "Confidence should meet threshold");
@@ -722,7 +729,11 @@ async fn test_get_entities_by_file() {
         .await
         .expect("Failed to get entities by file");
 
-    assert_eq!(parser_entities.len(), 1, "Should find 1 entity in parser.rs");
+    assert_eq!(
+        parser_entities.len(),
+        1,
+        "Should find 1 entity in parser.rs"
+    );
     assert_eq!(parser_entities[0].name, "parse_file");
     assert_eq!(parser_entities[0].file_path, "src/parser.rs");
 
@@ -731,7 +742,11 @@ async fn test_get_entities_by_file() {
         .await
         .expect("Failed to get entities by file");
 
-    assert_eq!(tokenizer_entities.len(), 1, "Should find 1 entity in tokenizer.rs");
+    assert_eq!(
+        tokenizer_entities.len(),
+        1,
+        "Should find 1 entity in tokenizer.rs"
+    );
     assert_eq!(tokenizer_entities[0].name, "tokenize");
     assert_eq!(tokenizer_entities[0].file_path, "src/tokenizer.rs");
 }
@@ -799,9 +814,13 @@ async fn test_get_all_entity_names() {
         .expect("Failed to get all entity names");
 
     assert_eq!(names.len(), 3, "Should find 3 entity names");
-    
+
     for name in &entity_names {
-        assert!(names.contains(&name.to_string()), "Should contain entity name: {}", name);
+        assert!(
+            names.contains(&name.to_string()),
+            "Should contain entity name: {}",
+            name
+        );
     }
 }
 
@@ -933,7 +952,7 @@ async fn test_delete_entity_cascade() {
         .get_entity(&entity_id)
         .await
         .expect("Failed to get entity");
-    
+
     assert!(before_delete.is_some(), "Entity should exist before delete");
 
     // Delete entity
@@ -947,6 +966,9 @@ async fn test_delete_entity_cascade() {
         .get_entity(&entity_id)
         .await
         .expect("Failed to get entity");
-    
-    assert!(after_delete.is_none(), "Entity should not exist after delete");
+
+    assert!(
+        after_delete.is_none(),
+        "Entity should not exist after delete"
+    );
 }
