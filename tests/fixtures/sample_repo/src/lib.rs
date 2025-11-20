@@ -1,5 +1,10 @@
-use crate::config::Config;
-use crate::utils::{normalize_whitespace, is_valid_email};
+pub mod config;
+pub mod utils;
+pub mod parser;
+pub mod indexer;
+
+pub use config::Config;
+pub use utils::{normalize_whitespace, is_valid_email};
 
 /// Main library API
 pub struct Application {

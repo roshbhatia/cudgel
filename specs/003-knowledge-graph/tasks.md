@@ -56,22 +56,22 @@
 
 ### LLM Client Foundation
 
-- [ ] T016 Define LlmError enum with thiserror in src/llm/mod.rs
-- [ ] T017 Define context types (RepositoryContext, ComponentContext, EntityContext) in src/llm/client.rs
-- [ ] T018 Define request types (SummaryRequest, SummaryResult, ServiceHealth) in src/llm/client.rs
-- [ ] T019 Define LlmClient trait interface per contract in src/llm/client.rs
-- [ ] T020 Implement Ollama HTTP client connection in src/llm/client.rs
-- [ ] T021 [P] Implement health_check() and list_models() in src/llm/client.rs
-- [ ] T022 [P] Define prompt templates (REPOSITORY_PROMPT, COMPONENT_PROMPT, ENTITY_PROMPT, PATTERN_ANALYSIS_PROMPT) in src/llm/prompts.rs
+- [x] T016 Define LlmError enum with thiserror in src/llm/mod.rs
+- [x] T017 Define context types (RepositoryContext, ComponentContext, EntityContext) in src/llm/client.rs
+- [x] T018 Define request types (SummaryRequest, SummaryResult, ServiceHealth) in src/llm/client.rs
+- [x] T019 Define LlmClient trait interface per contract in src/llm/client.rs
+- [x] T020 Implement Ollama HTTP client connection in src/llm/client.rs
+- [x] T021 [P] Implement health_check() and list_models() in src/llm/client.rs
+- [x] T022 [P] Define prompt templates (REPOSITORY_PROMPT, COMPONENT_PROMPT, ENTITY_PROMPT, PATTERN_ANALYSIS_PROMPT) in src/llm/prompts.rs
 
 ### Test Infrastructure
 
-- [ ] T023 Create setup_test_graph_client() helper in tests/test_graph_client.rs
-- [ ] T024 Create setup_test_llm_client() helper (mock) in tests/test_llm_integration.rs
-- [ ] T025 [P] Create sample Rust code in tests/fixtures/sample_repo/src/main.rs
-- [ ] T026 [P] Create sample Rust module in tests/fixtures/sample_repo/src/parser.rs
-- [ ] T027 [P] Create sample Rust module in tests/fixtures/sample_repo/src/indexer.rs
-- [ ] T028 [P] Create Cargo.toml metadata in tests/fixtures/sample_repo/Cargo.toml
+- [x] T023 Create setup_test_graph_client() helper in tests/test_graph_client.rs
+- [x] T024 Create setup_test_llm_client() helper (mock) in tests/test_llm_integration.rs
+- [x] T025 [P] Create sample Rust code in tests/fixtures/sample_repo/src/main.rs
+- [x] T026 [P] Create sample Rust module in tests/fixtures/sample_repo/src/parser.rs
+- [x] T027 [P] Create sample Rust module in tests/fixtures/sample_repo/src/indexer.rs
+- [x] T028 [P] Create Cargo.toml metadata in tests/fixtures/sample_repo/Cargo.toml
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
