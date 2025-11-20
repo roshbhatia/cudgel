@@ -27,12 +27,12 @@
 
 **Purpose**: Project initialization and dependency setup
 
-- [ ] T001 Add SurrealDB dependency to Cargo.toml (surrealdb = "1.0")
-- [ ] T002 Add Ollama client dependency to Cargo.toml (ollama-rs = "0.2")
-- [ ] T003 [P] Add fuzzy matching dependency to Cargo.toml (strsim = "0.11")
-- [ ] T004 [P] Add regex dependency to Cargo.toml (regex = "1.10")
-- [ ] T005 Create src/graph/mod.rs module structure
-- [ ] T006 Create src/llm/mod.rs module structure
+- [x] T001 Add PostgreSQL dependency to Cargo.toml (already exists: tokio-postgres)
+- [x] T002 Add Ollama client dependency to Cargo.toml (ollama-rs = "0.2")
+- [x] T003 [P] Add fuzzy matching dependency to Cargo.toml (strsim = "0.11")
+- [x] T004 [P] Add regex dependency to Cargo.toml (regex = "1.10")
+- [x] T005 Create src/kg/mod.rs module structure (already exists)
+- [x] T006 Create src/llm/mod.rs module structure (already exists)
 - [ ] T007 Create tests/fixtures/sample_repo/ directory for test data
 
 ---
@@ -45,14 +45,14 @@
 
 ### Graph Database Foundation
 
-- [ ] T008 Define GraphError enum with thiserror in src/graph/mod.rs
-- [ ] T009 Define core data types (Repository, Component, CodeEntity, EntityType, ComponentType, Visibility, EntityMetadata) in src/graph/model.rs
-- [ ] T010 Define relationship types (DependsOn, Uses, Contains, Implements, Calls, DependencyType) in src/graph/model.rs
-- [ ] T011 [P] Define EntityMatch, EntityRelationships, RelatedEntity, RepositoryStats types in src/graph/model.rs
-- [ ] T012 Define GraphClient trait interface per contract in src/graph/client.rs
-- [ ] T013 Implement SurrealDB connection and initialization in src/graph/client.rs
-- [ ] T014 Implement initialize_schema() to create tables and indexes in src/graph/schema.rs
-- [ ] T015 Implement is_schema_initialized() check in src/graph/schema.rs
+- [x] T008 Define KgError enum with thiserror in src/kg/mod.rs (already exists)
+- [x] T009 Define core data types (Repository, Component, CodeEntity, EntityType, ComponentType, Visibility, EntityMetadata) in src/kg/model.rs (already exists)
+- [x] T010 Define relationship types (DependencyType, EntityRelationships, RelatedEntity, RepositoryStats) in src/kg/model.rs (already exists)
+- [x] T011 [P] Define EntityMatch, EntityRelationships, RelatedEntity, RepositoryStats types in src/kg/model.rs (already exists)
+- [x] T012 Define KgClient trait interface per contract in src/kg/client.rs (already exists)
+- [x] T013 Implement PostgreSQL connection and initialization in src/kg/client.rs (already exists)
+- [x] T014 Implement initialize_schema() to create tables and indexes in src/kg/schema.rs (already exists)
+- [x] T015 Implement is_schema_initialized() check in src/kg/schema.rs (already exists)
 
 ### LLM Client Foundation
 
@@ -171,22 +171,23 @@
 
 ### Implementation for User Story 2
 
-**Relationship Extraction**:
-- [ ] T085 [US2] Implement extract_dependencies_from_ast() to identify import/use statements in src/graph/builder.rs
-- [ ] T086 [US2] Implement extract_calls_from_ast() to identify function calls in src/graph/builder.rs
-- [ ] T087 [US2] Implement extract_inheritance_from_ast() to identify trait/interface implementations in src/graph/builder.rs
-- [ ] T088 [US2] Implement extract_relationships() orchestration method in src/graph/builder.rs
+**PostgreSQL Graph Relationship Implementation**:
+- [ ] T085 [US2] Fix duplicate methods in PostgresKgClient (get_repository_by_path, update_repository_summary)
+- [ ] T086 [US2] Implement missing entity operations in PostgresKgClient (get_entity, find_entities_by_name, etc.)
+- [ ] T087 [US2] Implement relationship operations with recursive CTEs for graph traversal
+- [ ] T088 [US2] Add graph traversal methods for 'find all entities that depend on X'
+- [ ] T089 [US2] Add graph traversal methods for 'show relationships for entity Y'
 
 **Graph Client Relationship Operations**:
-- [ ] T089 [P] [US2] Implement create_dependency() in src/graph/client.rs
-- [ ] T090 [P] [US2] Implement create_uses() in src/graph/client.rs
-- [ ] T091 [P] [US2] Implement create_contains() in src/graph/client.rs
-- [ ] T092 [P] [US2] Implement create_implements() in src/graph/client.rs
-- [ ] T093 [P] [US2] Implement create_calls() in src/graph/client.rs
-- [ ] T094 [US2] Implement get_outgoing_relationships() in src/graph/client.rs
-- [ ] T095 [US2] Implement get_incoming_relationships() in src/graph/client.rs
-- [ ] T096 [US2] Implement get_all_relationships() combining incoming + outgoing in src/graph/client.rs
-- [ ] T097 [US2] Implement traverse_dependencies() with max depth limit (3 hops) in src/graph/client.rs
+- [ ] T090 [P] [US2] Implement create_dependency() in src/kg/client.rs
+- [ ] T091 [P] [US2] Implement create_uses() in src/kg/client.rs
+- [ ] T092 [P] [US2] Implement create_contains() in src/kg/client.rs
+- [ ] T093 [P] [US2] Implement create_implements() in src/kg/client.rs
+- [ ] T094 [P] [US2] Implement create_calls() in src/kg/client.rs
+- [ ] T095 [US2] Implement get_outgoing_relationships() in src/kg/client.rs
+- [ ] T096 [US2] Implement get_incoming_relationships() in src/kg/client.rs
+- [ ] T097 [US2] Implement get_all_relationships() combining incoming + outgoing in src/kg/client.rs
+- [ ] T098 [US2] Implement traverse_dependencies() with recursive CTEs and max depth limit in src/kg/client.rs
 
 **Entity Lookup**:
 - [ ] T098 [P] [US2] Implement find_entities_by_name() exact match in src/graph/client.rs

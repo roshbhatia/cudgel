@@ -5,6 +5,12 @@
 **Status**: Draft  
 **Input**: User description: "init 003 which is the knowledge graph feature used during indexing. we need to use ollama to generate summaries of the repos and the architecture during indexing and stick it in a graph database. the graph database should ofc contain relationships between different entities etc etc. and it should be queryable"
 
+## Clarifications
+
+### Session 2025-11-19
+
+- Q: How should the knowledge graph relationships be implemented using only PostgreSQL? → A: Use PostgreSQL with adjacency lists and foreign keys
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Repository Architecture Understanding (Priority: P1)
@@ -84,7 +90,7 @@ A developer needs to understand how cross-cutting concerns (logging, authenticat
 - **FR-001**: System MUST generate natural language summaries of repository architecture during indexing using LLM
 - **FR-002**: System MUST extract and identify key code entities (modules, classes, functions, services, components) during indexing
 - **FR-003**: System MUST identify and store relationships between code entities (depends-on, uses, inherits-from, implements, calls, etc.)
-- **FR-004**: System MUST persist the knowledge graph in a queryable graph database
+- **FR-004**: System MUST persist the knowledge graph in PostgreSQL using adjacency lists and junction tables for queryable graph operations
 - **FR-005**: System MUST support natural language queries against the knowledge graph
 - **FR-006**: System MUST return relevant entities and relationships based on user queries
 - **FR-007**: System MUST update the knowledge graph incrementally when repository changes are detected
@@ -115,7 +121,7 @@ A developer needs to understand how cross-cutting concerns (logging, authenticat
 ## Assumptions
 
 - **A-001**: Ollama is available and configured on the system where indexing occurs
-- **A-002**: The target graph database supports property graphs with labeled relationships
+- **A-002**: PostgreSQL with adjacency lists and junction tables supports property graphs with labeled relationships
 - **A-003**: Repository code is syntactically valid and parseable by existing tree-sitter parsers
 - **A-004**: LLM summaries will be reasonably accurate for mainstream programming languages and architectural patterns
 - **A-005**: Users will query in English
@@ -127,7 +133,7 @@ A developer needs to understand how cross-cutting concerns (logging, authenticat
 
 - Generating architecture and component summaries using LLM during indexing
 - Extracting code entities and their relationships
-- Storing knowledge graph in a graph database
+- Storing knowledge graph in PostgreSQL using adjacency lists and junction tables
 - Supporting natural language queries against the graph
 - Incremental graph updates when code changes
 - Entity disambiguation
@@ -146,5 +152,5 @@ A developer needs to understand how cross-cutting concerns (logging, authenticat
 - **DEP-001**: Existing tree-sitter parser infrastructure for code entity extraction
 - **DEP-002**: Existing indexing pipeline for repository traversal
 - **DEP-003**: Ollama LLM service for summary generation
-- **DEP-004**: Graph database (specific technology TBD in planning phase)
+- **DEP-004**: PostgreSQL with adjacency lists and junction tables for graph storage
 - **DEP-005**: Natural language processing capability for query understanding

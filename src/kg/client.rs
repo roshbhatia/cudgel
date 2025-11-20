@@ -269,62 +269,15 @@ impl KgClient for PostgresKgClient {
         Ok(())
     }
 
-    /// T042: Get repository by path
-    async fn get_repository_by_path(&self, path: &str) -> Result<Option<Repository>> {
-        let client = self
-            .db
-            .pool
-            .get()
-            .await
-            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
-
-        let row = client
-            .query_opt(
-                "SELECT id, path, name, summary, created_at, updated_at 
-                 FROM kg_repositories 
-                 WHERE path = $1",
-                &[&path],
-            )
-            .await
-            .map_err(|e| KgError::Database(format!("Failed to get repository: {}", e)))?;
-
-        Ok(row.map(|r| Repository {
-            id: r.get(0),
-            path: r.get(1),
-            name: r.get(2),
-            summary: r.get(3),
-            created_at: r.get(4),
-            updated_at: r.get(5),
-        }))
-    }
-
-    /// T043: Update repository summary
-    async fn update_repository_summary(&self, repo_id: &RecordId, summary: String) -> Result<()> {
-        let client = self
-            .db
-            .pool
-            .get()
-            .await
-            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
-
-        client
-            .execute(
-                "UPDATE kg_repositories SET summary = $1, updated_at = NOW() WHERE id = $2",
-                &[&summary, &repo_id],
-            )
-            .await
-            .map_err(|e| KgError::Database(format!("Failed to update repository summary: {}", e)))?;
-
-        Ok(())
-    }
-
     // === Component Operations ===
 
     /// T044: Create a new component node
     async fn create_component(&self, component: Component) -> Result<RecordId> {
-        let client = self.db.get_client().await.map_err(|e| {
-            KgError::Database(format!("Failed to get database client: {}", e))
-        })?;
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
 
         let component_type_str = format!("{:?}", component.component_type).to_lowercase();
 
@@ -349,9 +302,11 @@ impl KgClient for PostgresKgClient {
 
     /// T045: Get all components in a repository
     async fn get_components(&self, repo_id: &RecordId) -> Result<Vec<Component>> {
-        let client = self.db.get_client().await.map_err(|e| {
-            KgError::Database(format!("Failed to get database client: {}", e))
-        })?;
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
 
         let rows = client
             .query(
@@ -390,9 +345,11 @@ impl KgClient for PostgresKgClient {
 
     /// T046: Update component summary
     async fn update_component_summary(&self, component_id: &RecordId, summary: String) -> Result<()> {
-        let client = self.db.get_client().await.map_err(|e| {
-            KgError::Database(format!("Failed to get database client: {}", e))
-        })?;
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
 
         client
             .execute(
