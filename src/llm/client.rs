@@ -83,7 +83,7 @@ pub trait LlmClient: Send + Sync {
     async fn generate_entity_summary(&self, context: &EntityContext) -> Result<String>;
 
     /// Generate pattern analysis summary (cross-cutting concerns)
-    async fn analyze_pattern(&self, pattern: &str, entities: &[String]) -> Result<String>;
+    async fn analyze_pattern(&self, pattern: &str, entities: &[crate::kg::CodeEntity]) -> Result<String>;
 
     // === Batch Operations ===
 
@@ -262,13 +262,19 @@ impl LlmClient for OllamaClient {
         Ok(response.response)
     }
 
-    async fn analyze_pattern(&self, pattern: &str, entities: &[String]) -> Result<String> {
+    async fn analyze_pattern(&self, pattern: &str, entities: &[crate::kg::CodeEntity]) -> Result<String> {
         use super::prompts::{fill_template, PATTERN_ANALYSIS_PROMPT};
         use std::collections::HashMap;
 
+        // Format entity names with type information
+        let entity_list: Vec<String> = entities
+            .iter()
+            .map(|e| format!("{:?}::{} ({})", e.entity_type, e.name, e.file_path))
+            .collect();
+
         let mut values = HashMap::new();
         values.insert("pattern".to_string(), pattern.to_string());
-        values.insert("entities".to_string(), entities.join(", "));
+        values.insert("entities".to_string(), entity_list.join(", "));
 
         let prompt = fill_template(PATTERN_ANALYSIS_PROMPT, &values);
 
@@ -366,6 +372,158 @@ impl LlmClient for OllamaClient {
             })?;
 
         Ok(models.into_iter().map(|m| m.name).collect())
+    }
+
+    fn set_temperature(&mut self, temperature: f32) {
+        self.temperature = temperature.clamp(0.0, 2.0);
+    }
+
+    fn set_timeout(&mut self, timeout: Duration) {
+        self.timeout = timeout;
+    }
+
+    fn set_model(&mut self, model: String) {
+        self.model = model;
+    }
+}
+
+/// Mock LLM client for testing (doesn't require Ollama service)
+pub struct MockLlmClient {
+    temperature: f32,
+    timeout: Duration,
+    model: String,
+}
+
+impl MockLlmClient {
+    /// Create a new mock LLM client
+    pub fn new() -> Self {
+        Self {
+            temperature: 0.7,
+            timeout: Duration::from_secs(120),
+            model: "mock-model".to_string(),
+        }
+    }
+}
+
+impl Default for MockLlmClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl LlmClient for MockLlmClient {
+    async fn generate_repository_summary(&self, context: &RepositoryContext) -> Result<String> {
+        Ok(format!(
+            "Mock summary for repository '{}' with {} files and {} entities using {}. \
+             This repository demonstrates {} architecture patterns.",
+            context.name,
+            context.file_count,
+            context.entity_count,
+            context.languages.join(", "),
+            context.primary_patterns.join(", ")
+        ))
+    }
+
+    async fn generate_component_summary(&self, context: &ComponentContext) -> Result<String> {
+        Ok(format!(
+            "Mock summary for {} component '{}' with {} files. \
+             It exports {} and uses {}.",
+            context.component_type,
+            context.name,
+            context.file_count,
+            context.exported_entities.join(", "),
+            context.primary_patterns.join(", ")
+        ))
+    }
+
+    async fn generate_entity_summary(&self, context: &EntityContext) -> Result<String> {
+        Ok(format!(
+            "Mock summary for {} '{}' in {}. \
+             This is a {} {} that operates on {}.",
+            context.entity_type,
+            context.name,
+            context.file_path,
+            context.visibility,
+            context.entity_type,
+            if context.dependencies.is_empty() {
+                "internal state".to_string()
+            } else {
+                context.dependencies.join(", ")
+            }
+        ))
+    }
+
+    async fn analyze_pattern(&self, pattern: &str, entities: &[crate::kg::CodeEntity]) -> Result<String> {
+        let entity_names: Vec<String> = entities.iter().map(|e| e.name.clone()).collect();
+        
+        Ok(format!(
+            "Mock pattern analysis for '{}' across the codebase. \
+             This pattern is consistently implemented in {} entities: {}. \
+             The pattern demonstrates a cohesive approach to {} throughout the system, \
+             with {} entities following similar structural conventions.",
+            pattern,
+            entities.len(),
+            entity_names.join(", "),
+            pattern,
+            entities.len()
+        ))
+    }
+
+    async fn generate_summaries_batch(
+        &self,
+        requests: Vec<SummaryRequest>,
+        _concurrency: usize,
+    ) -> Result<Vec<SummaryResult>> {
+        let mut results = Vec::new();
+        
+        for request in requests {
+            let start = std::time::Instant::now();
+            let (summary, error) = match &request {
+                SummaryRequest::Repository(ctx) => {
+                    match self.generate_repository_summary(ctx).await {
+                        Ok(s) => (Some(s), None),
+                        Err(e) => (None, Some(e.to_string())),
+                    }
+                }
+                SummaryRequest::Component(ctx) => {
+                    match self.generate_component_summary(ctx).await {
+                        Ok(s) => (Some(s), None),
+                        Err(e) => (None, Some(e.to_string())),
+                    }
+                }
+                SummaryRequest::Entity(ctx) => {
+                    match self.generate_entity_summary(ctx).await {
+                        Ok(s) => (Some(s), None),
+                        Err(e) => (None, Some(e.to_string())),
+                    }
+                }
+            };
+            
+            results.push(SummaryResult {
+                request,
+                summary,
+                error,
+                generation_time: start.elapsed(),
+                token_count: Some(100), // Mock token count
+            });
+        }
+        
+        Ok(results)
+    }
+
+    async fn health_check(&self) -> Result<ServiceHealth> {
+        Ok(ServiceHealth {
+            is_available: true,
+            ollama_version: Some("mock-0.0.1".to_string()),
+            loaded_models: vec![self.model.clone()],
+            api_endpoint: "mock://localhost".to_string(),
+            response_time: Duration::from_millis(1),
+        })
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>> {
+        Ok(vec![self.model.clone(), "mock-model-2".to_string()])
     }
 
     fn set_temperature(&mut self, temperature: f32) {

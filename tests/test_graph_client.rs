@@ -2027,3 +2027,448 @@ async fn test_entity_summary_generation_workflow() {
     assert_eq!(found_entities.len(), 1);
     assert!(found_entities[0].summary.is_some());
 }
+
+// ============================================================================
+// User Story 4 Tests: Cross-Cutting Concern Analysis (T122-T126)
+// ============================================================================
+
+/// T122: Test search_entities_by_name_pattern for pattern matching
+#[tokio::test]
+async fn test_search_entities_by_name_pattern() {
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository and component
+    let repo = Repository {
+        id: 0,
+        path: "/test/pattern".to_string(),
+        name: "pattern-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "core".to_string(),
+        path: "src/core".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create entities with pattern names (error handling related)
+    let entities = vec![
+        ("handle_error", EntityType::Function),
+        ("ErrorHandler", EntityType::Struct),
+        ("parse_error_message", EntityType::Function),
+        ("DatabaseError", EntityType::Enum),
+        ("HttpError", EntityType::Enum),
+        ("error_to_string", EntityType::Function),
+    ];
+
+    for (name, entity_type) in entities {
+        let entity = CodeEntity {
+            id: 0,
+            component_id,
+            name: name.to_string(),
+            entity_type,
+            file_path: format!("src/{}.rs", name.to_lowercase()),
+            line_start: 10,
+            line_end: 50,
+            visibility: Visibility::Public,
+            metadata: EntityMetadata::default(),
+            summary: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        client.create_entity(entity).await.unwrap();
+    }
+
+    // Search for entities containing "error" (case-insensitive)
+    let matches = client
+        .search_entities_by_name(&repo_id, "error", 0.5)
+        .await
+        .expect("Failed to search entities by pattern");
+
+    assert!(
+        matches.len() >= 4,
+        "Should find at least 4 entities with 'error' pattern, found {}",
+        matches.len()
+    );
+
+    // Verify all matches contain "error" in their name (case-insensitive)
+    for m in &matches {
+        assert!(
+            m.entity.name.to_lowercase().contains("error"),
+            "Entity '{}' should contain 'error'",
+            m.entity.name
+        );
+    }
+}
+
+/// T123: Test execute_query_for_pattern_matching integration
+#[tokio::test]
+async fn test_execute_query_for_pattern_matching() {
+    use cudgel::kg::{execute_pattern_analysis_query, PatternAnalysisResult};
+
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository and component
+    let repo = Repository {
+        id: 0,
+        path: "/test/pattern_query".to_string(),
+        name: "pattern-query-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "handlers".to_string(),
+        path: "src/handlers".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create entities demonstrating a pattern
+    let entities = vec![
+        ("RequestHandler", EntityType::Trait),
+        ("HttpRequestHandler", EntityType::Struct),
+        ("JsonRequestHandler", EntityType::Struct),
+        ("handle_request", EntityType::Method),
+    ];
+
+    for (name, entity_type) in entities {
+        let entity = CodeEntity {
+            id: 0,
+            component_id,
+            name: name.to_string(),
+            entity_type,
+            file_path: format!("src/handlers/{}.rs", name.to_lowercase()),
+            line_start: 10,
+            line_end: 50,
+            visibility: Visibility::Public,
+            metadata: EntityMetadata::default(),
+            summary: Some(format!("Handler implementation for {}", name)),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        client.create_entity(entity).await.unwrap();
+    }
+
+    // Execute pattern analysis query
+    let result = execute_pattern_analysis_query(&*client, repo_id, "how is request handling implemented")
+        .await
+        .expect("Failed to execute pattern analysis query");
+
+    match result {
+        PatternAnalysisResult::Success {
+            pattern,
+            matched_entities,
+            analysis,
+        } => {
+            assert!(
+                pattern.to_lowercase().contains("handler") || pattern.to_lowercase().contains("request"),
+                "Pattern should be related to handlers or requests"
+            );
+            assert!(
+                matched_entities.len() >= 3,
+                "Should find at least 3 matching entities, found {}",
+                matched_entities.len()
+            );
+            assert!(!analysis.is_empty(), "Analysis should not be empty");
+        }
+        PatternAnalysisResult::NoMatches { pattern } => {
+            panic!("Expected to find matches for pattern '{}'", pattern);
+        }
+    }
+}
+
+/// T124: Test generate_pattern_analysis_summary with LLM integration
+#[tokio::test]
+async fn test_generate_pattern_analysis_summary() {
+    use cudgel::llm::client::LlmClient;
+    use cudgel::llm::client::MockLlmClient;
+
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup test data
+    let repo = Repository {
+        id: 0,
+        path: "/test/llm_pattern".to_string(),
+        name: "llm-pattern-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "validation".to_string(),
+        path: "src/validation".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create validation-related entities
+    let entities = vec![
+        CodeEntity {
+            id: 0,
+            component_id,
+            name: "Validator".to_string(),
+            entity_type: EntityType::Trait,
+            file_path: "src/validation/validator.rs".to_string(),
+            line_start: 5,
+            line_end: 15,
+            visibility: Visibility::Public,
+            metadata: EntityMetadata {
+                signature: Some("pub trait Validator { fn validate(&self, input: &str) -> Result<(), ValidationError>; }".to_string()),
+                doc_comment: Some("Trait for input validation".to_string()),
+                language: "rust".to_string(),
+            },
+            summary: Some("Core validation trait".to_string()),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        },
+        CodeEntity {
+            id: 0,
+            component_id,
+            name: "EmailValidator".to_string(),
+            entity_type: EntityType::Struct,
+            file_path: "src/validation/email.rs".to_string(),
+            line_start: 10,
+            line_end: 40,
+            visibility: Visibility::Public,
+            metadata: EntityMetadata::default(),
+            summary: Some("Validates email addresses".to_string()),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        },
+    ];
+
+    let mut entity_ids = Vec::new();
+    for entity in &entities {
+        let id = client.create_entity(entity.clone()).await.unwrap();
+        entity_ids.push(id);
+    }
+
+    // Fetch the created entities
+    let mut matched_entities = Vec::new();
+    for id in entity_ids {
+        if let Some(entity) = client.get_entity(&id).await.unwrap() {
+            matched_entities.push(entity);
+        }
+    }
+
+    // Use mock LLM client for testing
+    let llm_client = MockLlmClient::new();
+    let analysis = llm_client
+        .analyze_pattern("validation", &matched_entities)
+        .await
+        .expect("Failed to analyze pattern");
+
+    assert!(!analysis.is_empty(), "Analysis should not be empty");
+    assert!(
+        analysis.to_lowercase().contains("validation") || analysis.to_lowercase().contains("validator"),
+        "Analysis should mention validation"
+    );
+}
+
+/// T125: Test query parser pattern analysis intent extraction
+#[tokio::test]
+async fn test_query_parser_pattern_analysis_intent() {
+    use cudgel::kg::{QueryIntent, QueryParser};
+
+    let parser = QueryParser::new();
+
+    // Test various pattern analysis query patterns
+    let test_cases = vec![
+        (
+            "how is error handling implemented",
+            QueryIntent::PatternAnalysis {
+                pattern: "error handling".to_string(),
+            },
+        ),
+        (
+            "pattern for logging",
+            QueryIntent::PatternAnalysis {
+                pattern: "logging".to_string(),
+            },
+        ),
+        (
+            "validation across codebase",
+            QueryIntent::PatternAnalysis {
+                pattern: "validation".to_string(),
+            },
+        ),
+        (
+            "show me authentication pattern",
+            QueryIntent::PatternAnalysis {
+                pattern: "authentication".to_string(),
+            },
+        ),
+        (
+            "how do we handle configuration",
+            QueryIntent::PatternAnalysis {
+                pattern: "configuration".to_string(),
+            },
+        ),
+    ];
+
+    for (query, expected_intent) in test_cases {
+        let intent = parser
+            .parse(query)
+            .unwrap_or_else(|_| panic!("Failed to parse query: {}", query));
+        assert_eq!(
+            intent, expected_intent,
+            "Query '{}' should produce {:?}",
+            query, expected_intent
+        );
+    }
+}
+
+/// T126: Test pattern analysis workflow integration
+#[tokio::test]
+async fn test_pattern_analysis_workflow() {
+    use cudgel::kg::{execute_pattern_analysis_query, PatternAnalysisResult};
+
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository with entities following a caching pattern
+    let repo = Repository {
+        id: 0,
+        path: "/test/workflow_pattern".to_string(),
+        name: "workflow-pattern-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "caching".to_string(),
+        path: "src/caching".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create caching pattern entities
+    let cache_entities = vec![
+        ("Cache", EntityType::Trait),
+        ("MemoryCache", EntityType::Struct),
+        ("RedisCache", EntityType::Struct),
+        ("cache_get", EntityType::Function),
+        ("cache_set", EntityType::Function),
+        ("cache_invalidate", EntityType::Function),
+    ];
+
+    for (name, entity_type) in cache_entities {
+        let entity = CodeEntity {
+            id: 0,
+            component_id,
+            name: name.to_string(),
+            entity_type,
+            file_path: format!("src/caching/{}.rs", name.to_lowercase()),
+            line_start: 10,
+            line_end: 50,
+            visibility: Visibility::Public,
+            metadata: EntityMetadata::default(),
+            summary: Some(format!("Caching functionality: {}", name)),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        client.create_entity(entity).await.unwrap();
+    }
+
+    // Test workflow: Query -> Parse -> Match -> Analyze -> Return
+    let query = "how is caching implemented";
+    let result = execute_pattern_analysis_query(&*client, repo_id, query)
+        .await
+        .expect("Failed to execute pattern analysis workflow");
+
+    match result {
+        PatternAnalysisResult::Success {
+            pattern,
+            matched_entities,
+            analysis,
+        } => {
+            // Verify pattern extraction
+            assert!(
+                pattern.to_lowercase().contains("cach"),
+                "Pattern should contain 'cach', got: {}",
+                pattern
+            );
+
+            // Verify entity matching
+            assert!(
+                matched_entities.len() >= 3,
+                "Should find multiple cache-related entities, found {}",
+                matched_entities.len()
+            );
+
+            // Verify all matched entities are related to caching
+            for entity in &matched_entities {
+                assert!(
+                    entity.name.to_lowercase().contains("cache"),
+                    "Entity '{}' should contain 'cache'",
+                    entity.name
+                );
+            }
+
+            // Verify analysis was generated
+            assert!(!analysis.is_empty(), "Analysis should not be empty");
+            assert!(
+                analysis.len() > 50,
+                "Analysis should be substantial, got {} chars",
+                analysis.len()
+            );
+        }
+        PatternAnalysisResult::NoMatches { pattern } => {
+            panic!("Expected to find cache-related entities for pattern '{}'", pattern);
+        }
+    }
+}

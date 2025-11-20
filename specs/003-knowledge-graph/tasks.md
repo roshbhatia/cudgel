@@ -250,28 +250,28 @@
 
 **Independent Test**: Query "how is error handling implemented?", verify response identifies pattern and relevant components
 
-### Tests for User Story 4 ⚠️
+### Tests for User Story 4 ✅
 
-- [ ] T122 [P] [US4] Unit test: test_search_entities_by_name_pattern in tests/test_graph_client.rs
-- [ ] T123 [P] [US4] Unit test: test_execute_query_for_pattern_matching in tests/test_graph_client.rs
-- [ ] T124 [P] [US4] Unit test: test_generate_pattern_analysis_summary in tests/test_llm_integration.rs
-- [ ] T125 [P] [US4] Unit test: test_query_parser_pattern_analysis_intent in tests/test_graph_queries.rs
-- [ ] T126 [US4] Integration test: test_pattern_analysis_workflow in tests/integration_tests.rs
+- [x] T122 [P] [US4] Unit test: test_search_entities_by_name_pattern in tests/test_graph_client.rs
+- [x] T123 [P] [US4] Unit test: test_execute_query_for_pattern_matching in tests/test_graph_client.rs
+- [x] T124 [P] [US4] Unit test: test_generate_pattern_analysis_summary in tests/test_graph_client.rs (MockLlmClient)
+- [x] T125 [P] [US4] Unit test: test_query_parser_pattern_analysis_intent in tests/test_graph_client.rs
+- [x] T126 [US4] Integration test: test_pattern_analysis_workflow in tests/test_graph_client.rs
 
-### Implementation for User Story 4
+### Implementation for User Story 4 ✅
 
 **Pattern Matching**:
-- [ ] T127 [US4] Implement execute_query() for arbitrary SurrealQL queries in src/graph/client.rs
-- [ ] T128 [US4] Implement find_entities_by_pattern() using CONTAINS queries in src/graph/client.rs
-- [ ] T129 [US4] Implement analyze_pattern() LLM method in src/llm/client.rs
+- [x] T127 [US4] Pattern matching using EntityMatcher with Jaro-Winkler similarity in src/kg/query.rs
+- [x] T128 [US4] Fuzzy entity search with configurable threshold (0.5 default) in src/kg/query.rs
+- [x] T129 [US4] Implement analyze_pattern() LLM method with CodeEntity support in src/llm/client.rs
 
 **Query Interface - Pattern Analysis**:
-- [ ] T130 [US4] Add pattern analysis regex to QueryParser in src/graph/query.rs
-- [ ] T131 [US4] Implement execute_pattern_analysis_query() in src/graph/query.rs
-- [ ] T132 [US4] Generate pattern summary with LLM using matched entities in src/graph/query.rs
+- [x] T130 [US4] Add PatternAnalysis variant and regex patterns to QueryParser in src/kg/query.rs
+- [x] T131 [US4] Implement execute_pattern_analysis_query() with fuzzy matching in src/kg/query.rs
+- [x] T132 [US4] Generate pattern summary with LLM using matched entities in src/kg/query.rs
 
 **Integration**:
-- [ ] T133 [US4] Add pattern analysis queries to query command handler in src/main.rs
+- [x] T133 [US4] Add pattern analysis queries to query command handler in src/main.rs
 
 **Checkpoint**: All four user stories should now be fully functional
 

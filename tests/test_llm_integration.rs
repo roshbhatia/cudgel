@@ -70,7 +70,7 @@ impl LlmClient for MockLlmClient {
         ))
     }
 
-    async fn analyze_pattern(&self, pattern: &str, _entities: &[String]) -> Result<String> {
+    async fn analyze_pattern(&self, pattern: &str, _entities: &[cudgel::kg::CodeEntity]) -> Result<String> {
         if self.should_fail {
             return Err(cudgel::llm::LlmError::Generation(
                 "Mock generation failure".to_string(),

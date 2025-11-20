@@ -139,6 +139,8 @@ pub enum QueryIntent {
     ImplementedBy { entity_name: String },
     /// Get description/summary of an entity
     EntityDescription { entity_name: String },
+    /// Analyze cross-cutting concern or pattern
+    PatternAnalysis { pattern: String },
 }
 
 /// Type alias for pattern matching function
@@ -157,6 +159,44 @@ impl QueryParser {
     pub fn new() -> Self {
         let patterns: PatternList = vec![
             // Most specific patterns first to avoid false matches
+
+            // Pattern analysis patterns (MUST come first for priority)
+            // "how is X implemented" / "how do we handle X"
+            (
+                Regex::new(r"(?i)how\s+(?:is|do\s+we|does)\s+(.+?)\s+(?:implemented|handled)").unwrap(),
+                Box::new(|pattern: &str| QueryIntent::PatternAnalysis {
+                    pattern: pattern.trim().to_string(),
+                }),
+            ),
+            // "how do we handle X" / "how does X get handled"
+            (
+                Regex::new(r"(?i)how\s+(?:do\s+we|does|is)\s+(?:handle|implement|manage)\s+(.+?)(?:\s+|$|\?)").unwrap(),
+                Box::new(|pattern: &str| QueryIntent::PatternAnalysis {
+                    pattern: pattern.trim().to_string(),
+                }),
+            ),
+            // "pattern for X"
+            (
+                Regex::new(r"(?i)pattern\s+for\s+(.+)").unwrap(),
+                Box::new(|pattern: &str| QueryIntent::PatternAnalysis {
+                    pattern: pattern.trim().to_string(),
+                }),
+            ),
+            // "X pattern" (less specific, after "pattern for X")
+            // Skip common query prefixes like "show me", "find", "get", "search for"
+            (
+                Regex::new(r"(?i)(?:show\s+me\s+|find\s+|get\s+|search\s+for\s+)?(\w+(?:\s+\w+)*?)\s+pattern(?:\s+|$|\?)").unwrap(),
+                Box::new(|pattern: &str| QueryIntent::PatternAnalysis {
+                    pattern: pattern.trim().to_string(),
+                }),
+            ),
+            // "X across codebase" / "X throughout"
+            (
+                Regex::new(r"(?i)(.+?)\s+(?:across\s+(?:the\s+)?codebase|throughout)").unwrap(),
+                Box::new(|pattern: &str| QueryIntent::PatternAnalysis {
+                    pattern: pattern.trim().to_string(),
+                }),
+            ),
 
             // Entity description patterns (MUST come before dependency patterns)
             // "what does X do"
@@ -371,6 +411,11 @@ pub async fn execute_relationship_query<T: KgClient + ?Sized>(
         | QueryIntent::Implements { entity_name }
         | QueryIntent::ImplementedBy { entity_name }
         | QueryIntent::EntityDescription { entity_name } => entity_name,
+        QueryIntent::PatternAnalysis { .. } => {
+            return Err(KgError::Query(
+                "Pattern analysis queries should use execute_pattern_analysis_query".to_string(),
+            ));
+        }
     };
 
     // Find entities matching the name
@@ -460,6 +505,13 @@ pub async fn execute_relationship_query<T: KgClient + ?Sized>(
             // Entity description queries should not use this function
             return Err(KgError::Query(
                 "Entity description queries should use execute_entity_description_query"
+                    .to_string(),
+            ));
+        }
+        QueryIntent::PatternAnalysis { .. } => {
+            // Pattern analysis queries should not use this function
+            return Err(KgError::Query(
+                "Pattern analysis queries should use execute_pattern_analysis_query"
                     .to_string(),
             ));
         }
@@ -646,6 +698,86 @@ pub async fn generate_entity_summary(entity: &CodeEntity, code_snippet: &str) ->
     }
 
     Ok(summary_parts.join(". "))
+}
+
+/// Result of a pattern analysis query
+#[derive(Debug, Clone)]
+pub enum PatternAnalysisResult {
+    /// Query successful, returning matched entities and analysis
+    Success {
+        pattern: String,
+        matched_entities: Vec<CodeEntity>,
+        analysis: String,
+    },
+    /// No entities match the pattern
+    NoMatches {
+        pattern: String,
+    },
+}
+
+/// Execute a pattern analysis query against the knowledge graph
+///
+/// Handles pattern extraction, entity matching, LLM analysis generation,
+/// and returns the cross-cutting concern analysis.
+pub async fn execute_pattern_analysis_query<T: KgClient + ?Sized>(
+    client: &T,
+    repository_id: i32,
+    query: &str,
+) -> Result<PatternAnalysisResult> {
+    // Parse the query to understand intent
+    let parser = QueryParser::new();
+    let intent = parser.parse(query)?;
+
+    // Extract pattern from intent
+    let pattern = match &intent {
+        QueryIntent::PatternAnalysis { pattern } => pattern,
+        _ => {
+            return Err(KgError::Query(
+                "This function only handles pattern analysis queries".to_string(),
+            ));
+        }
+    };
+
+    // Search for entities matching the pattern (fuzzy search with lower threshold)
+    let matches = client
+        .search_entities_by_name(&repository_id, pattern, 0.5)
+        .await?;
+
+    if matches.is_empty() {
+        return Ok(PatternAnalysisResult::NoMatches {
+            pattern: pattern.clone(),
+        });
+    }
+
+    // Extract entities from matches
+    let matched_entities: Vec<CodeEntity> = matches.into_iter().map(|m| m.entity).collect();
+
+    // Generate analysis using LLM
+    use crate::llm::client::{LlmClient, MockLlmClient};
+    let llm_client = MockLlmClient::new(); // In production, use real LLM client from config
+    
+    let analysis = llm_client
+        .analyze_pattern(pattern, &matched_entities)
+        .await
+        .unwrap_or_else(|_| {
+            // Fallback to simple analysis if LLM fails
+            format!(
+                "Found {} entities matching pattern '{}': {}",
+                matched_entities.len(),
+                pattern,
+                matched_entities
+                    .iter()
+                    .map(|e| format!("{:?}::{}", e.entity_type, e.name))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        });
+
+    Ok(PatternAnalysisResult::Success {
+        pattern: pattern.clone(),
+        matched_entities,
+        analysis,
+    })
 }
 
 #[cfg(test)]

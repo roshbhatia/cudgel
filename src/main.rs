@@ -957,7 +957,79 @@ async fn cmd_knowledge(
             .iter()
             .any(|keyword| query_str.to_lowercase().contains(keyword));
 
-        if is_description_query {
+        // Pattern analysis queries contain phrases like "how is X implemented", "pattern for X", "X across codebase"
+        let pattern_keywords = [
+            "how is",
+            "how do we",
+            "how does",
+            "pattern for",
+            "pattern",
+            "across codebase",
+            "across the codebase",
+            "throughout",
+        ];
+        let is_pattern_query = pattern_keywords
+            .iter()
+            .any(|keyword| query_str.to_lowercase().contains(keyword))
+            && (query_str.to_lowercase().contains("implemented")
+                || query_str.to_lowercase().contains("handled")
+                || query_str.to_lowercase().contains("pattern")
+                || query_str.to_lowercase().contains("across")
+                || query_str.to_lowercase().contains("throughout"));
+
+        if is_pattern_query {
+            // Use natural language pattern analysis query
+            use cudgel::kg::{execute_pattern_analysis_query, PatternAnalysisResult};
+
+            match execute_pattern_analysis_query(&kg_client, repo_id, query_str).await {
+                Ok(PatternAnalysisResult::Success {
+                    pattern,
+                    matched_entities,
+                    analysis,
+                }) => {
+                    println!(
+                        "\n{} Pattern Analysis: {}\n",
+                        "🔍".bright_green(),
+                        pattern.bright_green().bold()
+                    );
+                    println!("{}\n", analysis);
+                    
+                    println!(
+                        "{}Matched Entities ({}):",
+                        "  📋 ".bright_blue(),
+                        matched_entities.len()
+                    );
+                    for (i, entity) in matched_entities.iter().take(10).enumerate() {
+                        println!(
+                            "     {}. {} ({:?}) - {}:{}",
+                            i + 1,
+                            entity.name.bright_yellow(),
+                            entity.entity_type,
+                            entity.file_path,
+                            entity.line_start
+                        );
+                    }
+                    
+                    if matched_entities.len() > 10 {
+                        println!(
+                            "     ... and {} more entities",
+                            matched_entities.len() - 10
+                        );
+                    }
+                }
+                Ok(PatternAnalysisResult::NoMatches { pattern }) => {
+                    println!(
+                        "\n{} No entities found matching pattern: {}\n",
+                        "⚠️ ".yellow(),
+                        pattern.bright_yellow()
+                    );
+                    println!("Try a different pattern or check if the repository is indexed.");
+                }
+                Err(e) => {
+                    println!("{} Query error: {}", "❌".red(), e.to_user_message());
+                }
+            }
+        } else if is_description_query {
             // Use natural language entity description query
             use cudgel::kg::{execute_entity_description_query, EntityDescriptionResult};
 
