@@ -7,7 +7,6 @@ use super::{
 };
 use crate::database::Database;
 use async_trait::async_trait;
-use chrono::{NaiveDateTime, TimeZone, Utc};
 use std::sync::Arc;
 
 /// Record ID type alias for PostgreSQL primary keys
@@ -707,8 +706,8 @@ impl KgClient for PostgresKgClient {
                     visibility,
                     metadata,
                     summary: r.get(11),
-                    created_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(13)),
-                    updated_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(14)),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
                 }
             })
             .collect())
@@ -739,8 +738,9 @@ impl KgClient for PostgresKgClient {
                        END as confidence
                 FROM kg_entities e
                 JOIN kg_components c ON e.kg_component_id = c.id
-                WHERE c.kg_repository_id = $2 
-                  AND e.name ILIKE CONCAT('%', $1, '%')
+                JOIN kg_repositories r ON c.kg_repository_id = r.id
+                WHERE r.repository_id = $2 
+                  AND (e.name ILIKE CONCAT('%', $1, '%') OR e.name % $1)
                   AND CASE 
                       WHEN e.name ILIKE $1 THEN 1.0
                       WHEN e.name ILIKE CONCAT('%', $1, '%') THEN 0.8
@@ -796,8 +796,8 @@ impl KgClient for PostgresKgClient {
                     visibility,
                     metadata,
                     summary: r.get(11),
-                    created_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(13)),
-                    updated_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(14)),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
                 };
 
                 super::EntityMatch { entity, confidence }
@@ -873,8 +873,8 @@ impl KgClient for PostgresKgClient {
                     visibility,
                     metadata,
                     summary: r.get(11),
-                    created_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(13)),
-                    updated_at: Utc.from_utc_datetime(&r.get::<_, chrono::NaiveDateTime>(14)),
+                    created_at: r.get(13),
+                    updated_at: r.get(14),
                 }
             })
             .collect())
