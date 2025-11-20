@@ -87,16 +87,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T029 [P] [US1] Unit test: test_create_and_get_repository in tests/test_graph_client.rs
-- [ ] T030 [P] [US1] Unit test: test_create_and_get_component in tests/test_graph_client.rs
-- [ ] T031 [P] [US1] Unit test: test_create_and_get_entity in tests/test_graph_client.rs
-- [ ] T032 [P] [US1] Unit test: test_create_entities_batch in tests/test_graph_client.rs
-- [ ] T033 [P] [US1] Unit test: test_update_repository_summary in tests/test_graph_client.rs
-- [ ] T034 [P] [US1] Unit test: test_get_components in tests/test_graph_client.rs
-- [ ] T035 [P] [US1] Unit test: test_generate_repository_summary (mock) in tests/test_llm_integration.rs
-- [ ] T036 [P] [US1] Unit test: test_generate_component_summary (mock) in tests/test_llm_integration.rs
-- [ ] T037 [P] [US1] Unit test: test_llm_health_check in tests/test_llm_integration.rs
-- [ ] T038 [P] [US1] Unit test: test_llm_graceful_degradation in tests/test_llm_integration.rs
+- [x] T029 [P] [US1] Unit test: test_create_and_get_repository in tests/test_graph_client.rs
+- [x] T030 [P] [US1] Unit test: test_create_and_get_component in tests/test_graph_client.rs
+- [x] T031 [P] [US1] Unit test: test_create_and_get_entity in tests/test_graph_client.rs
+- [x] T032 [P] [US1] Unit test: test_create_entities_batch in tests/test_graph_client.rs
+- [x] T033 [P] [US1] Unit test: test_update_repository_summary in tests/test_graph_client.rs
+- [x] T034 [P] [US1] Unit test: test_get_components in tests/test_graph_client.rs
+- [x] T035 [P] [US1] Unit test: test_generate_repository_summary (mock) in tests/test_llm_integration.rs
+- [x] T036 [P] [US1] Unit test: test_generate_component_summary (mock) in tests/test_llm_integration.rs
+- [x] T037 [P] [US1] Unit test: test_llm_health_check in tests/test_llm_integration.rs
+- [x] T038 [P] [US1] Unit test: test_llm_graceful_degradation in tests/test_llm_integration.rs
 - [ ] T039 [US1] Integration test: test_graph_builder_extract_entities in tests/test_graph_builder.rs
 - [ ] T040 [US1] Integration test: test_full_indexing_with_summaries in tests/integration_tests.rs
 

@@ -165,20 +165,19 @@ impl PostgresKgClient {
     /// * `db` - Shared database connection pool
     ///
     /// # Examples
-    /// ```no_run
-    /// use cudgel::kg::client::PostgresKgClient;
-    /// use cudgel::database::Database;
-    /// use std::sync::Arc;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let config = cudgel::config::Config::local()?;
-    ///     let db = Database::new(&config).await?;
-    ///     let client = PostgresKgClient::new(Arc::new(db));
-    ///     Ok(())
-    /// ```
-    /// }
-    /// ```
+     /// ```no_run
+     /// use cudgel::kg::client::PostgresKgClient;
+     /// use cudgel::database::Database;
+     /// use std::sync::Arc;
+     ///
+     /// #[tokio::main]
+     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+     ///     let config = cudgel::config::Config::local()?;
+     ///     let db = Database::new(&config).await?;
+     ///     let client = PostgresKgClient::new(Arc::new(db));
+     ///     Ok(())
+     /// }
+     /// ```
     pub fn new(db: Arc<Database>) -> Self {
         Self { db }
     }
