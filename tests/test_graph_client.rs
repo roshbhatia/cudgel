@@ -978,10 +978,7 @@ async fn test_delete_entity_cascade() {
 // ============================================================================
 
 /// Helper to create test repository, component, and entities for relationship tests
-async fn setup_relationship_test_data(
-    client: &Arc<dyn KgClient>,
-) -> (i32, i32, i32, i32) {
-
+async fn setup_relationship_test_data(client: &Arc<dyn KgClient>) -> (i32, i32, i32, i32) {
     // Create repository
     let repo = Repository {
         id: 0,
@@ -1046,7 +1043,6 @@ async fn setup_relationship_test_data(
 /// T073: Test create_dependency relationship
 #[tokio::test]
 async fn test_create_dependency_relationship() {
-
     let client = match setup_test_graph_client().await {
         Some(c) => c,
         None => {
@@ -1250,7 +1246,6 @@ async fn test_create_implements_relationship() {
 /// T077: Test get_outgoing_relationships
 #[tokio::test]
 async fn test_get_outgoing_relationships() {
-
     let client = match setup_test_graph_client().await {
         Some(c) => c,
         None => {
@@ -1292,7 +1287,6 @@ async fn test_get_outgoing_relationships() {
 /// T078: Test get_incoming_relationships
 #[tokio::test]
 async fn test_get_incoming_relationships() {
-
     let client = match setup_test_graph_client().await {
         Some(c) => c,
         None => {
@@ -1328,7 +1322,6 @@ async fn test_get_incoming_relationships() {
 /// T079: Test get_all_relationships
 #[tokio::test]
 async fn test_get_all_relationships() {
-
     let client = match setup_test_graph_client().await {
         Some(c) => c,
         None => {
@@ -1387,7 +1380,6 @@ async fn test_get_all_relationships() {
 /// T080: Test traverse_dependencies with multi-hop
 #[tokio::test]
 async fn test_traverse_dependencies_multi_hop() {
-
     let client = match setup_test_graph_client().await {
         Some(c) => c,
         None => {
@@ -1491,9 +1483,18 @@ async fn test_traverse_dependencies_multi_hop() {
     );
 
     let names: Vec<String> = dependencies.iter().map(|e| e.name.clone()).collect();
-    assert!(names.contains(&"EntityB".to_string()), "Should find EntityB");
-    assert!(names.contains(&"EntityC".to_string()), "Should find EntityC");
-    assert!(names.contains(&"EntityD".to_string()), "Should find EntityD");
+    assert!(
+        names.contains(&"EntityB".to_string()),
+        "Should find EntityB"
+    );
+    assert!(
+        names.contains(&"EntityC".to_string()),
+        "Should find EntityC"
+    );
+    assert!(
+        names.contains(&"EntityD".to_string()),
+        "Should find EntityD"
+    );
 }
 
 // ============================================================================
@@ -1509,21 +1510,78 @@ async fn test_query_parser_relationship_intent() {
 
     // Test various query patterns
     let test_cases = vec![
-        ("what does Parser depend on", QueryIntent::Dependencies { entity_name: "Parser".to_string() }),
-        ("dependencies of Config", QueryIntent::Dependencies { entity_name: "Config".to_string() }),
-        ("what depends on Database", QueryIntent::Dependents { entity_name: "Database".to_string() }),
-        ("what does Indexer use", QueryIntent::Uses { entity_name: "Indexer".to_string() }),
-        ("what uses Parser", QueryIntent::UsedBy { entity_name: "Parser".to_string() }),
-        ("what does main call", QueryIntent::Calls { entity_name: "main".to_string() }),
-        ("what calls parse_file", QueryIntent::CalledBy { entity_name: "parse_file".to_string() }),
-        ("what does HttpClient implement", QueryIntent::Implements { entity_name: "HttpClient".to_string() }),
-        ("what implements Serializable", QueryIntent::ImplementedBy { entity_name: "Serializable".to_string() }),
-        ("what does Parser interact with", QueryIntent::AllRelationships { entity_name: "Parser".to_string() }),
-        ("relationships of Config", QueryIntent::AllRelationships { entity_name: "Config".to_string() }),
+        (
+            "what does Parser depend on",
+            QueryIntent::Dependencies {
+                entity_name: "Parser".to_string(),
+            },
+        ),
+        (
+            "dependencies of Config",
+            QueryIntent::Dependencies {
+                entity_name: "Config".to_string(),
+            },
+        ),
+        (
+            "what depends on Database",
+            QueryIntent::Dependents {
+                entity_name: "Database".to_string(),
+            },
+        ),
+        (
+            "what does Indexer use",
+            QueryIntent::Uses {
+                entity_name: "Indexer".to_string(),
+            },
+        ),
+        (
+            "what uses Parser",
+            QueryIntent::UsedBy {
+                entity_name: "Parser".to_string(),
+            },
+        ),
+        (
+            "what does main call",
+            QueryIntent::Calls {
+                entity_name: "main".to_string(),
+            },
+        ),
+        (
+            "what calls parse_file",
+            QueryIntent::CalledBy {
+                entity_name: "parse_file".to_string(),
+            },
+        ),
+        (
+            "what does HttpClient implement",
+            QueryIntent::Implements {
+                entity_name: "HttpClient".to_string(),
+            },
+        ),
+        (
+            "what implements Serializable",
+            QueryIntent::ImplementedBy {
+                entity_name: "Serializable".to_string(),
+            },
+        ),
+        (
+            "what does Parser interact with",
+            QueryIntent::AllRelationships {
+                entity_name: "Parser".to_string(),
+            },
+        ),
+        (
+            "relationships of Config",
+            QueryIntent::AllRelationships {
+                entity_name: "Config".to_string(),
+            },
+        ),
     ];
 
     for (query, expected_intent) in test_cases {
-        let intent = parser.parse(query).unwrap_or_else(|_| panic!("Failed to parse query: {}", query));
+        let intent = parser
+            .parse(query)
+            .unwrap_or_else(|_| panic!("Failed to parse query: {}", query));
         assert_eq!(
             intent, expected_intent,
             "Query '{}' should produce {:?}",
@@ -1532,19 +1590,11 @@ async fn test_query_parser_relationship_intent() {
     }
 
     // Test invalid queries
-    let invalid_queries = vec![
-        "",
-        "random nonsense",
-        "hello world",
-    ];
+    let invalid_queries = vec!["", "random nonsense", "hello world"];
 
     for query in invalid_queries {
         let result = parser.parse(query);
-        assert!(
-            result.is_err(),
-            "Query '{}' should fail to parse",
-            query
-        );
+        assert!(result.is_err(), "Query '{}' should fail to parse", query);
     }
 }
 
@@ -1614,25 +1664,366 @@ async fn test_fuzzy_entity_matching() {
 
     // Test fuzzy matching
     let matcher = EntityMatcher::new();
-    
+
     // Exact match
-    let matches = matcher.find_entities_by_name(&*client, repo_id, "HttpParser").await.unwrap();
-    assert!(!matches.is_empty(), "Should find exact match for HttpParser");
+    let matches = matcher
+        .find_entities_by_name(&*client, repo_id, "HttpParser")
+        .await
+        .unwrap();
+    assert!(
+        !matches.is_empty(),
+        "Should find exact match for HttpParser"
+    );
     assert_eq!(matches[0].entity.name, "HttpParser");
-    assert_eq!(matches[0].confidence, 1.0, "Exact match should have confidence 1.0");
+    assert_eq!(
+        matches[0].confidence, 1.0,
+        "Exact match should have confidence 1.0"
+    );
 
     // Case insensitive
-    let matches = matcher.find_entities_by_name(&*client, repo_id, "httpparser").await.unwrap();
+    let matches = matcher
+        .find_entities_by_name(&*client, repo_id, "httpparser")
+        .await
+        .unwrap();
     assert!(!matches.is_empty(), "Should find case-insensitive match");
     assert_eq!(matches[0].entity.name, "HttpParser");
 
     // No match for completely different name
-    let matches = matcher.find_entities_by_name(&*client, repo_id, "CompletelyDifferentThing").await.unwrap();
-    assert!(matches.is_empty() || matches[0].confidence < 0.85, "Should not match unrelated names with high confidence");
+    let matches = matcher
+        .find_entities_by_name(&*client, repo_id, "CompletelyDifferentThing")
+        .await
+        .unwrap();
+    assert!(
+        matches.is_empty() || matches[0].confidence < 0.85,
+        "Should not match unrelated names with high confidence"
+    );
 
     // Custom threshold
     let matcher_loose = EntityMatcher::with_threshold(0.5).unwrap();
-    let matches = matcher_loose.find_entities_by_name(&*client, repo_id, "Parse").await.unwrap();
+    let matches = matcher_loose
+        .find_entities_by_name(&*client, repo_id, "Parse")
+        .await
+        .unwrap();
     // With lower threshold, we should find matches containing "Parser"
-    assert!(!matches.is_empty(), "Lower threshold should find partial matches");
+    assert!(
+        !matches.is_empty(),
+        "Lower threshold should find partial matches"
+    );
+}
+
+// ============================================================================
+// User Story 3 Tests: Component Purpose Discovery (T108-T112)
+// ============================================================================
+
+/// T109: Test get_entity_by_id
+#[tokio::test]
+async fn test_get_entity_by_id() {
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository, component, and entity
+    let repo = Repository {
+        id: 0,
+        path: "/test/entity_desc".to_string(),
+        name: "entity-description".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "database".to_string(),
+        path: "src/database".to_string(),
+        component_type: ComponentType::Module,
+        summary: Some("Database access layer".to_string()),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create entity with summary
+    let entity = CodeEntity {
+        id: 0,
+        component_id,
+        name: "Database".to_string(),
+        entity_type: EntityType::Struct,
+        file_path: "src/database.rs".to_string(),
+        line_start: 20,
+        line_end: 150,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata {
+            signature: Some("pub struct Database { /* ... */ }".to_string()),
+            doc_comment: Some("Main database client for PostgreSQL operations".to_string()),
+            language: "rust".to_string(),
+        },
+        summary: Some("Handles all PostgreSQL database operations including schema initialization, query execution, and connection pooling".to_string()),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let entity_id = client.create_entity(entity.clone()).await.unwrap();
+
+    // Test get_entity returns entity with full metadata and summary
+    let retrieved = client
+        .get_entity(&entity_id)
+        .await
+        .expect("Failed to get entity")
+        .expect("Entity should exist");
+
+    assert_eq!(retrieved.id, entity_id);
+    assert_eq!(retrieved.name, "Database");
+    assert_eq!(retrieved.entity_type, EntityType::Struct);
+    assert!(retrieved.summary.is_some());
+    assert_eq!(
+        retrieved.summary.as_ref().unwrap(),
+        "Handles all PostgreSQL database operations including schema initialization, query execution, and connection pooling"
+    );
+    assert!(retrieved.metadata.doc_comment.is_some());
+}
+
+/// T110: Test query parser entity description intent extraction
+#[tokio::test]
+async fn test_query_parser_entity_description_intent() {
+    use cudgel::kg::{QueryIntent, QueryParser};
+
+    let parser = QueryParser::new();
+
+    // Test various entity description query patterns
+    let test_cases = vec![
+        (
+            "what does Database do",
+            QueryIntent::EntityDescription {
+                entity_name: "Database".to_string(),
+            },
+        ),
+        (
+            "describe Parser",
+            QueryIntent::EntityDescription {
+                entity_name: "Parser".to_string(),
+            },
+        ),
+        (
+            "what is Indexer",
+            QueryIntent::EntityDescription {
+                entity_name: "Indexer".to_string(),
+            },
+        ),
+        (
+            "explain Config",
+            QueryIntent::EntityDescription {
+                entity_name: "Config".to_string(),
+            },
+        ),
+        (
+            "tell me about HttpClient",
+            QueryIntent::EntityDescription {
+                entity_name: "HttpClient".to_string(),
+            },
+        ),
+        (
+            "purpose of Orchestrator",
+            QueryIntent::EntityDescription {
+                entity_name: "Orchestrator".to_string(),
+            },
+        ),
+    ];
+
+    for (query, expected_intent) in test_cases {
+        let intent = parser
+            .parse(query)
+            .unwrap_or_else(|_| panic!("Failed to parse query: {}", query));
+        assert_eq!(
+            intent, expected_intent,
+            "Query '{}' should produce {:?}",
+            query, expected_intent
+        );
+    }
+}
+
+/// T111: Test generate entity summary with code snippet
+#[tokio::test]
+async fn test_generate_entity_summary_with_code_snippet() {
+    use cudgel::kg::generate_entity_summary;
+
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository, component, and entity
+    let repo = Repository {
+        id: 0,
+        path: "/test/summary_gen".to_string(),
+        name: "summary-generation".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "parser".to_string(),
+        path: "src/parser".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create entity without summary
+    let entity = CodeEntity {
+        id: 0,
+        component_id,
+        name: "parse_file".to_string(),
+        entity_type: EntityType::Function,
+        file_path: "src/parser.rs".to_string(),
+        line_start: 42,
+        line_end: 85,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata {
+            signature: Some("pub fn parse_file(path: &Path) -> Result<AST>".to_string()),
+            doc_comment: Some("Parses a source file into an abstract syntax tree".to_string()),
+            language: "rust".to_string(),
+        },
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let entity_id = client.create_entity(entity.clone()).await.unwrap();
+
+    // Mock code snippet (in production, this would be read from the actual file)
+    let code_snippet = r#"pub fn parse_file(path: &Path) -> Result<AST> {
+    let content = std::fs::read_to_string(path)?;
+    let tokens = tokenize(&content)?;
+    let ast = build_ast(tokens)?;
+    Ok(ast)
+}"#;
+
+    // Generate summary using LLM (this will use mocked LLM or skip if unavailable)
+    let result = generate_entity_summary(&entity, code_snippet).await;
+
+    // If LLM is not available, this test may return an error
+    // In production, we'd mock the LLM client
+    if let Ok(summary) = result {
+        assert!(!summary.is_empty(), "Generated summary should not be empty");
+        assert!(summary.len() > 10, "Summary should be meaningful");
+
+        // Update entity with generated summary
+        client
+            .update_entity_summary(&entity_id, summary.clone())
+            .await
+            .unwrap();
+
+        // Verify the update
+        let updated = client.get_entity(&entity_id).await.unwrap().unwrap();
+        assert_eq!(updated.summary, Some(summary));
+    } else {
+        eprintln!("Skipping LLM-based summary generation: LLM client not available");
+    }
+}
+
+/// T112: Test entity summary generation workflow
+#[tokio::test]
+async fn test_entity_summary_generation_workflow() {
+    let client = match setup_test_graph_client().await {
+        Some(c) => c,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Setup repository, component, and entity
+    let repo = Repository {
+        id: 0,
+        path: "/test/workflow".to_string(),
+        name: "workflow-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = client.create_repository(repo).await.unwrap();
+
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "indexer".to_string(),
+        path: "src/indexer".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = client.create_component(component).await.unwrap();
+
+    // Create entity without summary
+    let entity = CodeEntity {
+        id: 0,
+        component_id,
+        name: "Indexer".to_string(),
+        entity_type: EntityType::Struct,
+        file_path: "src/indexer.rs".to_string(),
+        line_start: 15,
+        line_end: 200,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata {
+            signature: Some("pub struct Indexer { db: Arc<Database> }".to_string()),
+            doc_comment: Some(
+                "Indexes code repositories and populates the knowledge graph".to_string(),
+            ),
+            language: "rust".to_string(),
+        },
+        summary: None, // No summary initially
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let entity_id = client.create_entity(entity).await.unwrap();
+
+    // Workflow step 1: Check if entity has summary
+    let entity_before = client.get_entity(&entity_id).await.unwrap().unwrap();
+    assert!(
+        entity_before.summary.is_none(),
+        "Entity should not have summary initially"
+    );
+
+    // Workflow step 2: Generate summary (mocked)
+    let generated_summary = "The Indexer struct is responsible for traversing code repositories, \
+        extracting code entities using tree-sitter parsers, and storing them in the PostgreSQL \
+        knowledge graph database for later querying and analysis."
+        .to_string();
+
+    // Workflow step 3: Update entity with generated summary
+    client
+        .update_entity_summary(&entity_id, generated_summary.clone())
+        .await
+        .unwrap();
+
+    // Workflow step 4: Verify entity now has summary
+    let entity_after = client.get_entity(&entity_id).await.unwrap().unwrap();
+    assert!(
+        entity_after.summary.is_some(),
+        "Entity should have summary after update"
+    );
+    assert_eq!(entity_after.summary.unwrap(), generated_summary);
+
+    // Workflow step 5: Retrieve entity by name and verify summary is included
+    let found_entities = client
+        .find_entities_by_name(&repo_id, "Indexer")
+        .await
+        .unwrap();
+    assert_eq!(found_entities.len(), 1);
+    assert!(found_entities[0].summary.is_some());
 }

@@ -179,15 +179,15 @@
 - [x] T089 [US2] Add graph traversal methods for 'show relationships for entity Y'
 
 **Graph Client Relationship Operations**:
-- [x] T090 [P] [US2] Implement create_dependency() in src/kg/client.rs
-- [x] T091 [P] [US2] Implement create_uses() in src/kg/client.rs
-- [x] T092 [P] [US2] Implement create_contains() in src/kg/client.rs
-- [x] T093 [P] [US2] Implement create_implements() in src/kg/client.rs
-- [x] T094 [P] [US2] Implement create_calls() in src/kg/client.rs
-- [x] T095 [US2] Implement get_outgoing_relationships() in src/kg/client.rs
-- [x] T096 [US2] Implement get_incoming_relationships() in src/kg/client.rs
-- [x] T097 [US2] Implement get_all_relationships() combining incoming + outgoing in src/kg/client.rs
-- [x] T098 [US2] Implement traverse_dependencies() with recursive CTEs and max depth limit in src/kg/client.rs
+- [ ] T090 [P] [US2] Implement create_dependency() in src/kg/client.rs
+- [ ] T091 [P] [US2] Implement create_uses() in src/kg/client.rs
+- [ ] T092 [P] [US2] Implement create_contains() in src/kg/client.rs
+- [ ] T093 [P] [US2] Implement create_implements() in src/kg/client.rs
+- [ ] T094 [P] [US2] Implement create_calls() in src/kg/client.rs
+- [ ] T095 [US2] Implement get_outgoing_relationships() in src/kg/client.rs
+- [ ] T096 [US2] Implement get_incoming_relationships() in src/kg/client.rs
+- [ ] T097 [US2] Implement get_all_relationships() combining incoming + outgoing in src/kg/client.rs
+- [ ] T098 [US2] Implement traverse_dependencies() with recursive CTEs and max depth limit in src/kg/client.rs
 
 **Entity Lookup**:
 - [ ] T098 [P] [US2] Implement find_entities_by_name() exact match in src/graph/client.rs
@@ -217,28 +217,28 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [x] T108 [P] [US3] Unit test: test_update_entity_summary in tests/test_graph_client.rs
-- [x] T109 [P] [US3] Unit test: test_get_entity_by_id in tests/test_graph_client.rs
-- [x] T110 [P] [US3] Unit test: test_query_parser_entity_description_intent in tests/test_graph_queries.rs
-- [x] T111 [P] [US3] Unit test: test_generate_entity_summary_with_code_snippet in tests/test_llm_integration.rs
-- [x] T112 [US3] Integration test: test_entity_summary_generation_workflow in tests/integration_tests.rs
+- [ ] T108 [P] [US3] Unit test: test_update_entity_summary in tests/test_graph_client.rs
+- [ ] T109 [P] [US3] Unit test: test_get_entity_by_id in tests/test_graph_client.rs
+- [ ] T110 [P] [US3] Unit test: test_query_parser_entity_description_intent in tests/test_graph_queries.rs
+- [ ] T111 [P] [US3] Unit test: test_generate_entity_summary_with_code_snippet in tests/test_llm_integration.rs
+- [ ] T112 [US3] Integration test: test_entity_summary_generation_workflow in tests/integration_tests.rs
 
 ### Implementation for User Story 3
 
 **Entity Summary Management**:
-- [x] T113 [US3] Implement update_entity_summary() in src/graph/client.rs (ALREADY EXISTS)
-- [x] T114 [US3] Implement get_entity() by ID in src/graph/client.rs (ALREADY EXISTS)
+- [ ] T113 [US3] Implement update_entity_summary() in src/graph/client.rs
+- [ ] T114 [US3] Implement get_entity() by ID in src/graph/client.rs
 - [ ] T115 [US3] Extend generate_entity_summary() to truncate code snippets (50 lines max) in src/llm/client.rs
 - [ ] T116 [US3] Implement entity summary generation in summarizer orchestration in src/llm/summarizer.rs
 
 **Query Interface - Entity Description**:
-- [x] T117 [US3] Add entity description pattern regex to QueryParser in src/graph/query.rs
-- [x] T118 [US3] Implement execute_entity_description_query() in src/graph/query.rs
-- [x] T119 [US3] Handle case where entity has no summary (fetch from DB or generate on-demand) in src/graph/query.rs
+- [ ] T117 [US3] Add entity description pattern regex to QueryParser in src/graph/query.rs
+- [ ] T118 [US3] Implement execute_entity_description_query() in src/graph/query.rs
+- [ ] T119 [US3] Handle case where entity has no summary (fetch from DB or generate on-demand) in src/graph/query.rs
 
 **Integration**:
 - [ ] T120 [US3] Add entity summary generation to build_from_index() pipeline in src/graph/builder.rs
-- [x] T121 [US3] Add entity description queries to query command handler in src/main.rs
+- [ ] T121 [US3] Add entity description queries to query command handler in src/main.rs
 
 **Checkpoint**: All three priority stories (P1, P2, P3) should now be independently functional
 

@@ -4,9 +4,7 @@
 //! Provides fuzzy entity matching and relationship query parsing to enable
 //! queries like "what does Parser interact with?" or "show dependencies of Config".
 
-use crate::kg::{
-    client::KgClient, CodeEntity, EntityMatch, EntityRelationships, KgError, Result,
-};
+use crate::kg::{client::KgClient, CodeEntity, EntityMatch, EntityRelationships, KgError, Result};
 use regex::Regex;
 
 /// Fuzzy matcher for finding entities by partial/ambiguous names
@@ -17,9 +15,7 @@ pub struct EntityMatcher {
 impl EntityMatcher {
     /// Create a new entity matcher with default threshold (0.85)
     pub fn new() -> Self {
-        Self {
-            threshold: 0.85,
-        }
+        Self { threshold: 0.85 }
     }
 
     /// Create a new entity matcher with custom threshold
@@ -60,7 +56,7 @@ impl EntityMatcher {
                 .await
                 .unwrap_or_default();
             all_entities.extend(entities);
-             // We only need to do this once to get all entities
+            // We only need to do this once to get all entities
         }
 
         // If no components, try to get all entity names and then fetch them
@@ -141,6 +137,8 @@ pub enum QueryIntent {
     Implements { entity_name: String },
     /// Find what entities implement this
     ImplementedBy { entity_name: String },
+    /// Get description/summary of an entity
+    EntityDescription { entity_name: String },
 }
 
 /// Type alias for pattern matching function
@@ -159,7 +157,36 @@ impl QueryParser {
     pub fn new() -> Self {
         let patterns: PatternList = vec![
             // Most specific patterns first to avoid false matches
-            
+
+            // Entity description patterns (MUST come before dependency patterns)
+            // "what does X do"
+            (
+                Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+do(?:\s+|$|\?)").unwrap(),
+                Box::new(|entity: &str| QueryIntent::EntityDescription {
+                    entity_name: entity.to_string(),
+                }),
+            ),
+            // "describe X" / "what is X" / "explain X"
+            (
+                Regex::new(r"(?i)(?:describe|what\s+is|explain)\s+(\w+)(?:\s+|$|\?)").unwrap(),
+                Box::new(|entity: &str| QueryIntent::EntityDescription {
+                    entity_name: entity.to_string(),
+                }),
+            ),
+            // "tell me about X"
+            (
+                Regex::new(r"(?i)tell\s+me\s+about\s+(\w+)(?:\s+|$|\?)").unwrap(),
+                Box::new(|entity: &str| QueryIntent::EntityDescription {
+                    entity_name: entity.to_string(),
+                }),
+            ),
+            // "purpose of X"
+            (
+                Regex::new(r"(?i)(?:what\s+is\s+the\s+)?purpose\s+of\s+(\w+)(?:\s+|$|\?)").unwrap(),
+                Box::new(|entity: &str| QueryIntent::EntityDescription {
+                    entity_name: entity.to_string(),
+                }),
+            ),
             // Dependencies - "what does X depend on"
             (
                 Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+depend").unwrap(),
@@ -174,7 +201,6 @@ impl QueryParser {
                     entity_name: entity.to_string(),
                 }),
             ),
-            
             // Dependents - "what depends on X"
             (
                 Regex::new(r"(?i)what\s+depends\s+on\s+(\w+)").unwrap(),
@@ -196,7 +222,6 @@ impl QueryParser {
                     entity_name: entity.to_string(),
                 }),
             ),
-            
             // Uses - "what does X use"
             (
                 Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+use").unwrap(),
@@ -218,7 +243,6 @@ impl QueryParser {
                     entity_name: entity.to_string(),
                 }),
             ),
-            
             // Calls - "what does X call"
             (
                 Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+call").unwrap(),
@@ -240,7 +264,6 @@ impl QueryParser {
                     entity_name: entity.to_string(),
                 }),
             ),
-            
             // Implements - "what does X implement"
             (
                 Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+implement").unwrap(),
@@ -262,7 +285,6 @@ impl QueryParser {
                     entity_name: entity.to_string(),
                 }),
             ),
-            
             // All relationships - "what does X interact with"
             (
                 Regex::new(r"(?i)what\s+(?:does|do)\s+(\w+)\s+interact").unwrap(),
@@ -293,9 +315,7 @@ impl QueryParser {
     /// Parse a natural language query to extract intent and entity name
     pub fn parse(&self, query: &str) -> Result<QueryIntent> {
         if query.trim().is_empty() {
-            return Err(KgError::Query(
-                "Query cannot be empty".to_string(),
-            ));
+            return Err(KgError::Query("Query cannot be empty".to_string()));
         }
 
         for (pattern, intent_fn) in &self.patterns {
@@ -313,7 +333,8 @@ impl QueryParser {
              - 'what does X use' / 'what uses X'\n\
              - 'what does X call' / 'what calls X'\n\
              - 'what does X implement' / 'what implements X'\n\
-             - 'what does X interact with' / 'relationships of X'",
+             - 'what does X interact with' / 'relationships of X'\n\
+             - 'what does X do' / 'describe X' / 'what is X'",
             query
         )))
     }
@@ -348,7 +369,8 @@ pub async fn execute_relationship_query<T: KgClient + ?Sized>(
         | QueryIntent::Calls { entity_name }
         | QueryIntent::CalledBy { entity_name }
         | QueryIntent::Implements { entity_name }
-        | QueryIntent::ImplementedBy { entity_name } => entity_name,
+        | QueryIntent::ImplementedBy { entity_name }
+        | QueryIntent::EntityDescription { entity_name } => entity_name,
     };
 
     // Find entities matching the name
@@ -434,6 +456,13 @@ pub async fn execute_relationship_query<T: KgClient + ?Sized>(
             }
         }
         QueryIntent::AllRelationships { .. } => client.get_all_relationships(&entity.id).await?,
+        QueryIntent::EntityDescription { .. } => {
+            // Entity description queries should not use this function
+            return Err(KgError::Query(
+                "Entity description queries should use execute_entity_description_query"
+                    .to_string(),
+            ));
+        }
     };
 
     Ok(RelationshipQueryResult::Success {
@@ -455,6 +484,168 @@ pub enum RelationshipQueryResult {
         query: String,
         candidates: Vec<CodeEntity>,
     },
+}
+
+/// Result of an entity description query
+#[derive(Debug, Clone)]
+pub enum EntityDescriptionResult {
+    /// Query successful, returning entity with description
+    Success {
+        entity: CodeEntity,
+        description: String,
+    },
+    /// Multiple entities match the query, disambiguation needed
+    Ambiguous {
+        query: String,
+        candidates: Vec<CodeEntity>,
+    },
+}
+
+/// Execute an entity description query against the knowledge graph
+///
+/// Handles entity resolution (with disambiguation), retrieves or generates
+/// entity summary, and returns the description.
+pub async fn execute_entity_description_query<T: KgClient + ?Sized>(
+    client: &T,
+    repository_id: i32,
+    query: &str,
+) -> Result<EntityDescriptionResult> {
+    // Parse the query to understand intent
+    let parser = QueryParser::new();
+    let intent = parser.parse(query)?;
+
+    // Extract entity name from intent
+    let entity_name = match &intent {
+        QueryIntent::EntityDescription { entity_name } => entity_name,
+        _ => {
+            return Err(KgError::Query(
+                "This function only handles entity description queries".to_string(),
+            ));
+        }
+    };
+
+    // Find entities matching the name
+    let matcher = EntityMatcher::new();
+    let matches = matcher
+        .find_entities_by_name(client, repository_id, entity_name)
+        .await?;
+
+    if matches.is_empty() {
+        return Err(KgError::NotFound(format!(
+            "No entities found matching '{}'. Try a different name or check if the repository is indexed.",
+            entity_name
+        )));
+    }
+
+    // Check for ambiguous results
+    if matches.len() > 1 && (matches[0].confidence - matches[1].confidence).abs() < 0.05 {
+        return Ok(EntityDescriptionResult::Ambiguous {
+            query: query.to_string(),
+            candidates: matches.into_iter().map(|m| m.entity).collect(),
+        });
+    }
+
+    // Use the best match
+    let entity = matches.into_iter().next().unwrap().entity;
+
+    // Build description from available metadata
+    let description = build_entity_description(&entity);
+
+    Ok(EntityDescriptionResult::Success {
+        entity,
+        description,
+    })
+}
+
+/// Build a description for an entity from its metadata
+///
+/// Combines summary, doc comments, signature, and location info into
+/// a human-readable description.
+fn build_entity_description(entity: &CodeEntity) -> String {
+    let mut parts = Vec::new();
+
+    // Entity type and name
+    parts.push(format!("{:?}: {}", entity.entity_type, entity.name));
+
+    // Location
+    parts.push(format!(
+        "Location: {} (lines {}-{})",
+        entity.file_path, entity.line_start, entity.line_end
+    ));
+
+    // Visibility
+    parts.push(format!("Visibility: {:?}", entity.visibility));
+
+    // Summary (if available)
+    if let Some(summary) = &entity.summary {
+        parts.push(format!("\nSummary: {}", summary));
+    }
+
+    // Doc comment (if available)
+    if let Some(doc) = &entity.metadata.doc_comment {
+        parts.push(format!("\nDocumentation: {}", doc));
+    }
+
+    // Signature (if available)
+    if let Some(sig) = &entity.metadata.signature {
+        parts.push(format!("\nSignature: {}", sig));
+    }
+
+    parts.join("\n")
+}
+
+/// Generate entity summary using LLM based on code snippet
+///
+/// This is a placeholder function that would integrate with an LLM client
+/// to generate summaries for entities that don't have one yet.
+///
+/// # Arguments
+/// * `entity` - The entity to generate summary for
+/// * `code_snippet` - The actual code for the entity
+///
+/// # Returns
+/// Generated summary text or error if LLM is unavailable
+pub async fn generate_entity_summary(entity: &CodeEntity, code_snippet: &str) -> Result<String> {
+    // For now, return a simple generated summary based on available metadata
+    // In production, this would call an LLM client
+
+    let mut summary_parts = Vec::new();
+
+    // Add entity type description
+    let type_desc = match entity.entity_type {
+        crate::kg::EntityType::Function => "a function",
+        crate::kg::EntityType::Struct => "a struct",
+        crate::kg::EntityType::Class => "a class",
+        crate::kg::EntityType::Method => "a method",
+        crate::kg::EntityType::Interface => "an interface",
+        crate::kg::EntityType::Trait => "a trait",
+        crate::kg::EntityType::Enum => "an enum",
+        crate::kg::EntityType::Constant => "a constant",
+        crate::kg::EntityType::Variable => "a variable",
+    };
+
+    summary_parts.push(format!("This is {} named '{}'", type_desc, entity.name));
+
+    // Add doc comment if available
+    if let Some(doc) = &entity.metadata.doc_comment {
+        summary_parts.push(doc.clone());
+    }
+
+    // Add language info
+    summary_parts.push(format!("Written in {}", entity.metadata.language));
+
+    // Add signature if available
+    if let Some(sig) = &entity.metadata.signature {
+        summary_parts.push(format!("Signature: {}", sig));
+    }
+
+    // Note about code snippet (in production, this would be analyzed)
+    if !code_snippet.is_empty() {
+        let line_count = code_snippet.lines().count();
+        summary_parts.push(format!("Implementation spans {} lines of code", line_count));
+    }
+
+    Ok(summary_parts.join(". "))
 }
 
 #[cfg(test)]
@@ -638,7 +829,11 @@ mod tests {
         // Different - Jaro-Winkler gives higher scores for prefix matches
         // "Parser" vs "Database" have no common prefix, so score should be lower
         let sim = matcher.compute_similarity("Parser", "Database");
-        assert!(sim < 0.65, "Expected similarity < 0.65 for different words, got {}", sim);
+        assert!(
+            sim < 0.65,
+            "Expected similarity < 0.65 for different words, got {}",
+            sim
+        );
     }
 
     #[test]

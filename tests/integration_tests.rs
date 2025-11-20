@@ -1199,7 +1199,10 @@ async fn test_relationship_query_workflow() {
             relationships,
         } => {
             assert_eq!(entity.name, "Parser");
-            assert!(!relationships.dependencies.is_empty(), "Parser should have dependencies");
+            assert!(
+                !relationships.dependencies.is_empty(),
+                "Parser should have dependencies"
+            );
             assert_eq!(relationships.dependencies[0].entity.name, "Lexer");
         }
         RelationshipQueryResult::Ambiguous { .. } => {
@@ -1218,7 +1221,10 @@ async fn test_relationship_query_workflow() {
             relationships,
         } => {
             assert_eq!(entity.name, "Parser");
-            assert!(!relationships.uses.is_empty(), "Parser should use other entities");
+            assert!(
+                !relationships.uses.is_empty(),
+                "Parser should use other entities"
+            );
             assert_eq!(relationships.uses[0].entity.name, "Tokenizer");
         }
         RelationshipQueryResult::Ambiguous { .. } => {
@@ -1237,7 +1243,10 @@ async fn test_relationship_query_workflow() {
             relationships,
         } => {
             assert_eq!(entity.name, "Lexer");
-            assert!(!relationships.dependents.is_empty(), "Lexer should have dependents");
+            assert!(
+                !relationships.dependents.is_empty(),
+                "Lexer should have dependents"
+            );
             assert_eq!(relationships.dependents[0].entity.name, "Parser");
         }
         RelationshipQueryResult::Ambiguous { .. } => {
@@ -1246,8 +1255,8 @@ async fn test_relationship_query_workflow() {
     }
 
     // Test ambiguous query (should not match anything with default threshold)
-    let result = execute_relationship_query(&kg_client, repo_id, "what does NonExistent depend on")
-        .await;
+    let result =
+        execute_relationship_query(&kg_client, repo_id, "what does NonExistent depend on").await;
 
     assert!(result.is_err(), "Non-existent entity should return error");
 }

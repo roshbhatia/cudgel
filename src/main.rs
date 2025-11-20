@@ -916,25 +916,95 @@ async fn cmd_knowledge(
         // Get repository from database
         let repo_path_str = repo_path.to_string_lossy();
         let repo = kg_client.get_repository_by_path(&repo_path_str).await?;
-        
+
         if repo.is_none() {
-            println!("Repository not found in knowledge graph. Try generating it first with --generate.");
+            println!(
+                "Repository not found in knowledge graph. Try generating it first with --generate."
+            );
             return Ok(());
         }
-        
+
         let repo_id = repo.unwrap().id;
 
-        // Detect if this is a relationship query or simple entity search
-        // Relationship queries contain words like "depend", "use", "call", "implement", "interact"
-        let relationship_keywords = ["depend", "use", "call", "implement", "interact", "relationship"];
-        let is_relationship_query = relationship_keywords.iter().any(|keyword| query_str.to_lowercase().contains(keyword));
+        // Detect query type: entity description, relationship, or simple entity search
+        // Entity description queries: "what does X do", "describe X", "what is X"
+        let description_keywords = [
+            "what does",
+            "describe",
+            "what is",
+            "explain",
+            "tell me about",
+            "purpose of",
+        ];
+        let is_description_query = description_keywords
+            .iter()
+            .any(|keyword| query_str.to_lowercase().contains(keyword))
+            && !query_str.to_lowercase().contains("depend")
+            && !query_str.to_lowercase().contains("use")
+            && !query_str.to_lowercase().contains("call")
+            && !query_str.to_lowercase().contains("implement");
 
-        if is_relationship_query {
+        // Relationship queries contain words like "depend", "use", "call", "implement", "interact"
+        let relationship_keywords = [
+            "depend",
+            "use",
+            "call",
+            "implement",
+            "interact",
+            "relationship",
+        ];
+        let is_relationship_query = relationship_keywords
+            .iter()
+            .any(|keyword| query_str.to_lowercase().contains(keyword));
+
+        if is_description_query {
+            // Use natural language entity description query
+            use cudgel::kg::{execute_entity_description_query, EntityDescriptionResult};
+
+            match execute_entity_description_query(&kg_client, repo_id, query_str).await {
+                Ok(EntityDescriptionResult::Success {
+                    entity,
+                    description,
+                }) => {
+                    println!(
+                        "\n{} Description of: {} ({:?})\n",
+                        "💡".bright_green(),
+                        entity.name.bright_green().bold(),
+                        entity.entity_type
+                    );
+                    println!("{}", description);
+                }
+                Ok(EntityDescriptionResult::Ambiguous {
+                    query: _,
+                    candidates,
+                }) => {
+                    println!(
+                        "\n{} Multiple entities match your query. Please be more specific:\n",
+                        "⚠️ ".yellow()
+                    );
+                    for (i, candidate) in candidates.iter().enumerate() {
+                        println!(
+                            "  {}. {} ({:?}) in {}",
+                            i + 1,
+                            candidate.name.bright_yellow(),
+                            candidate.entity_type,
+                            candidate.file_path
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!("{} Query error: {}", "❌".red(), e.to_user_message());
+                }
+            }
+        } else if is_relationship_query {
             // Use natural language relationship query
             use cudgel::kg::{execute_relationship_query, RelationshipQueryResult};
 
             match execute_relationship_query(&kg_client, repo_id, query_str).await {
-                Ok(RelationshipQueryResult::Success { entity, relationships }) => {
+                Ok(RelationshipQueryResult::Success {
+                    entity,
+                    relationships,
+                }) => {
                     println!(
                         "\n{} Relationships for: {} ({:?})\n",
                         "✨".bright_green(),
@@ -946,7 +1016,11 @@ async fn cmd_knowledge(
 
                     // Display dependencies
                     if !relationships.dependencies.is_empty() {
-                        println!("{}Dependencies ({}):", "  📦 ".bright_blue(), relationships.dependencies.len());
+                        println!(
+                            "{}Dependencies ({}):",
+                            "  📦 ".bright_blue(),
+                            relationships.dependencies.len()
+                        );
                         for dep in &relationships.dependencies {
                             println!(
                                 "     → {} ({:?}) - {}",
@@ -960,7 +1034,11 @@ async fn cmd_knowledge(
 
                     // Display dependents
                     if !relationships.dependents.is_empty() {
-                        println!("{}Dependents ({}):", "  📦 ".bright_cyan(), relationships.dependents.len());
+                        println!(
+                            "{}Dependents ({}):",
+                            "  📦 ".bright_cyan(),
+                            relationships.dependents.len()
+                        );
                         for dep in &relationships.dependents {
                             println!(
                                 "     ← {} ({:?}) - {}",
@@ -974,7 +1052,11 @@ async fn cmd_knowledge(
 
                     // Display uses
                     if !relationships.uses.is_empty() {
-                        println!("{}Uses ({}):", "  🔧 ".bright_magenta(), relationships.uses.len());
+                        println!(
+                            "{}Uses ({}):",
+                            "  🔧 ".bright_magenta(),
+                            relationships.uses.len()
+                        );
                         for rel in &relationships.uses {
                             println!(
                                 "     → {} ({:?}) - {}",
@@ -988,7 +1070,11 @@ async fn cmd_knowledge(
 
                     // Display used by
                     if !relationships.used_by.is_empty() {
-                        println!("{}Used By ({}):", "  🔧 ".bright_purple(), relationships.used_by.len());
+                        println!(
+                            "{}Used By ({}):",
+                            "  🔧 ".bright_purple(),
+                            relationships.used_by.len()
+                        );
                         for rel in &relationships.used_by {
                             println!(
                                 "     ← {} ({:?}) - {}",
@@ -1002,7 +1088,11 @@ async fn cmd_knowledge(
 
                     // Display calls
                     if !relationships.calls.is_empty() {
-                        println!("{}Calls ({}):", "  📞 ".bright_green(), relationships.calls.len());
+                        println!(
+                            "{}Calls ({}):",
+                            "  📞 ".bright_green(),
+                            relationships.calls.len()
+                        );
                         for rel in &relationships.calls {
                             println!(
                                 "     → {} ({:?}) - {}",
@@ -1016,7 +1106,11 @@ async fn cmd_knowledge(
 
                     // Display called by
                     if !relationships.called_by.is_empty() {
-                        println!("{}Called By ({}):", "  📞 ".bright_cyan(), relationships.called_by.len());
+                        println!(
+                            "{}Called By ({}):",
+                            "  📞 ".bright_cyan(),
+                            relationships.called_by.len()
+                        );
                         for rel in &relationships.called_by {
                             println!(
                                 "     ← {} ({:?}) - {}",
@@ -1030,7 +1124,11 @@ async fn cmd_knowledge(
 
                     // Display implements
                     if !relationships.implements.is_empty() {
-                        println!("{}Implements ({}):", "  🎯 ".bright_blue(), relationships.implements.len());
+                        println!(
+                            "{}Implements ({}):",
+                            "  🎯 ".bright_blue(),
+                            relationships.implements.len()
+                        );
                         for rel in &relationships.implements {
                             println!(
                                 "     → {} ({:?}) - {}",
@@ -1044,7 +1142,11 @@ async fn cmd_knowledge(
 
                     // Display implemented by
                     if !relationships.implemented_by.is_empty() {
-                        println!("{}Implemented By ({}):", "  🎯 ".bright_cyan(), relationships.implemented_by.len());
+                        println!(
+                            "{}Implemented By ({}):",
+                            "  🎯 ".bright_cyan(),
+                            relationships.implemented_by.len()
+                        );
                         for rel in &relationships.implemented_by {
                             println!(
                                 "     ← {} ({:?}) - {}",

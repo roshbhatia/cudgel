@@ -165,19 +165,19 @@ impl PostgresKgClient {
     /// * `db` - Shared database connection pool
     ///
     /// # Examples
-     /// ```no_run
-     /// use cudgel::kg::client::PostgresKgClient;
-     /// use cudgel::database::Database;
-     /// use std::sync::Arc;
-     ///
-     /// #[tokio::main]
-     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-     ///     let config = cudgel::config::Config::local()?;
-     ///     let db = Database::new(&config).await?;
-     ///     let client = PostgresKgClient::new(Arc::new(db));
-     ///     Ok(())
-     /// }
-     /// ```
+    /// ```no_run
+    /// use cudgel::kg::client::PostgresKgClient;
+    /// use cudgel::database::Database;
+    /// use std::sync::Arc;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let config = cudgel::config::Config::local()?;
+    ///     let db = Database::new(&config).await?;
+    ///     let client = PostgresKgClient::new(Arc::new(db));
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn new(db: Arc<Database>) -> Self {
         Self { db }
     }
@@ -188,7 +188,7 @@ impl PostgresKgClient {
     }
 
     /// Helper to convert a database row to a CodeEntity
-    /// 
+    ///
     /// # Arguments
     /// * `row` - The database row
     /// * `offset` - Column offset where entity fields start
@@ -986,9 +986,7 @@ impl KgClient for PostgresKgClient {
                 &[from, to, &context],
             )
             .await
-            .map_err(|e| {
-                KgError::Database(format!("Failed to create uses relationship: {}", e))
-            })?;
+            .map_err(|e| KgError::Database(format!("Failed to create uses relationship: {}", e)))?;
 
         Ok(row.get(0))
     }
@@ -1111,7 +1109,7 @@ impl KgClient for PostgresKgClient {
         for row in rows {
             let relationship_type: String = row.get(0);
             let entity = self.row_to_entity(&row, 5)?;
-            
+
             let metadata = row
                 .get::<_, Option<serde_json::Value>>(4)
                 .unwrap_or_else(|| serde_json::json!({}));
@@ -1167,7 +1165,7 @@ impl KgClient for PostgresKgClient {
         for row in rows {
             let relationship_type: String = row.get(0);
             let entity = self.row_to_entity(&row, 5)?;
-            
+
             let metadata = row
                 .get::<_, Option<serde_json::Value>>(4)
                 .unwrap_or_else(|| serde_json::json!({}));
@@ -1253,9 +1251,7 @@ impl KgClient for PostgresKgClient {
                 &[entity_id, &max_depth_i32],
             )
             .await
-            .map_err(|e| {
-                KgError::Database(format!("Failed to traverse dependencies: {}", e))
-            })?;
+            .map_err(|e| KgError::Database(format!("Failed to traverse dependencies: {}", e)))?;
 
         let mut entities = Vec::new();
         for row in rows {

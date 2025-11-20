@@ -17,7 +17,8 @@ pub use model::{
     EntityRelationships, EntityType, RelatedEntity, Repository, RepositoryStats, Visibility,
 };
 pub use query::{
-    execute_relationship_query, EntityMatcher, QueryIntent, QueryParser, RelationshipQueryResult,
+    execute_entity_description_query, execute_relationship_query, generate_entity_summary,
+    EntityDescriptionResult, EntityMatcher, QueryIntent, QueryParser, RelationshipQueryResult,
 };
 
 use thiserror::Error;
