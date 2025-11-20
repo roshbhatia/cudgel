@@ -33,7 +33,7 @@
 - [x] T004 [P] Add regex dependency to Cargo.toml (regex = "1.10")
 - [x] T005 Create src/kg/mod.rs module structure (already exists)
 - [x] T006 Create src/llm/mod.rs module structure (already exists)
-- [ ] T007 Create tests/fixtures/sample_repo/ directory for test data
+- [x] T007 Create tests/fixtures/sample_repo/ directory for test data
 
 ---
 
@@ -164,19 +164,19 @@
 - [ ] T078 [P] [US2] Unit test: test_get_incoming_relationships in tests/test_graph_client.rs
 - [ ] T079 [P] [US2] Unit test: test_get_all_relationships in tests/test_graph_client.rs
 - [ ] T080 [P] [US2] Unit test: test_traverse_dependencies_multi_hop in tests/test_graph_client.rs
-- [ ] T081 [P] [US2] Unit test: test_query_parser_relationship_intent in tests/test_graph_queries.rs
-- [ ] T082 [P] [US2] Unit test: test_find_entities_by_name in tests/test_graph_queries.rs
-- [ ] T083 [US2] Integration test: test_extract_relationships_from_code in tests/test_graph_builder.rs
-- [ ] T084 [US2] Integration test: test_relationship_query_workflow in tests/integration_tests.rs
+- [x] T081 [P] [US2] Unit test: test_query_parser_relationship_intent in tests/test_graph_client.rs
+- [x] T082 [P] [US2] Unit test: test_fuzzy_entity_matching in tests/test_graph_client.rs
+- [ ] T083 [US2] Integration test: test_extract_relationships_from_code in tests/test_graph_builder.rs (SKIPPED - requires AST analysis)
+- [x] T084 [US2] Integration test: test_relationship_query_workflow in tests/integration_tests.rs
 
 ### Implementation for User Story 2
 
 **PostgreSQL Graph Relationship Implementation**:
-- [ ] T085 [US2] Fix duplicate methods in PostgresKgClient (get_repository_by_path, update_repository_summary)
-- [ ] T086 [US2] Implement missing entity operations in PostgresKgClient (get_entity, find_entities_by_name, etc.)
-- [ ] T087 [US2] Implement relationship operations with recursive CTEs for graph traversal
-- [ ] T088 [US2] Add graph traversal methods for 'find all entities that depend on X'
-- [ ] T089 [US2] Add graph traversal methods for 'show relationships for entity Y'
+- [x] T085 [US2] Fix duplicate methods in PostgresKgClient (get_repository_by_path, update_repository_summary)
+- [x] T086 [US2] Implement missing entity operations in PostgresKgClient (get_entity, find_entities_by_name, etc.)
+- [x] T087 [US2] Implement relationship operations with recursive CTEs for graph traversal
+- [x] T088 [US2] Add graph traversal methods for 'find all entities that depend on X'
+- [x] T089 [US2] Add graph traversal methods for 'show relationships for entity Y'
 
 **Graph Client Relationship Operations**:
 - [ ] T090 [P] [US2] Implement create_dependency() in src/kg/client.rs
@@ -191,19 +191,19 @@
 
 **Entity Lookup**:
 - [ ] T098 [P] [US2] Implement find_entities_by_name() exact match in src/graph/client.rs
-- [ ] T099 [US2] Implement EntityMatcher with fuzzy matching (strsim, threshold 0.85) in src/graph/query.rs
-- [ ] T100 [US2] Implement search_entities_by_name() fuzzy search in src/graph/client.rs
-- [ ] T101 [US2] Implement handle_ambiguous_entities() disambiguation logic in src/graph/query.rs
+- [x] T099 [US2] Implement EntityMatcher with fuzzy matching (strsim, threshold 0.85) in src/kg/query.rs
+- [x] T100 [US2] Implement search_entities_by_name() fuzzy search - integrated into EntityMatcher
+- [x] T101 [US2] Implement handle_ambiguous_entities() disambiguation logic - integrated into execute_relationship_query()
 
 **Query Interface - Relationship Queries**:
-- [ ] T102 [US2] Add relationship pattern regex to QueryParser in src/graph/query.rs
-- [ ] T103 [US2] Implement extract_entity_from_query() helper in src/graph/query.rs
-- [ ] T104 [US2] Implement execute_relationship_query() with fuzzy entity matching in src/graph/query.rs
-- [ ] T105 [US2] Format relationship results for user display in src/graph/query.rs
+- [x] T102 [US2] Add relationship pattern regex to QueryParser in src/kg/query.rs
+- [x] T103 [US2] Implement extract_entity_from_query() helper - integrated into QueryParser
+- [x] T104 [US2] Implement execute_relationship_query() with fuzzy entity matching in src/kg/query.rs
+- [x] T105 [US2] Format relationship results for user display in src/main.rs
 
 **Integration**:
-- [ ] T106 [US2] Update build_from_index() to extract and create relationship edges in src/graph/builder.rs
-- [ ] T107 [US2] Add relationship queries to query command handler in src/main.rs
+- [ ] T106 [US2] Update build_from_index() to extract and create relationship edges in src/graph/builder.rs (SKIPPED - requires AST analysis)
+- [x] T107 [US2] Add relationship queries to query command handler in src/main.rs
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - can query architecture AND relationships
 

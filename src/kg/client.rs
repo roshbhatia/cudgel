@@ -2,8 +2,8 @@
 //! Knowledge graph database client implementation using PostgreSQL.
 
 use super::{
-    CodeEntity, Component, DependencyType, EntityMatch, EntityRelationships, KgError, Repository,
-    RepositoryStats, Result,
+    CodeEntity, Component, DependencyType, EntityMatch, EntityMetadata, EntityRelationships,
+    EntityType, KgError, RelatedEntity, Repository, RepositoryStats, Result, Visibility,
 };
 use crate::database::Database;
 use async_trait::async_trait;
@@ -185,6 +185,80 @@ impl PostgresKgClient {
     /// Get the underlying database connection pool
     pub fn db(&self) -> &Arc<Database> {
         &self.db
+    }
+
+    /// Helper to convert a database row to a CodeEntity
+    /// 
+    /// # Arguments
+    /// * `row` - The database row
+    /// * `offset` - Column offset where entity fields start
+    fn row_to_entity(&self, row: &tokio_postgres::Row, offset: usize) -> Result<CodeEntity> {
+        use chrono::{DateTime, Utc};
+
+        let id: i32 = row.get(offset);
+        let name: String = row.get(offset + 1);
+        let entity_type_str: String = row.get(offset + 2);
+        let file_path: String = row.get(offset + 3);
+        let line_start: i32 = row.get(offset + 4);
+        let line_end: i32 = row.get(offset + 5);
+        let visibility_str: String = row.get(offset + 6);
+        let signature: Option<String> = row.get(offset + 7);
+        let doc_comment: Option<String> = row.get(offset + 8);
+        let language: String = row.get(offset + 9);
+        let summary: Option<String> = row.get(offset + 10);
+        let created_at: DateTime<Utc> = row.get(offset + 11);
+        let updated_at: DateTime<Utc> = row.get(offset + 12);
+        let component_id: i32 = row.get(offset + 13);
+
+        let entity_type = match entity_type_str.as_str() {
+            "function" => EntityType::Function,
+            "class" => EntityType::Class,
+            "struct" => EntityType::Struct,
+            "enum" => EntityType::Enum,
+            "interface" => EntityType::Interface,
+            "trait" => EntityType::Trait,
+            "method" => EntityType::Method,
+            "constant" => EntityType::Constant,
+            "variable" => EntityType::Variable,
+            _ => {
+                return Err(KgError::InvalidInput(format!(
+                    "Unknown entity type: {}",
+                    entity_type_str
+                )))
+            }
+        };
+
+        let visibility = match visibility_str.as_str() {
+            "public" => Visibility::Public,
+            "private" => Visibility::Private,
+            "protected" => Visibility::Protected,
+            "internal" => Visibility::Internal,
+            _ => {
+                return Err(KgError::InvalidInput(format!(
+                    "Unknown visibility: {}",
+                    visibility_str
+                )))
+            }
+        };
+
+        Ok(CodeEntity {
+            id,
+            component_id,
+            name,
+            entity_type,
+            file_path,
+            line_start: line_start as u32,
+            line_end: line_end as u32,
+            visibility,
+            metadata: EntityMetadata {
+                signature,
+                doc_comment,
+                language,
+            },
+            summary,
+            created_at,
+            updated_at,
+        })
     }
 }
 
@@ -850,65 +924,345 @@ impl KgClient for PostgresKgClient {
 
     // === Relationship Operations ===
 
+    /// T090: Create a DEPENDS_ON relationship
     async fn create_dependency(
         &self,
-        _from: &RecordId,
-        _to: &RecordId,
-        _dep_type: DependencyType,
+        from: &RecordId,
+        to: &RecordId,
+        dep_type: DependencyType,
     ) -> Result<RecordId> {
-        todo!("T099: Implement create_dependency")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let dep_type_str = match dep_type {
+            DependencyType::Import => "import",
+            DependencyType::Inheritance => "inheritance",
+            DependencyType::Composition => "composition",
+            DependencyType::Association => "association",
+        };
+
+        let row = client
+            .query_one(
+                "INSERT INTO kg_relationships 
+                 (from_entity_id, to_entity_id, relationship_type, dep_type)
+                 VALUES ($1, $2, 'depends_on', $3)
+                 ON CONFLICT (from_entity_id, to_entity_id, relationship_type) 
+                 DO UPDATE SET dep_type = EXCLUDED.dep_type
+                 RETURNING id",
+                &[from, to, &dep_type_str],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to create dependency relationship: {}", e))
+            })?;
+
+        Ok(row.get(0))
     }
 
+    /// T091: Create a USES relationship
     async fn create_uses(
         &self,
-        _from: &RecordId,
-        _to: &RecordId,
-        _context: String,
+        from: &RecordId,
+        to: &RecordId,
+        context: String,
     ) -> Result<RecordId> {
-        todo!("T099: Implement create_uses")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let row = client
+            .query_one(
+                "INSERT INTO kg_relationships 
+                 (from_entity_id, to_entity_id, relationship_type, context)
+                 VALUES ($1, $2, 'uses', $3)
+                 ON CONFLICT (from_entity_id, to_entity_id, relationship_type) 
+                 DO UPDATE SET context = EXCLUDED.context
+                 RETURNING id",
+                &[from, to, &context],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to create uses relationship: {}", e))
+            })?;
+
+        Ok(row.get(0))
     }
 
-    async fn create_contains(&self, _from: &RecordId, _to: &RecordId) -> Result<RecordId> {
-        todo!("T099: Implement create_contains")
+    /// T092: Create a CONTAINS relationship
+    async fn create_contains(&self, from: &RecordId, to: &RecordId) -> Result<RecordId> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let row = client
+            .query_one(
+                "INSERT INTO kg_relationships 
+                 (from_entity_id, to_entity_id, relationship_type)
+                 VALUES ($1, $2, 'contains')
+                 ON CONFLICT (from_entity_id, to_entity_id, relationship_type) 
+                 DO NOTHING
+                 RETURNING id",
+                &[from, to],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to create contains relationship: {}", e))
+            })?;
+
+        Ok(row.get(0))
     }
 
-    async fn create_implements(&self, _from: &RecordId, _to: &RecordId) -> Result<RecordId> {
-        todo!("T099: Implement create_implements")
+    /// T093: Create an IMPLEMENTS relationship
+    async fn create_implements(&self, from: &RecordId, to: &RecordId) -> Result<RecordId> {
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let row = client
+            .query_one(
+                "INSERT INTO kg_relationships 
+                 (from_entity_id, to_entity_id, relationship_type)
+                 VALUES ($1, $2, 'implements')
+                 ON CONFLICT (from_entity_id, to_entity_id, relationship_type) 
+                 DO NOTHING
+                 RETURNING id",
+                &[from, to],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to create implements relationship: {}", e))
+            })?;
+
+        Ok(row.get(0))
     }
 
+    /// T094: Create a CALLS relationship
     async fn create_calls(
         &self,
-        _from: &RecordId,
-        _to: &RecordId,
-        _call_count: usize,
+        from: &RecordId,
+        to: &RecordId,
+        call_count: usize,
     ) -> Result<RecordId> {
-        todo!("T099: Implement create_calls")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let call_count_i32 = call_count as i32;
+
+        let row = client
+            .query_one(
+                "INSERT INTO kg_relationships 
+                 (from_entity_id, to_entity_id, relationship_type, call_count)
+                 VALUES ($1, $2, 'calls', $3)
+                 ON CONFLICT (from_entity_id, to_entity_id, relationship_type) 
+                 DO UPDATE SET call_count = EXCLUDED.call_count
+                 RETURNING id",
+                &[from, to, &call_count_i32],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to create calls relationship: {}", e))
+            })?;
+
+        Ok(row.get(0))
     }
 
+    /// T095: Get outgoing relationships for an entity (what this entity depends on/uses/calls)
     async fn get_outgoing_relationships(
         &self,
-        _entity_id: &RecordId,
+        entity_id: &RecordId,
     ) -> Result<EntityRelationships> {
-        todo!("T100: Implement get_outgoing_relationships")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let mut relationships = EntityRelationships::default();
+
+        // Get all outgoing relationships
+        let rows = client
+            .query(
+                "SELECT r.relationship_type, r.dep_type, r.context, r.call_count, r.metadata,
+                        e.id, e.name, e.entity_type, e.file_path, e.line_start, e.line_end,
+                        e.visibility, e.signature, e.doc_comment, e.language, e.summary,
+                        e.created_at, e.updated_at, e.kg_component_id
+                 FROM kg_relationships r
+                 JOIN kg_entities e ON r.to_entity_id = e.id
+                 WHERE r.from_entity_id = $1",
+                &[entity_id],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to get outgoing relationships: {}", e))
+            })?;
+
+        for row in rows {
+            let relationship_type: String = row.get(0);
+            let entity = self.row_to_entity(&row, 5)?;
+            
+            let metadata = row
+                .get::<_, Option<serde_json::Value>>(4)
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            let related = RelatedEntity {
+                entity,
+                relationship_type: relationship_type.clone(),
+                metadata,
+            };
+
+            match relationship_type.as_str() {
+                "depends_on" => relationships.dependencies.push(related),
+                "uses" => relationships.uses.push(related),
+                "calls" => relationships.calls.push(related),
+                "implements" => relationships.implements.push(related),
+                _ => {}
+            }
+        }
+
+        Ok(relationships)
     }
 
+    /// T096: Get incoming relationships for an entity (what depends on/uses/calls this entity)
     async fn get_incoming_relationships(
         &self,
-        _entity_id: &RecordId,
+        entity_id: &RecordId,
     ) -> Result<EntityRelationships> {
-        todo!("T100: Implement get_incoming_relationships")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        let mut relationships = EntityRelationships::default();
+
+        // Get all incoming relationships
+        let rows = client
+            .query(
+                "SELECT r.relationship_type, r.dep_type, r.context, r.call_count, r.metadata,
+                        e.id, e.name, e.entity_type, e.file_path, e.line_start, e.line_end,
+                        e.visibility, e.signature, e.doc_comment, e.language, e.summary,
+                        e.created_at, e.updated_at, e.kg_component_id
+                 FROM kg_relationships r
+                 JOIN kg_entities e ON r.from_entity_id = e.id
+                 WHERE r.to_entity_id = $1",
+                &[entity_id],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to get incoming relationships: {}", e))
+            })?;
+
+        for row in rows {
+            let relationship_type: String = row.get(0);
+            let entity = self.row_to_entity(&row, 5)?;
+            
+            let metadata = row
+                .get::<_, Option<serde_json::Value>>(4)
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            let related = RelatedEntity {
+                entity,
+                relationship_type: relationship_type.clone(),
+                metadata,
+            };
+
+            match relationship_type.as_str() {
+                "depends_on" => relationships.dependents.push(related),
+                "uses" => relationships.used_by.push(related),
+                "calls" => relationships.called_by.push(related),
+                "implements" => relationships.implemented_by.push(related),
+                _ => {}
+            }
+        }
+
+        Ok(relationships)
     }
 
-    async fn get_all_relationships(&self, _entity_id: &RecordId) -> Result<EntityRelationships> {
-        todo!("T100: Implement get_all_relationships")
+    /// T097: Get all relationships for an entity (both incoming and outgoing)
+    async fn get_all_relationships(&self, entity_id: &RecordId) -> Result<EntityRelationships> {
+        let outgoing = self.get_outgoing_relationships(entity_id).await?;
+        let incoming = self.get_incoming_relationships(entity_id).await?;
+
+        Ok(EntityRelationships {
+            dependencies: outgoing.dependencies,
+            dependents: incoming.dependents,
+            uses: outgoing.uses,
+            used_by: incoming.used_by,
+            calls: outgoing.calls,
+            called_by: incoming.called_by,
+            implements: outgoing.implements,
+            implemented_by: incoming.implemented_by,
+        })
     }
 
+    /// T098: Traverse dependencies recursively up to max_depth
     async fn traverse_dependencies(
         &self,
-        _entity_id: &RecordId,
-        _max_depth: usize,
+        entity_id: &RecordId,
+        max_depth: usize,
     ) -> Result<Vec<CodeEntity>> {
-        todo!("T118: Implement traverse_dependencies")
+        let client = self
+            .db
+            .get_pool_client()
+            .await
+            .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
+
+        // Use recursive CTE to traverse dependency graph
+        let max_depth_i32 = max_depth as i32;
+        let rows = client
+            .query(
+                "WITH RECURSIVE dependency_tree AS (
+                    -- Base case: direct dependencies
+                    SELECT 
+                        r.to_entity_id as entity_id,
+                        1 as depth
+                    FROM kg_relationships r
+                    WHERE r.from_entity_id = $1
+                      AND r.relationship_type = 'depends_on'
+                    
+                    UNION
+                    
+                    -- Recursive case: transitive dependencies
+                    SELECT 
+                        r.to_entity_id as entity_id,
+                        dt.depth + 1
+                    FROM kg_relationships r
+                    INNER JOIN dependency_tree dt ON r.from_entity_id = dt.entity_id
+                    WHERE r.relationship_type = 'depends_on'
+                      AND dt.depth < $2
+                )
+                SELECT DISTINCT
+                    e.id, e.name, e.entity_type, e.file_path, e.line_start, e.line_end,
+                    e.visibility, e.signature, e.doc_comment, e.language, e.summary,
+                    e.created_at, e.updated_at, e.kg_component_id
+                FROM dependency_tree dt
+                JOIN kg_entities e ON dt.entity_id = e.id
+                ORDER BY dt.depth, e.name",
+                &[entity_id, &max_depth_i32],
+            )
+            .await
+            .map_err(|e| {
+                KgError::Database(format!("Failed to traverse dependencies: {}", e))
+            })?;
+
+        let mut entities = Vec::new();
+        for row in rows {
+            entities.push(self.row_to_entity(&row, 0)?);
+        }
+
+        Ok(entities)
     }
 
     // === Query Operations ===

@@ -913,26 +913,206 @@ async fn cmd_knowledge(
     if let Some(ref query_str) = query {
         println!("{} Querying knowledge graph...", "🔍".blue());
 
-        let matches = kg_client
-            .search_entities_by_name(&1, query_str, 0.5)
-            .await?;
+        // Get repository from database
+        let repo_path_str = repo_path.to_string_lossy();
+        let repo = kg_client.get_repository_by_path(&repo_path_str).await?;
+        
+        if repo.is_none() {
+            println!("Repository not found in knowledge graph. Try generating it first with --generate.");
+            return Ok(());
+        }
+        
+        let repo_id = repo.unwrap().id;
 
-        if matches.is_empty() {
-            println!("No entities found matching: {}", query_str);
+        // Detect if this is a relationship query or simple entity search
+        // Relationship queries contain words like "depend", "use", "call", "implement", "interact"
+        let relationship_keywords = ["depend", "use", "call", "implement", "interact", "relationship"];
+        let is_relationship_query = relationship_keywords.iter().any(|keyword| query_str.to_lowercase().contains(keyword));
+
+        if is_relationship_query {
+            // Use natural language relationship query
+            use cudgel::kg::{execute_relationship_query, RelationshipQueryResult};
+
+            match execute_relationship_query(&kg_client, repo_id, query_str).await {
+                Ok(RelationshipQueryResult::Success { entity, relationships }) => {
+                    println!(
+                        "\n{} Relationships for: {} ({:?})\n",
+                        "✨".bright_green(),
+                        entity.name.bright_green().bold(),
+                        entity.entity_type
+                    );
+                    println!("  📂 File: {}", entity.file_path);
+                    println!("  📍 Lines: {}-{}\n", entity.line_start, entity.line_end);
+
+                    // Display dependencies
+                    if !relationships.dependencies.is_empty() {
+                        println!("{}Dependencies ({}):", "  📦 ".bright_blue(), relationships.dependencies.len());
+                        for dep in &relationships.dependencies {
+                            println!(
+                                "     → {} ({:?}) - {}",
+                                dep.entity.name.bright_yellow(),
+                                dep.entity.entity_type,
+                                dep.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display dependents
+                    if !relationships.dependents.is_empty() {
+                        println!("{}Dependents ({}):", "  📦 ".bright_cyan(), relationships.dependents.len());
+                        for dep in &relationships.dependents {
+                            println!(
+                                "     ← {} ({:?}) - {}",
+                                dep.entity.name.bright_yellow(),
+                                dep.entity.entity_type,
+                                dep.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display uses
+                    if !relationships.uses.is_empty() {
+                        println!("{}Uses ({}):", "  🔧 ".bright_magenta(), relationships.uses.len());
+                        for rel in &relationships.uses {
+                            println!(
+                                "     → {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display used by
+                    if !relationships.used_by.is_empty() {
+                        println!("{}Used By ({}):", "  🔧 ".bright_purple(), relationships.used_by.len());
+                        for rel in &relationships.used_by {
+                            println!(
+                                "     ← {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display calls
+                    if !relationships.calls.is_empty() {
+                        println!("{}Calls ({}):", "  📞 ".bright_green(), relationships.calls.len());
+                        for rel in &relationships.calls {
+                            println!(
+                                "     → {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display called by
+                    if !relationships.called_by.is_empty() {
+                        println!("{}Called By ({}):", "  📞 ".bright_cyan(), relationships.called_by.len());
+                        for rel in &relationships.called_by {
+                            println!(
+                                "     ← {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display implements
+                    if !relationships.implements.is_empty() {
+                        println!("{}Implements ({}):", "  🎯 ".bright_blue(), relationships.implements.len());
+                        for rel in &relationships.implements {
+                            println!(
+                                "     → {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Display implemented by
+                    if !relationships.implemented_by.is_empty() {
+                        println!("{}Implemented By ({}):", "  🎯 ".bright_cyan(), relationships.implemented_by.len());
+                        for rel in &relationships.implemented_by {
+                            println!(
+                                "     ← {} ({:?}) - {}",
+                                rel.entity.name.bright_yellow(),
+                                rel.entity.entity_type,
+                                rel.entity.file_path
+                            );
+                        }
+                        println!();
+                    }
+
+                    // Check if no relationships found
+                    let total_relationships = relationships.dependencies.len()
+                        + relationships.dependents.len()
+                        + relationships.uses.len()
+                        + relationships.used_by.len()
+                        + relationships.calls.len()
+                        + relationships.called_by.len()
+                        + relationships.implements.len()
+                        + relationships.implemented_by.len();
+
+                    if total_relationships == 0 {
+                        println!("  ℹ️  No relationships found for this entity.");
+                    }
+                }
+                Ok(RelationshipQueryResult::Ambiguous { query, candidates }) => {
+                    println!(
+                        "\n{} Multiple entities match '{}'. Please be more specific:\n",
+                        "⚠️".bright_yellow(),
+                        query
+                    );
+                    for (i, entity) in candidates.iter().enumerate() {
+                        println!(
+                            "  {}. {} ({:?}) - {}",
+                            i + 1,
+                            entity.name.bright_green(),
+                            entity.entity_type,
+                            entity.file_path
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!("{} {}", "❌".bright_red(), e.to_user_message());
+                }
+            }
         } else {
-            println!("Found {} entities:", matches.len());
-            for entity_match in matches {
-                println!(
-                    "  • {} ({}) - confidence: {:.2}",
-                    entity_match.entity.name.bright_green(),
-                    format!("{:?}", entity_match.entity.entity_type).bright_yellow(),
-                    entity_match.confidence
-                );
-                println!("    File: {}", entity_match.entity.file_path);
-                println!(
-                    "    Lines: {}-{}",
-                    entity_match.entity.line_start, entity_match.entity.line_end
-                );
+            // Simple entity name search
+            let matches = kg_client
+                .search_entities_by_name(&repo_id, query_str, 0.5)
+                .await?;
+
+            if matches.is_empty() {
+                println!("No entities found matching: {}", query_str);
+            } else {
+                println!("Found {} entities:", matches.len());
+                for entity_match in matches {
+                    println!(
+                        "  • {} ({}) - confidence: {:.2}",
+                        entity_match.entity.name.bright_green(),
+                        format!("{:?}", entity_match.entity.entity_type).bright_yellow(),
+                        entity_match.confidence
+                    );
+                    println!("    File: {}", entity_match.entity.file_path);
+                    println!(
+                        "    Lines: {}-{}",
+                        entity_match.entity.line_start, entity_match.entity.line_end
+                    );
+                }
             }
         }
     }

@@ -1079,3 +1079,175 @@ async fn test_scheduled_task_validation() {
     let result = db.create_scheduled_task(repo_id, 8760).await; // 1 year
     assert!(result.is_ok());
 }
+
+/// T084: End-to-end relationship query workflow test
+#[tokio::test]
+async fn test_relationship_query_workflow() {
+    use cudgel::kg::{
+        execute_relationship_query, CodeEntity, Component, ComponentType, DependencyType,
+        EntityMetadata, EntityType, KgClient, PostgresKgClient, RelationshipQueryResult,
+        Repository, Visibility,
+    };
+
+    let db = match setup_test_db().await {
+        Some(db) => db,
+        None => {
+            eprintln!("Skipping test: PostgreSQL not available");
+            return;
+        }
+    };
+
+    // Initialize KG schema
+    if let Err(e) = db.init_kg_schema().await {
+        eprintln!("Skipping test: Failed to init KG schema: {:?}", e);
+        return;
+    }
+
+    let kg_client = PostgresKgClient::new(db.clone());
+
+    // Create test repository
+    let repo = Repository {
+        id: 0,
+        path: "/test/workflow".to_string(),
+        name: "workflow-test".to_string(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let repo_id = kg_client.create_repository(repo).await.unwrap();
+
+    // Create test component
+    let component = Component {
+        id: 0,
+        repository_id: repo_id,
+        name: "core".to_string(),
+        path: "src/core".to_string(),
+        component_type: ComponentType::Module,
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let component_id = kg_client.create_component(component).await.unwrap();
+
+    // Create entities: Parser depends on Lexer, uses Tokenizer
+    let parser = CodeEntity {
+        id: 0,
+        component_id,
+        name: "Parser".to_string(),
+        entity_type: EntityType::Class,
+        file_path: "src/core/parser.rs".to_string(),
+        line_start: 1,
+        line_end: 100,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata::default(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let parser_id = kg_client.create_entity(parser).await.unwrap();
+
+    let lexer = CodeEntity {
+        id: 0,
+        component_id,
+        name: "Lexer".to_string(),
+        entity_type: EntityType::Class,
+        file_path: "src/core/lexer.rs".to_string(),
+        line_start: 1,
+        line_end: 100,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata::default(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let lexer_id = kg_client.create_entity(lexer).await.unwrap();
+
+    let tokenizer = CodeEntity {
+        id: 0,
+        component_id,
+        name: "Tokenizer".to_string(),
+        entity_type: EntityType::Class,
+        file_path: "src/core/tokenizer.rs".to_string(),
+        line_start: 1,
+        line_end: 100,
+        visibility: Visibility::Public,
+        metadata: EntityMetadata::default(),
+        summary: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let tokenizer_id = kg_client.create_entity(tokenizer).await.unwrap();
+
+    // Create relationships
+    kg_client
+        .create_dependency(&parser_id, &lexer_id, DependencyType::Import)
+        .await
+        .unwrap();
+    kg_client
+        .create_uses(&parser_id, &tokenizer_id, "tokenization".to_string())
+        .await
+        .unwrap();
+
+    // Test query workflow: "what does Parser depend on"
+    let result = execute_relationship_query(&kg_client, repo_id, "what does Parser depend on")
+        .await
+        .unwrap();
+
+    match result {
+        RelationshipQueryResult::Success {
+            entity,
+            relationships,
+        } => {
+            assert_eq!(entity.name, "Parser");
+            assert!(!relationships.dependencies.is_empty(), "Parser should have dependencies");
+            assert_eq!(relationships.dependencies[0].entity.name, "Lexer");
+        }
+        RelationshipQueryResult::Ambiguous { .. } => {
+            panic!("Query should not be ambiguous");
+        }
+    }
+
+    // Test query workflow: "what does Parser use"
+    let result = execute_relationship_query(&kg_client, repo_id, "what does Parser use")
+        .await
+        .unwrap();
+
+    match result {
+        RelationshipQueryResult::Success {
+            entity,
+            relationships,
+        } => {
+            assert_eq!(entity.name, "Parser");
+            assert!(!relationships.uses.is_empty(), "Parser should use other entities");
+            assert_eq!(relationships.uses[0].entity.name, "Tokenizer");
+        }
+        RelationshipQueryResult::Ambiguous { .. } => {
+            panic!("Query should not be ambiguous");
+        }
+    }
+
+    // Test query workflow: "what depends on Lexer"
+    let result = execute_relationship_query(&kg_client, repo_id, "what depends on Lexer")
+        .await
+        .unwrap();
+
+    match result {
+        RelationshipQueryResult::Success {
+            entity,
+            relationships,
+        } => {
+            assert_eq!(entity.name, "Lexer");
+            assert!(!relationships.dependents.is_empty(), "Lexer should have dependents");
+            assert_eq!(relationships.dependents[0].entity.name, "Parser");
+        }
+        RelationshipQueryResult::Ambiguous { .. } => {
+            panic!("Query should not be ambiguous");
+        }
+    }
+
+    // Test ambiguous query (should not match anything with default threshold)
+    let result = execute_relationship_query(&kg_client, repo_id, "what does NonExistent depend on")
+        .await;
+
+    assert!(result.is_err(), "Non-existent entity should return error");
+}

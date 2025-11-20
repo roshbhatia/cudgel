@@ -7,6 +7,7 @@
 pub mod client;
 pub mod entity_extractor;
 pub mod model;
+pub mod query;
 pub mod schema;
 
 pub use client::{KgClient, PostgresKgClient, RecordId};
@@ -14,6 +15,9 @@ pub use entity_extractor::EntityExtractor;
 pub use model::{
     CodeEntity, Component, ComponentType, DependencyType, EntityMatch, EntityMetadata,
     EntityRelationships, EntityType, RelatedEntity, Repository, RepositoryStats, Visibility,
+};
+pub use query::{
+    execute_relationship_query, EntityMatcher, QueryIntent, QueryParser, RelationshipQueryResult,
 };
 
 use thiserror::Error;
