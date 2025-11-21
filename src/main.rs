@@ -1352,6 +1352,9 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
 
         let db = Database::new(&config).await?;
         db.reset_schema().await?;
+        
+        println!("{}", "Initializing knowledge graph schema...".yellow());
+        db.init_kg_schema().await?;
 
         println!(
             "{}",
@@ -1362,6 +1365,9 @@ async fn cmd_init_db(config: Arc<Config>, reset: bool) -> cudgel::Result<()> {
 
         let db = Database::new(&config).await?;
         db.init_schema().await?;
+        
+        println!("{}", "Initializing knowledge graph schema...".bright_blue().bold());
+        db.init_kg_schema().await?;
 
         println!(
             "{}",

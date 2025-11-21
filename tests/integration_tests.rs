@@ -1108,6 +1108,7 @@ async fn test_relationship_query_workflow() {
     // Create test repository
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/workflow".to_string(),
         name: "workflow-test".to_string(),
         summary: None,

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Repository {
     pub id: i32,
+    pub repository_id: i32, // Foreign key to base repositories table
     pub path: String,
     pub name: String,
     pub summary: Option<String>,

@@ -26,6 +26,15 @@ impl EntityExtractor {
         }
     }
 
+    /// Update the repository ID for this extractor
+    ///
+    /// This is useful when the repository ID is not known at construction time.
+    pub fn set_repository_id(&mut self, repository_id: i32) {
+        self.repository_id = repository_id;
+        // Clear component cache when repository ID changes
+        self.component_cache.clear();
+    }
+
     /// Convert parser symbols to knowledge graph entities
     ///
     /// # Arguments

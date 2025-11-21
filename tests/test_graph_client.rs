@@ -41,6 +41,13 @@ pub async fn setup_test_graph_client() -> Option<Arc<dyn KgClient>> {
     Some(Arc::new(client))
 }
 
+/// Helper function to create a base repository and return its ID
+async fn create_base_repo(path: &str, name: &str) -> Option<i32> {
+    let config = Config::local().ok()?;
+    let db = Database::new(&config).await.ok()?;
+    db.add_repository(path, name).await.ok()
+}
+
 #[tokio::test]
 async fn test_setup_graph_client() {
     let client = setup_test_graph_client().await;
@@ -73,7 +80,8 @@ async fn test_create_and_get_repository() {
 
     // Create a repository (without ID and timestamps)
     let repo = Repository {
-        id: 0, // Will be ignored by create
+        id: 0,
+        repository_id: 1, // Will be ignored by create
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: Some("A test repository".to_string()),
@@ -116,6 +124,7 @@ async fn test_create_and_get_component() {
     // Create a repository first
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -174,6 +183,7 @@ async fn test_create_and_get_entity() {
     // Create repository and component first
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -253,6 +263,7 @@ async fn test_create_entities_batch() {
     // Setup repository and component
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -365,6 +376,7 @@ async fn test_update_repository_summary() {
     // Create a repository
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -406,6 +418,7 @@ async fn test_get_components() {
     // Create a repository
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -473,6 +486,7 @@ async fn test_find_entities_by_name() {
     // Setup repository, component, and entities
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -571,6 +585,7 @@ async fn test_search_entities_by_name() {
     // Setup repository, component, and entities
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -665,6 +680,7 @@ async fn test_get_entities_by_file() {
     // Setup repository and component
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -765,6 +781,7 @@ async fn test_get_all_entity_names() {
     // Setup repository and component
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -838,6 +855,7 @@ async fn test_update_entity_summary() {
     // Setup repository, component, and entity
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -908,6 +926,7 @@ async fn test_delete_entity_cascade() {
     // Setup repository, component, and entity
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/repo".to_string(),
         name: "test-repo".to_string(),
         summary: None,
@@ -982,6 +1001,7 @@ async fn setup_relationship_test_data(client: &Arc<dyn KgClient>) -> (i32, i32, 
     // Create repository
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/relationships".to_string(),
         name: "relationships-test".to_string(),
         summary: None,
@@ -1614,6 +1634,7 @@ async fn test_fuzzy_entity_matching() {
     // Create test repository
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/fuzzy".to_string(),
         name: "test-fuzzy".to_string(),
         summary: None,
@@ -1729,6 +1750,7 @@ async fn test_get_entity_by_id() {
     // Setup repository, component, and entity
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/entity_desc".to_string(),
         name: "entity-description".to_string(),
         summary: None,
@@ -1863,6 +1885,7 @@ async fn test_generate_entity_summary_with_code_snippet() {
     // Setup repository, component, and entity
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/summary_gen".to_string(),
         name: "summary-generation".to_string(),
         summary: None,
@@ -1949,6 +1972,7 @@ async fn test_entity_summary_generation_workflow() {
     // Setup repository, component, and entity
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/workflow".to_string(),
         name: "workflow-test".to_string(),
         summary: None,
@@ -2046,6 +2070,7 @@ async fn test_search_entities_by_name_pattern() {
     // Setup repository and component
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/pattern".to_string(),
         name: "pattern-test".to_string(),
         summary: None,
@@ -2132,6 +2157,7 @@ async fn test_execute_query_for_pattern_matching() {
     // Setup repository and component
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/pattern_query".to_string(),
         name: "pattern-query-test".to_string(),
         summary: None,
@@ -2223,6 +2249,7 @@ async fn test_generate_pattern_analysis_summary() {
     // Setup test data
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/llm_pattern".to_string(),
         name: "llm-pattern-test".to_string(),
         summary: None,
@@ -2376,6 +2403,7 @@ async fn test_pattern_analysis_workflow() {
     // Setup repository with entities following a caching pattern
     let repo = Repository {
         id: 0,
+        repository_id: 1,
         path: "/test/workflow_pattern".to_string(),
         name: "workflow-pattern-test".to_string(),
         summary: None,

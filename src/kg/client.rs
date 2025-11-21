@@ -7,7 +7,7 @@ use super::{
 };
 use crate::database::Database;
 use async_trait::async_trait;
-use chrono::{NaiveDateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use std::sync::Arc;
 
 /// Record ID type alias for PostgreSQL primary keys
@@ -276,28 +276,15 @@ impl KgClient for PostgresKgClient {
             .await
             .map_err(|e| KgError::Database(format!("Failed to get database client: {}", e)))?;
 
-        // First, ensure we have a main repository entry (reuse existing or create)
-        let main_repo_id: i32 = client
-            .query_one(
-                "INSERT INTO repositories (path, name) 
-                 VALUES ($1, $2)
-                 ON CONFLICT (path) DO UPDATE SET last_updated = NOW()
-                 RETURNING id",
-                &[&repo.path, &repo.name],
-            )
-            .await
-            .map_err(|e| KgError::Database(format!("Failed to create main repository: {}", e)))?
-            .get(0);
-
-        // Now create the KG repository node
+        // Create the KG repository node linked to existing main repository
         let row = client
             .query_one(
                 "INSERT INTO kg_repositories (repository_id, path, name, summary) 
                  VALUES ($1, $2, $3, $4)
                  ON CONFLICT (path) DO UPDATE 
-                 SET name = EXCLUDED.name, summary = EXCLUDED.summary
+                 SET name = EXCLUDED.name, summary = EXCLUDED.summary, repository_id = EXCLUDED.repository_id
                  RETURNING id",
-                &[&main_repo_id, &repo.path, &repo.name, &repo.summary],
+                &[&repo.repository_id, &repo.path, &repo.name, &repo.summary],
             )
             .await
             .map_err(|e| KgError::Database(format!("Failed to create kg repository: {}", e)))?;
@@ -315,7 +302,7 @@ impl KgClient for PostgresKgClient {
 
         let row = client
             .query_opt(
-                "SELECT id, path, name, summary, created_at, updated_at 
+                "SELECT id, repository_id, path, name, summary, created_at, updated_at 
                  FROM kg_repositories 
                  WHERE path = $1",
                 &[&path],
@@ -325,14 +312,15 @@ impl KgClient for PostgresKgClient {
 
         Ok(row.map(|r| {
             use chrono::{NaiveDateTime, TimeZone, Utc};
-            let created_naive: NaiveDateTime = r.get(4);
-            let updated_naive: NaiveDateTime = r.get(5);
+            let created_naive: NaiveDateTime = r.get(5);
+            let updated_naive: NaiveDateTime = r.get(6);
             
             Repository {
                 id: r.get(0),
-                path: r.get(1),
-                name: r.get(2),
-                summary: r.get(3),
+                repository_id: r.get(1),
+                path: r.get(2),
+                name: r.get(3),
+                summary: r.get(4),
                 created_at: Utc.from_utc_datetime(&created_naive),
                 updated_at: Utc.from_utc_datetime(&updated_naive),
             }

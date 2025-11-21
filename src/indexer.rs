@@ -409,6 +409,30 @@ impl Indexer {
 
         self.db.delete_repository_symbols(repo_id).await?;
 
+        // If KG is enabled, create KG repository and update entity extractor
+        if let (Some(kg_client), Some(ref mut entity_extractor)) =
+            (&self.kg_client, &mut self.entity_extractor)
+        {
+            use crate::kg::model::Repository;
+
+            let kg_repo = Repository {
+                id: 0, // Will be set by database
+                repository_id: repo_id,
+                path: repo_path_str.clone(),
+                name: name.clone(),
+                summary: None,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            };
+
+            let kg_repo_id = kg_client.create_repository(kg_repo).await.map_err(|e| {
+                crate::Error::Other(format!("Failed to create KG repository: {}", e))
+            })?;
+
+            // Update entity extractor with the KG repository ID
+            entity_extractor.set_repository_id(kg_repo_id);
+        }
+
         let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
 
         // Track skipped files for reporting
@@ -575,6 +599,30 @@ impl Indexer {
 
         let repo_id = self.db.add_repository(&repo_path_str, &name).await?;
         self.db.delete_repository_symbols(repo_id).await?;
+
+        // If KG is enabled, create KG repository and update entity extractor
+        if let (Some(kg_client), Some(ref mut entity_extractor)) =
+            (&self.kg_client, &mut self.entity_extractor)
+        {
+            use crate::kg::model::Repository;
+
+            let kg_repo = Repository {
+                id: 0, // Will be set by database
+                repository_id: repo_id,
+                path: repo_path_str.clone(),
+                name: name.clone(),
+                summary: None,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            };
+
+            let kg_repo_id = kg_client.create_repository(kg_repo).await.map_err(|e| {
+                crate::Error::Other(format!("Failed to create KG repository: {}", e))
+            })?;
+
+            // Update entity extractor with the KG repository ID
+            entity_extractor.set_repository_id(kg_repo_id);
+        }
 
         let mut all_files = Self::get_git_tracked_files(&absolute_path)?;
 

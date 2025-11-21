@@ -228,6 +228,20 @@ impl Database {
     pub async fn reset_schema(&self) -> Result<()> {
         let client = self.pool.get().await?;
 
+        // Drop KG tables first (they depend on base tables)
+        client
+            .execute("DROP TABLE IF EXISTS kg_relationships CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS kg_entities CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS kg_components CASCADE", &[])
+            .await?;
+        client
+            .execute("DROP TABLE IF EXISTS kg_repositories CASCADE", &[])
+            .await?;
+
         // Drop tables in reverse dependency order
         // Note: "references" is a reserved keyword, so it needs to be quoted
         client
